@@ -12,6 +12,7 @@ import {
   type LibrarySort,
 } from '@/src/db/repos/library';
 import { getRecentlyPlayed } from '@/src/db/repos/history';
+import { listLocalTracks } from '@/src/db/repos/local';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
 import { useAsync, useDebounced } from '@/src/hooks/use-async';
@@ -26,6 +27,7 @@ import { colors, radii, spacing } from '@/src/theme/tokens';
 
 const TITLES: Record<string, string> = {
   all: 'All music',
+  local: 'On this device',
   recent: 'Recently added',
   played: 'Recently played',
   downloads: 'Downloads',
@@ -61,6 +63,10 @@ export default function CollectionScreen() {
 
   const data = useAsync(async () => {
     switch (section) {
+      case 'local': {
+        const local = await listLocalTracks();
+        return { tracks: local.map((entry) => entry.track) };
+      }
       case 'albums':
         return { albums: await getLibraryAlbums() };
       case 'artists':

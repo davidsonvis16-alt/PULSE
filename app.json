@@ -13,7 +13,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.pulse.music",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"],
+        "UIBackgroundModes": [
+          "audio"
+        ],
         "NSLocationWhenInUseUsageDescription": "Pulse uses your location once to find concerts near you. It is never tracked in the background.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -33,7 +35,9 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -53,6 +57,20 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Pulse uses your location once to find concerts near you. It is never tracked in the background."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Pulse does not use your photos.",
+          "savePhotosPermission": "Pulse does not save to your photo library.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
         }
       ],
       [

@@ -7,6 +7,9 @@ import { formatDuration, formatReleaseDate } from '@/src/core/format';
 import { providerFor, musicProvider } from '@/src/providers/music';
 import { getSimilarTracks } from '@/src/discovery/engine';
 import { getCachedTrack, upsertTrack } from '@/src/db/repos/catalog';
+import { getLocalTrack, type LocalTrackRecord } from '@/src/db/repos/local';
+import { groovesForTrack, type Groove } from '@/src/db/repos/grooves';
+import { GrooveChip } from '@/src/screens/grooves';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
 import { useAsync } from '@/src/hooks/use-async';
@@ -31,6 +34,9 @@ interface TrackPageData {
   track: Track;
   related: Track[];
   similarArtists: Artist[];
+  /** Present when this is a file on the device rather than a catalogue entry. */
+  local: LocalTrackRecord | null;
+  grooves: Groove[];
 }
 
 /** The song page: everything the source knows about one recording. */
@@ -52,13 +58,15 @@ export default function TrackScreen() {
     if (!fetched) throw new Error('That song is no longer available from this source.');
     await upsertTrack(fetched);
 
-    const [related, similarArtists] = await Promise.all([
+    const [related, similarArtists, local, grooves] = await Promise.all([
       getSimilarTracks(fetched, 12).catch(() => [] as Track[]),
-      fetched.artistId
+      fetched.artistId && fetched.provider !== 'local'
         ? musicProvider().getRelatedArtists(fetched.artistId, 10).catch(() => [] as Artist[])
         : Promise.resolve([] as Artist[]),
+      getLocalTrack(trackId),
+      groovesForTrack(trackId),
     ]);
-    return { track: fetched, related, similarArtists };
+    return { track: fetched, related, similarArtists, local, grooves };
   }, [id]);
 
   const track = state.data?.track;
@@ -177,6 +185,50 @@ export default function TrackScreen() {
               <Action icon="share-outline" label="Share" onPress={() => share(trackShare(track))} />
             </View>
 
+            {/* Where this audio actually is */}
+            <View style={[styles.availability, { marginHorizontal: gutter }]}>
+              <Ionicons
+                name={
+                  state.data?.local
+                    ? 'phone-portrait-outline'
+                    : downloaded
+                      ? 'arrow-down-circle'
+                      : 'cloud-outline'
+                }
+                size={14}
+                color={state.data?.local || downloaded ? colors.accent : colors.textMuted}
+              />
+              <Txt variant="caption" tone={state.data?.local || downloaded ? 'accent' : 'muted'}>
+                {state.data?.local
+                  ? `On this device · ${state.data.local.container?.toUpperCase() ?? 'audio'}${
+                      state.data.local.bitrate
+                        ? ` · ${Math.round(state.data.local.bitrate / 1000)} kbps`
+                        : ''
+                    }`
+                  : downloaded
+                    ? 'Downloaded · plays offline'
+                    : 'Streaming from the source'}
+              </Txt>
+            </View>
+
+            {/* Grooves this track belongs to */}
+            {!!state.data?.grooves.length && (
+              <View style={{ paddingHorizontal: gutter, marginTop: spacing.lg }}>
+                <Txt variant="micro" tone="muted" uppercase style={{ marginBottom: spacing.sm }}>
+                  In your Grooves
+                </Txt>
+                <View style={styles.grooveRow}>
+                  {state.data.grooves.map((groove) => (
+                    <GrooveChip
+                      key={groove.id}
+                      groove={groove}
+                      onPress={() => router.push(`/groove/${groove.id}`)}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* About */}
             <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxl }}>
               <SectionHeader title="About this song" />
@@ -187,8 +239,19 @@ export default function TrackScreen() {
                 <Fact label="Length" value={formatDuration(track.durationMs)} />
                 <Fact
                   label="Source"
-                  value={providerFor(track.provider).attribution}
+                  value={
+                    state.data?.local
+                      ? `Your file · ${state.data.local.filename}`
+                      : providerFor(track.provider).attribution
+                  }
                 />
+                {state.data?.local?.identification === 'needs_identification' && (
+                  <Fact
+                    label="Identification"
+                    value="Pulse is not sure about this one — tap to confirm"
+                    onPress={() => router.push('/identify')}
+                  />
+                )}
                 {track.externalUrl && (
                   <Fact
                     label="Official page"
@@ -317,4 +380,16 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
   },
   fact: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  availability: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.card,
+  },
+  grooveRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

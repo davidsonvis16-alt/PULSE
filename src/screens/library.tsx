@@ -4,6 +4,10 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { pluralize } from '@/src/core/format';
 import { getLibraryCounts, getRecentlyAdded } from '@/src/db/repos/library';
+import { getLocalCounts } from '@/src/db/repos/local';
+import { GroovesList } from '@/src/screens/grooves';
+import { ingestEngine } from '@/src/ingestion/ingest';
+import { useStore } from '@/src/hooks/use-store';
 import { createPlaylist, listPlaylists, type Playlist } from '@/src/db/repos/playlists';
 import { playerStore } from '@/src/audio/player';
 import { useAsync } from '@/src/hooks/use-async';
@@ -21,12 +25,13 @@ import { Sheet } from '@/src/ui/sheet';
 import { DownloadsScreen } from '@/src/screens/downloads';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 
-type Tab = 'music' | 'downloaded' | 'playlists';
+type Tab = 'music' | 'grooves' | 'downloaded' | 'playlists';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const SECTIONS: { id: string; title: string; icon: IconName }[] = [
   { id: 'all', title: 'All music', icon: 'musical-notes-outline' },
+  { id: 'local', title: 'On this device', icon: 'phone-portrait-outline' },
   { id: 'recent', title: 'Recently added', icon: 'time-outline' },
   { id: 'played', title: 'Recently played', icon: 'play-circle-outline' },
   { id: 'downloads', title: 'Downloads', icon: 'arrow-down-circle-outline' },
@@ -49,15 +54,18 @@ export function LibraryScreen() {
 
   const data = useAsync(
     async () => {
-      const [counts, recentlyAdded, playlists] = await Promise.all([
+      const [counts, local, recentlyAdded, playlists] = await Promise.all([
         getLibraryCounts(),
+        getLocalCounts(),
         getRecentlyAdded(12),
         listPlaylists(),
       ]);
-      return { counts, recentlyAdded, playlists };
+      return { counts, local, recentlyAdded, playlists };
     },
     [],
   );
+
+  const ingest = useStore(ingestEngine);
 
   useFocusReload(data.reload);
 
@@ -90,6 +98,14 @@ export function LibraryScreen() {
         </Pressable>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Import music from this device"
+          hitSlop={8}
+          onPress={() => router.push('/import')}
+        >
+          <Ionicons name="add-circle-outline" size={21} color={colors.text} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Downloads"
           hitSlop={8}
           onPress={() => setTab('downloaded')}
@@ -103,7 +119,8 @@ export function LibraryScreen() {
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'music', label: 'All music' },
+            { value: 'music', label: 'Music' },
+            { value: 'grooves', label: 'Grooves' },
             { value: 'downloaded', label: 'Downloaded' },
             { value: 'playlists', label: 'Playlists' },
           ]}
@@ -112,6 +129,8 @@ export function LibraryScreen() {
 
       {tab === 'downloaded' ? (
         <DownloadsScreen embedded />
+      ) : tab === 'grooves' ? (
+        <GroovesList />
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingBottom: bottomInset }}
@@ -125,6 +144,49 @@ export function LibraryScreen() {
             <ErrorState error={data.error} onRetry={data.reload} />
           ) : tab === 'music' ? (
             <>
+              {ingest.phase !== 'idle' && ingest.phase !== 'done' && ingest.phase !== 'error' && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push('/import')}
+                  style={({ pressed }) => [
+                    styles.banner,
+                    { marginHorizontal: gutter },
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Ionicons name="sync-outline" size={18} color={colors.accent} />
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="callout">Importing your music…</Txt>
+                    <Txt variant="caption" tone="muted">
+                      {ingest.found} found · {Math.round(ingest.progress * 100)}%
+                    </Txt>
+                  </View>
+                </Pressable>
+              )}
+
+              {!!data.data?.local.needsIdentification && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push('/identify')}
+                  style={({ pressed }) => [
+                    styles.banner,
+                    { marginHorizontal: gutter },
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Ionicons name="help-circle-outline" size={18} color={colors.warning} />
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="callout">
+                      {pluralize(data.data.local.needsIdentification, 'track')} need identifying
+                    </Txt>
+                    <Txt variant="caption" tone="muted">
+                      Confirm a match and Pulse fills in the details and artwork.
+                    </Txt>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+                </Pressable>
+              )}
+
               <View style={{ paddingHorizontal: gutter }}>
                 {SECTIONS.map((section) => (
                   <Pressable
@@ -178,9 +240,9 @@ export function LibraryScreen() {
                 <EmptyState
                   icon="library-outline"
                   title="Your library is empty"
-                  message="Save or download a song and it shows up here, with its artwork and details already filled in."
-                  actionLabel="Find music"
-                  onAction={() => router.push('/discover')}
+                  message="Import the music already on your device and Pulse will give it real artwork, group it into Grooves and learn your taste from it."
+                  actionLabel="Import my music"
+                  onAction={() => router.push('/import')}
                 />
               )}
             </>
@@ -264,6 +326,8 @@ function countLabel(sectionId: string, counts?: Awaited<ReturnType<typeof getLib
       return pluralize(counts.albums, 'album');
     case 'artists':
       return pluralize(counts.artists, 'artist');
+    case 'local':
+      return 'Music you imported';
     case 'downloads':
       return pluralize(counts.downloads, 'song');
     case 'favorites':
@@ -294,6 +358,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playlistRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 8 },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderRadius: radii.md,
+    backgroundColor: colors.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderSoft,
+  },
   input: {
     backgroundColor: colors.card,
     borderRadius: radii.md,

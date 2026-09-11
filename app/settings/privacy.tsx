@@ -9,6 +9,11 @@ import {
 } from '@/src/db/repos/settings';
 import { savePlace } from '@/src/location/location';
 import { resetUserData } from '@/src/db/client';
+import { clearLocalLibrary, getLocalCounts } from '@/src/db/repos/local';
+import { clearImportedFiles } from '@/src/ingestion/scanner';
+import { clearCachedArtwork } from '@/src/ingestion/artwork/provider';
+import { invalidateTasteProfile } from '@/src/discovery/taste';
+import { pluralize } from '@/src/core/format';
 import { isSocialAvailable, pushProfile } from '@/src/social/sync';
 import { useAsync } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
@@ -49,6 +54,7 @@ export default function PrivacySettings() {
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY_PREFS);
 
   const loaded = useAsync(() => getPrivacyPrefs(), []);
+  const localCounts = useAsync(() => getLocalCounts(), []);
   useEffect(() => {
     if (loaded.data) setPrefs(loaded.data);
   }, [loaded.data]);
@@ -99,7 +105,33 @@ export default function PrivacySettings() {
         )}
 
         <View style={{ marginTop: spacing.xxl, gap: spacing.md }}>
-          <Txt variant="title3">Your data</Txt>
+          <Txt variant="title3">Your imported music</Txt>
+          <Txt variant="caption" tone="muted">
+            Pulse read {pluralize(localCounts.data?.tracks ?? 0, 'file')} from this device to build
+            your library, artwork and Grooves. That index lives here on the device and was never
+            uploaded. Your original files were never modified.
+          </Txt>
+          <Button
+            label="Remove my imported music from Pulse"
+            variant="secondary"
+            full
+            onPress={async () => {
+              await clearLocalLibrary();
+              await clearImportedFiles();
+              await clearCachedArtwork();
+              invalidateTasteProfile();
+              localCounts.reload();
+              toast('Your imported library has been removed from Pulse');
+            }}
+          />
+          <Txt variant="caption" tone="faint">
+            This clears the index, the cached covers and the Grooves built from them. The music
+            files on your device are untouched.
+          </Txt>
+
+          <Txt variant="title3" style={{ marginTop: spacing.lg }}>
+            Your data
+          </Txt>
           <Txt variant="caption" tone="muted">
             Pulse keeps your library, listening history and downloads in a database on this device.
             Clearing it removes all of them, including downloaded audio files.

@@ -13,6 +13,9 @@ import { Button } from '@/src/ui/buttons';
 import { initializePulse } from '@/src/bootstrap';
 import { colors, spacing } from '@/src/theme/tokens';
 import { WelcomeScreen } from '@/src/screens/welcome';
+import { ImportScreen } from '@/src/screens/import';
+import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
+import { getLocalCounts } from '@/src/db/repos/local';
 import { GlobalMiniPlayer } from '@/src/ui/global-mini-player';
 
 export default function RootLayout() {
@@ -87,6 +90,26 @@ export default function RootLayout() {
  */
 function AuthGate() {
   const { ready, mode, session, profile } = useAuth();
+  const [needsImport, setNeedsImport] = useState<boolean | null>(null);
+
+  const signedIn = mode === 'connected' ? !!session : !!profile?.displayName;
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    void (async () => {
+      const [done, counts] = await Promise.all([
+        getSetting(SETTINGS_KEYS.onboardingDone),
+        getLocalCounts(),
+      ]);
+      // Offer the import once. After that the Library screen is where music
+      // gets added, and Pulse never interrupts with it again.
+      if (!cancelled) setNeedsImport(!done && counts.tracks === 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
 
   if (!ready) {
     return (
@@ -97,8 +120,18 @@ function AuthGate() {
     );
   }
 
-  const signedIn = mode === 'connected' ? !!session : !!profile?.displayName;
   if (!signedIn) return <WelcomeScreen />;
+
+  if (needsImport === null) {
+    return (
+      <View style={styles.boot}>
+        <PulseLogo size={44} showWordmark />
+        <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xxl }} />
+      </View>
+    );
+  }
+
+  if (needsImport) return <ImportScreen onFinished={() => setNeedsImport(false)} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

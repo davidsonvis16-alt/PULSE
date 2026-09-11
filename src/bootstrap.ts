@@ -6,6 +6,7 @@ import { setActiveMusicProvider } from '@/src/providers/music';
 import { getProfile, saveProfile } from '@/src/db/repos/social';
 import { pruneStaleEvents } from '@/src/db/repos/events';
 import { checkForNewReleases } from '@/src/discovery/releases';
+import { startLibraryWatch } from '@/src/ingestion/watch';
 
 /**
  * App start-up, in the order things depend on each other:
@@ -40,4 +41,7 @@ export async function initializePulse(): Promise<void> {
 
   void pruneStaleEvents();
   void checkForNewReleases().catch(() => {});
+  // Picks up music added to the device since last launch, if the user has
+  // already granted access and imported something.
+  void startLibraryWatch().catch(() => {});
 }

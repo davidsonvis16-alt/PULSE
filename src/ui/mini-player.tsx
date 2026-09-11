@@ -41,7 +41,7 @@ export function MiniPlayer({ bottom }: { bottom: number }) {
               {track.title}
             </Txt>
             <Txt variant="caption" tone="muted" numberOfLines={1}>
-              {player.isOffline ? 'Offline · ' : ''}
+              {player.isOffline ? 'On device · ' : ''}
               {track.artistName}
             </Txt>
           </View>

@@ -12,6 +12,9 @@ import { getContinueListening, getRecentlyPlayed, getStatsSummary, getTopArtists
 import { unreadNotificationCount } from '@/src/db/repos/notifications';
 import { listActivity, type ActivityItem } from '@/src/db/repos/social';
 import { getCachedEvents } from '@/src/db/repos/events';
+import { listGrooves, type Groove } from '@/src/db/repos/grooves';
+import { getLocalCounts } from '@/src/db/repos/local';
+import { GrooveCard } from '@/src/screens/grooves';
 import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { playerStore } from '@/src/audio/player';
 import { useAuth } from '@/src/auth/auth';
@@ -29,6 +32,8 @@ import { colors, radii, spacing } from '@/src/theme/tokens';
 
 interface HomeData {
   continueTrack: { track: Track; positionMs: number } | null;
+  grooves: Groove[];
+  localTrackCount: number;
   recentlyPlayed: Track[];
   shelves: RecommendationShelf[];
   topArtists: TopArtist[];
@@ -54,20 +59,34 @@ export function HomeScreen() {
 
   const state = useAsync<HomeData>(async () => {
     const profileTaste = await buildTasteProfile();
-    const [continueTrack, recentlyPlayed, shelves, topArtists, newReleases, activity, unread, stats] =
-      await Promise.all([
-        getContinueListening(),
-        getRecentlyPlayed(12),
-        getRecommendationShelves(profileTaste).catch(() => [] as RecommendationShelf[]),
-        getTopArtists('month', 10),
-        getNewReleasesFromFollowed(12),
-        listActivity(6),
-        unreadNotificationCount(),
-        getStatsSummary('month'),
-      ]);
+    const [
+      continueTrack,
+      recentlyPlayed,
+      shelves,
+      topArtists,
+      newReleases,
+      activity,
+      unread,
+      stats,
+      grooves,
+      localCounts,
+    ] = await Promise.all([
+      getContinueListening(),
+      getRecentlyPlayed(12),
+      getRecommendationShelves(profileTaste).catch(() => [] as RecommendationShelf[]),
+      getTopArtists('month', 10),
+      getNewReleasesFromFollowed(12),
+      listActivity(6),
+      unreadNotificationCount(),
+      getStatsSummary('month'),
+      listGrooves(),
+      getLocalCounts(),
+    ]);
 
     return {
       continueTrack,
+      grooves,
+      localTrackCount: localCounts.tracks,
       recentlyPlayed,
       shelves,
       topArtists,
@@ -206,6 +225,29 @@ export function HomeScreen() {
                   track={item}
                   width={shelfCardWidth}
                   onPress={() => playShelf(data.recentlyPlayed, index, 'Recently played')}
+                />
+              )}
+            />
+          </Section>
+        )}
+
+        {/* Grooves, built from the user's own collection */}
+        {!!data?.grooves.length && (
+          <Section
+            title="Your Grooves"
+            subtitle="Found in your own library"
+            gutter={gutter}
+            onSeeAll={() => router.push('/grooves')}
+          >
+            <Shelf
+              data={data.grooves}
+              gutter={gutter}
+              keyExtractor={(groove) => groove.id}
+              renderItem={(groove) => (
+                <GrooveCard
+                  groove={groove}
+                  width={isTabletUp ? 220 : 168}
+                  onPress={() => router.push(`/groove/${groove.id}`)}
                 />
               )}
             />
@@ -368,11 +410,15 @@ export function HomeScreen() {
         {/* Nothing yet */}
         {!state.loading && data && data.recentlyPlayed.length === 0 && data.shelves.length === 0 && (
           <EmptyState
-            icon="search-outline"
-            title="Start with one song"
-            message="Search for an artist or track. Pulse learns from what you play and this page fills itself in."
-            actionLabel="Search music"
-            onAction={() => router.push('/discover')}
+            icon="phone-portrait-outline"
+            title={data.localTrackCount > 0 ? 'Start with one song' : 'Bring your music in first'}
+            message={
+              data.localTrackCount > 0
+                ? 'Play something and this page rebuilds itself around what you actually listen to.'
+                : 'Pulse works best from the music you already own. Import it and this page fills itself in.'
+            }
+            actionLabel={data.localTrackCount > 0 ? 'Search music' : 'Import my music'}
+            onAction={() => router.push(data.localTrackCount > 0 ? '/discover' : '/import')}
           />
         )}
       </ScrollView>

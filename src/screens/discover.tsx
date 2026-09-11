@@ -18,6 +18,7 @@ import { downloadManager } from '@/src/downloads/manager';
 import { addTrackToLibrary, isInLibrary } from '@/src/db/repos/library';
 import { getRecentSearches, recordSearch, clearSearchHistory } from '@/src/db/repos/settings';
 import { listPlaylists, type Playlist } from '@/src/db/repos/playlists';
+import { buildTasteProfile, getRelatedToSearch, type TasteProfile } from '@/src/discovery/engine';
 import { useAsync, useDebounced } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { useStore } from '@/src/hooks/use-store';
@@ -90,6 +91,15 @@ export function DiscoverScreen() {
   );
 
   const recents = useAsync(() => getRecentSearches(8), [debounced.length === 0]);
+
+  const taste = useAsync(() => buildTasteProfile(), []);
+
+  // The personalised tail of a search: not more results, but where this search
+  // sits relative to the music the user already has.
+  const personalised = useAsync<Track[]>(async () => {
+    if (debounced.length < 2 || !taste.data?.hasData) return [];
+    return getRelatedToSearch(debounced, taste.data, 12);
+  }, [debounced, taste.data?.hasData]);
 
   const showBrowse = debounced.length < 2;
 
@@ -182,6 +192,8 @@ export function DiscoverScreen() {
             playlists={playlistMatches.data ?? []}
             gutter={gutter}
             shelfCardWidth={shelfCardWidth}
+            personalised={personalised.data ?? []}
+            taste={taste.data}
           />
         )}
       </ScrollView>
@@ -289,6 +301,8 @@ function SearchResultsView({
   playlists,
   gutter,
   shelfCardWidth,
+  personalised,
+  taste,
 }: {
   query: string;
   filter: Filter;
@@ -296,6 +310,8 @@ function SearchResultsView({
   playlists: Playlist[];
   gutter: number;
   shelfCardWidth: number;
+  personalised: Track[];
+  taste: TasteProfile | undefined;
 }) {
   const router = useRouter();
 
@@ -413,6 +429,47 @@ function SearchResultsView({
               />
             ))}
           </View>
+        </View>
+      )}
+
+      {filter === 'all' && personalised.length > 0 && (
+        <View>
+          <SectionHeader
+            title="Based on your music"
+            subtitle={
+              taste && taste.ownedTrackCount > 0
+                ? 'Close to what is already in your library'
+                : 'Close to what you have been playing'
+            }
+            style={{ paddingHorizontal: gutter }}
+          />
+          <Shelf
+            data={personalised}
+            gutter={gutter}
+            keyExtractor={(track) => track.id}
+            renderItem={(track, index) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Play ${track.title} by ${track.artistName}`}
+                onPress={() =>
+                  void playerStore.playQueue(personalised, {
+                    startIndex: index,
+                    context: 'recommendation',
+                    contextLabel: 'Based on your music',
+                  })
+                }
+                style={{ width: shelfCardWidth }}
+              >
+                <Artwork uri={track.artworkUrl} size={shelfCardWidth} radius={radii.md} />
+                <Txt variant="callout" numberOfLines={1} style={{ marginTop: 8 }}>
+                  {track.title}
+                </Txt>
+                <Txt variant="caption" tone="muted" numberOfLines={1}>
+                  {track.artistName}
+                </Txt>
+              </Pressable>
+            )}
+          />
         </View>
       )}
 

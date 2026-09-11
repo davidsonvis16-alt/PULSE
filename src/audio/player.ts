@@ -2,6 +2,7 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer, type AudioStatu
 import { Store } from '@/src/core/store';
 import type { PlayableSource, Track } from '@/src/core/types';
 import { providerFor } from '@/src/providers/music';
+import { LOCAL_PROVIDER_ID } from '@/src/db/repos/local';
 import { downloadManager } from '@/src/downloads/manager';
 import { beginPlay, updatePlay, type PlayContext } from '@/src/db/repos/history';
 import { getPlaybackPrefs, setPlaybackPrefs } from '@/src/db/repos/settings';
@@ -232,7 +233,11 @@ class PlayerStore extends Store<PlayerState> {
         };
         offline = true;
       } else {
-        source = await providerFor(track.provider).getPlayableSource(track);
+        const provider = providerFor(track.provider);
+        source = await provider.getPlayableSource(track);
+        // A file already on the device needs no network, so it counts as
+        // offline playback just as a download does.
+        offline = provider.id === LOCAL_PROVIDER_ID;
       }
 
       if (token !== this.loadToken) return;

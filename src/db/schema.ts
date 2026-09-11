@@ -294,6 +294,69 @@ export const MIGRATIONS: string[][] = [
       PRIMARY KEY (event_id, seller_name)
     );`,
   ],
+
+  // ------------------------------------ v5: the user's own music, and Grooves
+  [
+    // One row per audio file Pulse found on the device. It points at a row in
+    // `tracks` (provider 'local'), so imported music flows through exactly the
+    // same library, player, history and statistics as anything else.
+    `CREATE TABLE IF NOT EXISTS local_tracks (
+      track_id          TEXT PRIMARY KEY NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+      asset_id          TEXT,
+      file_uri          TEXT NOT NULL,
+      filename          TEXT NOT NULL,
+      container         TEXT,
+      mime_type         TEXT,
+      file_size         INTEGER,
+      bitrate           INTEGER,
+      sample_rate       INTEGER,
+      channels          INTEGER,
+      album_artist      TEXT,
+      /* Artwork lifted out of the file's own tags, cached next to the index. */
+      embedded_art_uri  TEXT,
+      /* 'tagged' | 'identified' | 'needs_identification' | 'unidentified' */
+      identification    TEXT NOT NULL DEFAULT 'unidentified',
+      /* 0..1 — how sure the identifier was. Null when the file had real tags. */
+      confidence        REAL,
+      matched_track_id  TEXT,
+      source            TEXT NOT NULL DEFAULT 'device',
+      added_at          INTEGER NOT NULL,
+      scanned_at        INTEGER NOT NULL,
+      modified_at       INTEGER
+    );`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_local_uri ON local_tracks (file_uri);`,
+    `CREATE INDEX IF NOT EXISTS idx_local_asset ON local_tracks (asset_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_local_identification ON local_tracks (identification);`,
+    `CREATE INDEX IF NOT EXISTS idx_local_added ON local_tracks (added_at DESC);`,
+
+    // A Groove is a cluster Pulse found in the user's own collection.
+    `CREATE TABLE IF NOT EXISTS grooves (
+      id             TEXT PRIMARY KEY NOT NULL,
+      name           TEXT NOT NULL,
+      description    TEXT,
+      /* The cluster centroid, kept so new music can be placed without a rebuild. */
+      energy         REAL NOT NULL DEFAULT 0.5,
+      era            INTEGER,
+      genre_family   TEXT,
+      accent         TEXT,
+      cover_track_id TEXT REFERENCES tracks(id) ON DELETE SET NULL,
+      track_count    INTEGER NOT NULL DEFAULT 0,
+      duration_ms    INTEGER NOT NULL DEFAULT 0,
+      generated_at   INTEGER NOT NULL
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_grooves_count ON grooves (track_count DESC);`,
+
+    // A track can sit in several Grooves; `is_primary` marks its best fit.
+    `CREATE TABLE IF NOT EXISTS groove_tracks (
+      groove_id  TEXT NOT NULL REFERENCES grooves(id) ON DELETE CASCADE,
+      track_id   TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+      score      REAL NOT NULL DEFAULT 0,
+      is_primary INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (groove_id, track_id)
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_groove_tracks_track ON groove_tracks (track_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_groove_tracks_score ON groove_tracks (groove_id, score DESC);`,
+  ],
 ];
 
 export const TARGET_SCHEMA_VERSION = MIGRATIONS.length;
