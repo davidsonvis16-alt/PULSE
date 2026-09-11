@@ -1,7 +1,6 @@
 import { Platform, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
-import { captureRef } from 'react-native-view-shot';
 import type { Album, Artist, MusicEvent, Track } from '@/src/core/types';
 import type { Playlist } from '@/src/db/repos/playlists';
 import { formatListeningTime } from '@/src/core/format';
@@ -140,6 +139,31 @@ export async function shareLink(payload: SharePayload): Promise<boolean> {
 }
 
 /**
+ * Screen capture is loaded on demand.
+ *
+ * The module needs a native view-shot implementation, which is not present in
+ * every runtime Pulse can run in (Expo Go and the web build, for two). Resolving
+ * it lazily inside a try means those runtimes fall back to link sharing instead
+ * of failing to start.
+ */
+async function captureCard(viewRef: React.RefObject<any>): Promise<string | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const viewShot = require('react-native-view-shot') as {
+      captureRef?: (ref: unknown, options: Record<string, unknown>) => Promise<string>;
+    };
+    if (typeof viewShot?.captureRef !== 'function') return null;
+    return await viewShot.captureRef(viewRef, {
+      format: 'png',
+      quality: 0.95,
+      result: 'tmpfile',
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Captures the rendered Pulse card and hands the image to the OS share sheet.
  * Falls back to sharing the link when image sharing is unavailable.
  */
@@ -149,7 +173,8 @@ export async function shareCard(
 ): Promise<boolean> {
   try {
     if (!viewRef.current) return shareLink(payload);
-    const uri = await captureRef(viewRef, { format: 'png', quality: 0.95, result: 'tmpfile' });
+    const uri = await captureCard(viewRef);
+    if (!uri) return shareLink(payload);
     if (!(await Sharing.isAvailableAsync())) return shareLink(payload);
     await Sharing.shareAsync(uri, {
       mimeType: 'image/png',

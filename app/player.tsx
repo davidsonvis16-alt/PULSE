@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDuration } from '@/src/core/format';
@@ -18,6 +17,7 @@ import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { IconButton, PlayButton } from '@/src/ui/buttons';
 import { EmptyState } from '@/src/ui/states';
+import { SeekBar } from '@/src/ui/seek-bar';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 
 /**
@@ -145,21 +145,11 @@ export default function PlayerScreen() {
 
       {/* Seek */}
       <View style={styles.seek}>
-        <Slider
-          style={{ width: '100%', height: 34 }}
-          minimumValue={0}
-          maximumValue={Math.max(duration, 1)}
-          value={position}
-          onSlidingStart={() => setScrubbing(position)}
-          onValueChange={(value) => setScrubbing(value)}
-          onSlidingComplete={async (value) => {
-            await playerStore.seekTo(value);
-            setScrubbing(null);
-          }}
-          minimumTrackTintColor={colors.accent}
-          maximumTrackTintColor={colors.cardHigh}
-          thumbTintColor={colors.accent}
-          accessibilityLabel="Seek"
+        <SeekBar
+          position={position}
+          duration={duration}
+          onScrub={setScrubbing}
+          onSeek={(value) => void playerStore.seekTo(value)}
         />
         <View style={styles.times}>
           <Txt variant="caption" tone="muted">

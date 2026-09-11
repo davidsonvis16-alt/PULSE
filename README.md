@@ -50,7 +50,9 @@ npm install
 npx expo start
 ```
 
-That is enough for the whole music experience. To add accounts, friends and
+Then press `i` for the iOS simulator, `a` for Android, `w` for the browser, or
+scan the QR code with **Expo Go** on your phone — the app runs there with no
+build step. That is enough for the whole music experience. To add accounts, friends and
 live events, copy `.env.example` to `.env` and follow `supabase/README.md`.
 
 ```bash
