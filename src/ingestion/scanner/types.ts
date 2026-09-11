@@ -38,6 +38,28 @@ export interface ScanOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * What a scan actually saw.
+ *
+ * When a scan comes back empty there are several very different reasons, and
+ * the user deserves the real one rather than a shrug. This distinguishes them:
+ * no permission, a media store we cannot read at all, or a device that simply
+ * has no audio files sitting in shared storage — which is the common case for
+ * anyone whose music lives inside a streaming app.
+ */
+export interface ScanDiagnostics {
+  available: boolean;
+  permission: PermissionOutcome;
+  /** Audio files the platform will admit to having. */
+  audioCount: number | null;
+  /** Media of any kind, which proves whether the store is readable at all. */
+  anyMediaCount: number | null;
+  /** Plain-language account of what happened, for the UI to show verbatim. */
+  summary: string;
+  /** What the user can do about it. */
+  suggestion: string;
+}
+
 export interface MusicScanner {
   readonly id: string;
   readonly name: string;
@@ -56,6 +78,8 @@ export interface MusicScanner {
   getPermission(): Promise<PermissionOutcome>;
   requestPermission(): Promise<PermissionOutcome>;
   scanLibrary(options?: ScanOptions): Promise<ScannedFile[]>;
+  /** Explains why a scan found what it found. Safe to call at any time. */
+  diagnose(): Promise<ScanDiagnostics>;
   /** Fires when the device's music changes. Returns an unsubscribe function. */
   observeLibraryChanges(onChange: () => void): () => void;
 }

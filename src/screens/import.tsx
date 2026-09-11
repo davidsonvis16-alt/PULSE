@@ -4,7 +4,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { formatBytes } from '@/src/downloads/manager';
 import { pluralize } from '@/src/core/format';
-import { enumeratingScanner, pickerScanner, type MusicScanner } from '@/src/ingestion/scanner';
+import {
+  enumeratingScanner,
+  pickerScanner,
+  type MusicScanner,
+  type ScanDiagnostics,
+} from '@/src/ingestion/scanner';
 import { ingestEngine, PHASE_LABELS } from '@/src/ingestion/ingest';
 import { getLocalCounts } from '@/src/db/repos/local';
 import { listGrooves, type Groove } from '@/src/db/repos/grooves';
@@ -23,7 +28,7 @@ import { ProgressBar } from '@/src/ui/states';
 import { StatTile } from '@/src/ui/cards';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 
-type Stage = 'intro' | 'running' | 'summary';
+type Stage = 'intro' | 'running' | 'empty' | 'summary';
 
 const STEPS = [
   { phase: 'finding', label: 'Finding songs' },
@@ -51,6 +56,7 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
   const [scanner, setScanner] = useState<MusicScanner | null>(null);
   const [checking, setChecking] = useState(true);
   const [deniedMessage, setDeniedMessage] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<ScanDiagnostics | null>(null);
   const [summary, setSummary] = useState<{
     counts: Awaited<ReturnType<typeof getLocalCounts>>;
     grooves: Groove[];
@@ -80,38 +86,41 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
   const start = useCallback(
     async (mode: 'device' | 'picker') => {
       setDeniedMessage(null);
+      setDiagnostics(null);
 
-      if (mode === 'device') {
-        const target = scanner ?? (await enumeratingScanner());
-        if (target) {
-          const permission = await target.requestPermission();
-          if (permission.state !== 'granted' && permission.state !== 'limited') {
-            setDeniedMessage(
-              permission.blocked
-                ? 'Music access is turned off for Pulse in your system settings. You can still choose files by hand.'
-                : 'Pulse needs permission to read the music on this device. You can also choose files by hand instead.',
-            );
-            return;
-          }
+      const target = mode === 'device' ? (scanner ?? (await enumeratingScanner())) : pickerScanner();
+
+      if (mode === 'device' && target) {
+        const permission = await target.requestPermission();
+        if (permission.state !== 'granted' && permission.state !== 'limited') {
+          // Say what happened here rather than starting a scan that cannot work.
+          setDiagnostics(await target.diagnose());
+          setStage('empty');
+          return;
         }
       }
 
       setStage('running');
       const result = await ingestEngine.run({ mode });
+
       if (result.phase === 'error') {
         toast(result.error ?? 'Importing failed', 'error');
         setStage('intro');
         return;
       }
+
       if (result.found === 0) {
-        toast(
-          mode === 'picker'
-            ? 'No files were chosen.'
-            : 'Pulse did not find any audio files on this device.',
-        );
-        setStage('intro');
+        if (mode === 'picker') {
+          // The user closed the picker without choosing anything.
+          setStage('intro');
+          return;
+        }
+        // A scan that found nothing has a reason, and the user should get it.
+        setDiagnostics(target ? await target.diagnose() : null);
+        setStage('empty');
         return;
       }
+
       await finish();
     },
     [scanner, finish, toast],
@@ -241,6 +250,63 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
           </View>
         )}
 
+        {stage === 'empty' && (
+          <View style={[styles.centered, isTabletUp && { maxWidth: 520, alignSelf: 'center' }]}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="help-circle-outline" size={28} color={colors.warning} />
+            </View>
+            <Txt variant="title2" align="center" style={{ marginTop: spacing.md }}>
+              Pulse found no music to import
+            </Txt>
+            <Txt variant="body" tone="secondary" align="center">
+              {diagnostics?.summary ?? 'The scan came back empty.'}
+            </Txt>
+            <Txt variant="body" tone="muted" align="center" style={{ marginTop: spacing.sm }}>
+              {diagnostics?.suggestion ??
+                'Choose your audio files by hand and Pulse will import them the same way.'}
+            </Txt>
+
+            {diagnostics && (
+              <View style={styles.diagnostics}>
+                <Detail label="Media access" value={permissionLabel(diagnostics)} />
+                <Detail
+                  label="Audio files visible"
+                  value={diagnostics.audioCount === null ? 'could not check' : String(diagnostics.audioCount)}
+                />
+                <Detail
+                  label="Media of any kind"
+                  value={
+                    diagnostics.anyMediaCount === null ? 'could not check' : String(diagnostics.anyMediaCount)
+                  }
+                />
+              </View>
+            )}
+
+            <View style={{ gap: spacing.md, width: '100%', marginTop: spacing.xl }}>
+              <Button
+                label="Choose my music files"
+                icon="folder-open-outline"
+                full
+                onPress={() => void start('picker')}
+              />
+              {scanner && (
+                <Button
+                  label="Scan this device again"
+                  variant="secondary"
+                  icon="refresh"
+                  full
+                  onPress={() => void start('device')}
+                />
+              )}
+              <Pressable onPress={done} accessibilityRole="button">
+                <Txt variant="callout" tone="muted" align="center">
+                  Skip for now
+                </Txt>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         {stage === 'summary' && summary && (
           <View style={[isTabletUp && { maxWidth: 620, alignSelf: 'center', width: '100%' }]}>
             <View style={styles.centered}>
@@ -355,6 +421,33 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
   );
 }
 
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detail}>
+      <Txt variant="caption" tone="muted">
+        {label}
+      </Txt>
+      <Txt variant="caption">{value}</Txt>
+    </View>
+  );
+}
+
+function permissionLabel(diagnostics: ScanDiagnostics): string {
+  if (!diagnostics.available) return 'not supported here';
+  switch (diagnostics.permission.state) {
+    case 'granted':
+      return 'granted';
+    case 'limited':
+      return 'granted for selected items';
+    case 'denied':
+      return diagnostics.permission.blocked ? 'denied, and will not ask again' : 'denied';
+    case 'undetermined':
+      return 'not asked yet';
+    default:
+      return 'unavailable';
+  }
+}
+
 function Assurance({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
   return (
     <View style={styles.assurance}>
@@ -403,4 +496,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   grooveDot: { width: 10, height: 10, borderRadius: 5 },
+  emptyIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  diagnostics: {
+    width: '100%',
+    marginTop: spacing.xl,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderSoft,
+    gap: 6,
+  },
+  detail: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
 });

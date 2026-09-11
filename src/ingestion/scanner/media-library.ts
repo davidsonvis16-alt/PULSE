@@ -4,6 +4,7 @@ import {
   isAudioFilename,
   type MusicScanner,
   type PermissionOutcome,
+  type ScanDiagnostics,
   type ScanOptions,
   type ScannedFile,
 } from '@/src/ingestion/scanner/types';
@@ -76,11 +77,14 @@ export const mediaLibraryScanner: MusicScanner = {
     for (;;) {
       if (options.signal?.aborted) break;
 
+      // Sorted by modification time, not creation time: the media store backs
+      // "creationTime" with DATE_TAKEN, which is an images column and is null
+      // on every audio row.
       const page = await MediaLibrary.getAssetsAsync({
         mediaType: MediaLibrary.MediaType.audio,
         first: PAGE_SIZE,
         after,
-        sortBy: [MediaLibrary.SortBy.creationTime],
+        sortBy: [MediaLibrary.SortBy.modificationTime],
       });
 
       for (const asset of page.assets) {
@@ -92,8 +96,9 @@ export const mediaLibraryScanner: MusicScanner = {
           filename: asset.filename,
           sizeBytes: 0, // filled in when the file is read for tags
           durationMs: asset.duration > 0 ? Math.round(asset.duration * 1000) : null,
-          modifiedAt: asset.modificationTime ?? null,
-          addedAt: asset.creationTime ?? Date.now(),
+          modifiedAt: asset.modificationTime || null,
+          // Audio rows carry no DATE_TAKEN, so creationTime arrives as 0.
+          addedAt: asset.modificationTime || asset.creationTime || Date.now(),
           source: 'device',
         });
         if (files.length >= limit) break;
@@ -107,6 +112,93 @@ export const mediaLibraryScanner: MusicScanner = {
     return files;
   },
 
+  async diagnose(): Promise<ScanDiagnostics> {
+    const available = await this.isAvailable();
+    const permission = await this.getPermission();
+
+    if (!available) {
+      return {
+        available,
+        permission,
+        audioCount: null,
+        anyMediaCount: null,
+        summary:
+          Platform.OS === 'ios'
+            ? 'iOS does not let an app read the Music app\u2019s library.'
+            : 'This platform has no media library Pulse can read.',
+        suggestion: 'Choose your audio files instead and Pulse will import them the same way.',
+      };
+    }
+
+    if (permission.state !== 'granted' && permission.state !== 'limited') {
+      return {
+        available,
+        permission,
+        audioCount: null,
+        anyMediaCount: null,
+        summary: 'Pulse was not given permission to read audio on this device.',
+        suggestion: permission.blocked
+          ? 'Turn on music or files access for Pulse in your system settings, then try again.'
+          : 'Grant access when asked, or choose files by hand instead.',
+      };
+    }
+
+    // Count audio, then count media of any kind. The comparison is what tells
+    // the difference between "blocked" and "there is genuinely no audio here".
+    const audioCount = await countAssets([MediaLibrary.MediaType.audio]);
+    const anyMediaCount = await countAssets([
+      MediaLibrary.MediaType.audio,
+      MediaLibrary.MediaType.photo,
+      MediaLibrary.MediaType.video,
+    ]);
+
+    if (audioCount === null) {
+      return {
+        available,
+        permission,
+        audioCount,
+        anyMediaCount,
+        summary: 'The media store refused the query for audio files.',
+        suggestion:
+          'This usually means the build Pulse is running in cannot request audio access. Choose files by hand, or run Pulse in a development build.',
+      };
+    }
+
+    if (audioCount > 0) {
+      return {
+        available,
+        permission,
+        audioCount,
+        anyMediaCount,
+        summary: `${audioCount} audio file${audioCount === 1 ? '' : 's'} visible to Pulse.`,
+        suggestion: 'Run the import to bring them in.',
+      };
+    }
+
+    if (anyMediaCount && anyMediaCount > 0) {
+      return {
+        available,
+        permission,
+        audioCount,
+        anyMediaCount,
+        summary:
+          'Pulse can read this device\u2019s media store, but there are no audio files in it.',
+        suggestion:
+          'Music inside a streaming app is stored privately and no app can read it. If your files are in Downloads or on an SD card, choose them by hand.',
+      };
+    }
+
+    return {
+      available,
+      permission,
+      audioCount,
+      anyMediaCount,
+      summary: 'The media store reports no media of any kind.',
+      suggestion:
+        'Audio access may not be granted to the build Pulse is running in. Choose files by hand instead.',
+    };
+  },
+
   observeLibraryChanges(onChange: () => void) {
     try {
       const subscription = MediaLibrary.addListener(() => onChange());
@@ -116,6 +208,16 @@ export const mediaLibraryScanner: MusicScanner = {
     }
   },
 };
+
+/** Returns null when the query itself fails, which is different from zero. */
+async function countAssets(mediaType: MediaLibrary.MediaTypeValue[]): Promise<number | null> {
+  try {
+    const page = await MediaLibrary.getAssetsAsync({ mediaType, first: 1 });
+    return page.totalCount ?? page.assets.length;
+  } catch {
+    return null;
+  }
+}
 
 function toOutcome(response: MediaLibrary.PermissionResponse): PermissionOutcome {
   if (response.granted) {

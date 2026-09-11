@@ -4,6 +4,7 @@ import {
   isAudioFilename,
   type MusicScanner,
   type PermissionOutcome,
+  type ScanDiagnostics,
   type ScanOptions,
   type ScannedFile,
 } from '@/src/ingestion/scanner/types';
@@ -45,8 +46,11 @@ export const filePickerScanner: MusicScanner = {
   },
 
   async scanLibrary(options: ScanOptions = {}) {
+    // Some systems report perfectly ordinary audio files under a non-audio
+    // MIME type, so the filter is deliberately wider than "audio/*" and the
+    // extension check below is what actually decides.
     const result = await DocumentPicker.getDocumentAsync({
-      type: 'audio/*',
+      type: ['audio/*', 'application/ogg', 'application/x-flac', 'application/octet-stream'],
       multiple: true,
       copyToCacheDirectory: true,
     });
@@ -57,6 +61,7 @@ export const filePickerScanner: MusicScanner = {
     const files: ScannedFile[] = [];
     for (const asset of result.assets ?? []) {
       if (options.signal?.aborted) break;
+      // Keep it only if the name or the reported type says it is audio.
       if (!isAudioFilename(asset.name) && !asset.mimeType?.startsWith('audio/')) continue;
 
       const stored = await persist(asset.uri, asset.name);
@@ -75,6 +80,17 @@ export const filePickerScanner: MusicScanner = {
       options.onProgress?.(files.length);
     }
     return files;
+  },
+
+  async diagnose(): Promise<ScanDiagnostics> {
+    return {
+      available: true,
+      permission: { state: 'granted', blocked: false },
+      audioCount: null,
+      anyMediaCount: null,
+      summary: 'Pulse imports whichever files you choose.',
+      suggestion: 'Pick your music and Pulse will read its tags and artwork.',
+    };
   },
 
   observeLibraryChanges() {

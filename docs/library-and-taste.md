@@ -31,6 +31,27 @@ so Pulse asks for files instead of showing an empty scan and blaming the user.
 Picked files are copied into Pulse's own storage, because the URIs the picker
 returns do not survive a restart. Originals are never touched.
 
+### When a scan finds nothing
+
+An empty scan has several very different causes, so `MusicScanner.diagnose()`
+separates them and the import screen shows the real one:
+
+| What it found | What Pulse says |
+| --- | --- |
+| permission refused | which permission, and whether the system will ask again |
+| media store readable, no audio rows | the store works; there is simply no audio in it |
+| audio query rejected | the build cannot request audio access |
+| nothing readable at all | access is not actually in effect |
+
+The most common real answer is the second one. Music inside a streaming app is
+stored privately and no app can read it, so a phone full of playlists can still
+have an empty media store. In that case Pulse says so and points at the file
+picker, rather than leaving the user staring at a screen that did nothing.
+
+Two details worth knowing about the media store: it backs `creationTime` with
+`DATE_TAKEN`, an images column that is null on every audio row, so Pulse sorts
+and dates audio by modification time instead.
+
 ## Reading tags
 
 `src/ingestion/tags/` parses containers directly — no native tag library, so it
