@@ -6,7 +6,8 @@ import { Txt } from '@/src/ui/text';
 import { Sheet, SheetAction } from '@/src/ui/sheet';
 import { PulseLogo } from '@/src/ui/logo';
 import { useToast } from '@/src/ui/toast';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { copyLink, shareCard, shareLink, type SharePayload } from '@/src/share/share';
 
 const ShareContext = createContext<(payload: SharePayload) => void>(() => {});
@@ -24,6 +25,8 @@ export function useShareSheet() {
  * the OS put them there.
  */
 export function ShareSheetProvider({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [payload, setPayload] = useState<SharePayload | null>(null);
   const cardRef = useRef<View>(null);
   const toast = useToast();
@@ -108,17 +111,18 @@ export function ShareSheetProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  cardArt: { width: '100%', aspectRatio: 1.35, backgroundColor: colors.cardHigh },
-  cardArtEmpty: { alignItems: 'center', justifyContent: 'center' },
-  cardBody: { padding: spacing.xl, gap: 4 },
-  cardFooter: { marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center' },
-  actions: { marginTop: spacing.md },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: radii.xl,
+      overflow: 'hidden',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    cardArt: { width: '100%', aspectRatio: 1.35, backgroundColor: colors.cardHigh },
+    cardArtEmpty: { alignItems: 'center', justifyContent: 'center' },
+    cardBody: { padding: spacing.xl, gap: 4 },
+    cardFooter: { marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center' },
+    actions: { marginTop: spacing.md },
+  });

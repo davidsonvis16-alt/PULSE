@@ -12,7 +12,7 @@ import {
   identify,
   type IdentificationStatus,
 } from '@/src/ingestion/identify/identifier';
-import { cleanFilename, splitArtistTitle } from '@/src/ingestion/identify/text';
+import { displayNameFromFilename } from '@/src/ingestion/identify/text';
 import { artworkProvider, cacheEmbeddedArtwork } from '@/src/ingestion/artwork/provider';
 import {
   getKnownFileUris,
@@ -22,6 +22,7 @@ import {
 } from '@/src/db/repos/local';
 import { rebuildGrooves } from '@/src/grooves/engine';
 import { invalidateTasteProfile } from '@/src/discovery/taste';
+import { invalidateOwnedIndex } from '@/src/library/owned';
 
 /**
  * The import pipeline.
@@ -205,14 +206,10 @@ class IngestEngine extends Store<IngestState> {
         const candidate = needsArtwork[i];
         // Fall back to what the filename says. A wrong cover is still ruled out
         // downstream: the provider only returns a match it is confident in.
-        const guessed = splitArtistTitle(candidate.file.filename);
-        const artist = candidate.tags.artist ?? candidate.match?.artistName ?? guessed.artist ?? '';
+        const named = displayNameFromFilename(candidate.file.filename);
+        const artist = candidate.tags.artist ?? candidate.match?.artistName ?? named.artist ?? '';
         const album = candidate.tags.album ?? candidate.match?.albumTitle ?? '';
-        const title =
-          candidate.tags.title ??
-          candidate.match?.title ??
-          guessed.title ??
-          cleanFilename(candidate.file.filename);
+        const title = candidate.tags.title ?? candidate.match?.title ?? named.title;
 
         if (album || title) {
           const key = `${artist.toLowerCase()}|${album.toLowerCase()}`;
@@ -270,6 +267,7 @@ class IngestEngine extends Store<IngestState> {
     this.set({ phase: 'grooving', progress: 0.94 });
     const grooves = await rebuildGrooves();
     invalidateTasteProfile();
+    invalidateOwnedIndex();
     this.set({ grooveCount: grooves.length, progress: 1 });
   }
 
@@ -305,10 +303,13 @@ async function persist(candidate: Candidate) {
   const tagged = hasUsableTags(tags);
   const confident = candidate.identification === 'identified' && !!match;
 
-  const guessed = splitArtistTitle(file.filename);
-  const title = tags.title ?? (confident ? match!.title : null) ?? guessed.title ?? cleanFilename(file.filename);
+  // A file Pulse could not place still deserves a proper name. The audio is
+  // untouched and the row is kept either way; this only decides what it reads
+  // as in the library.
+  const named = displayNameFromFilename(file.filename);
+  const title = tags.title ?? (confident ? match!.title : null) ?? named.title;
   const artist =
-    tags.artist ?? (confident ? match!.artistName : null) ?? guessed.artist ?? 'Unknown artist';
+    tags.artist ?? (confident ? match!.artistName : null) ?? named.artist ?? 'Unknown artist';
   const album = tags.album ?? (confident ? match!.albumTitle : null) ?? null;
   const genre = tags.genre ?? (confident ? match!.genre : null) ?? null;
   const year = tags.year ?? (confident ? match!.releaseDate?.slice(0, 4) : null) ?? null;

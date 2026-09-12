@@ -16,9 +16,10 @@ import { trackShare } from '@/src/share/share';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { IconButton, PlayButton } from '@/src/ui/buttons';
-import { EmptyState } from '@/src/ui/states';
+import { EmptyState, ProgressBar } from '@/src/ui/states';
 import { SeekBar } from '@/src/ui/seek-bar';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * The full player.
@@ -28,10 +29,13 @@ import { colors, radii, spacing } from '@/src/theme/tokens';
  * or a file already on the device.
  */
 export default function PlayerScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height, isTabletUp } = useResponsive();
   const player = useStore(playerStore);
+  const onRadio = player.context === 'radio';
   const progress = useStore(progressStore);
   const downloads = useStore(downloadManager);
   const actions = useTrackActions();
@@ -143,17 +147,21 @@ export default function PlayerScreen() {
         </View>
       )}
 
-      {/* Seek */}
+      {/* Seek. The radio has no scrub bar: it plays forward and that is all. */}
       <View style={styles.seek}>
-        <SeekBar
-          position={position}
-          duration={duration}
-          onScrub={setScrubbing}
-          onSeek={(value) => void playerStore.seekTo(value)}
-        />
+        {onRadio ? (
+          <ProgressBar progress={duration > 0 ? position / duration : 0} height={3} />
+        ) : (
+          <SeekBar
+            position={position}
+            duration={duration}
+            onScrub={setScrubbing}
+            onSeek={(value) => void playerStore.seekTo(value)}
+          />
+        )}
         <View style={styles.times}>
           <Txt variant="caption" tone="muted">
-            {formatDuration(position)}
+            {onRadio ? 'Pulse Radio · live' : formatDuration(position)}
           </Txt>
           <Txt variant="caption" tone="muted">
             {formatDuration(duration)}
@@ -169,12 +177,14 @@ export default function PlayerScreen() {
           color={player.shuffle ? colors.accent : colors.textMuted}
           onPress={() => playerStore.toggleShuffle()}
         />
-        <IconButton
-          name="play-skip-back"
-          label="Previous track"
-          size={26}
-          onPress={() => void playerStore.previous()}
-        />
+        {!onRadio && (
+          <IconButton
+            name="play-skip-back"
+            label="Previous track"
+            size={26}
+            onPress={() => void playerStore.previous()}
+          />
+        )}
         <PlayButton
           playing={player.isPlaying}
           loading={player.isLoading}
@@ -250,27 +260,28 @@ export default function PlayerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.backgroundElevated,
-    paddingHorizontal: spacing.xxl,
-  },
-  top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  artWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', marginVertical: spacing.lg },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  sourceLine: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  seek: { marginTop: spacing.md },
-  times: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 },
-  transport: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.lg,
-  },
-  bottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xl,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: colors.backgroundElevated,
+      paddingHorizontal: spacing.xxl,
+    },
+    top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    artWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', marginVertical: spacing.lg },
+    meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    sourceLine: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+    seek: { marginTop: spacing.md },
+    times: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 },
+    transport: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: spacing.lg,
+    },
+    bottom: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: spacing.xl,
+    },
+  });

@@ -3,8 +3,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
-import { colors, radii, spacing } from '@/src/theme/tokens';
-import { formatDuration } from '@/src/core/format';
+import { likesStore } from '@/src/ui/likes';
+import { useDoubleTapLike } from '@/src/ui/use-double-tap-like';
+import { useStore } from '@/src/hooks/use-store';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
+import { formatDuration, releaseYear } from '@/src/core/format';
+import { useSongInfo } from '@/src/ui/song-info';
 import type { Album, Artist, Track } from '@/src/core/types';
 
 export const TrackRow = memo(function TrackRow({
@@ -29,6 +34,13 @@ export const TrackRow = memo(function TrackRow({
   subtitleOverride?: string;
   trailing?: React.ReactNode;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const likeOnDoubleTap = useDoubleTapLike();
+  const likes = useStore(likesStore);
+  const songInfo = useSongInfo();
+  const isLiked = likes.ids.has(track.id);
+  const year = releaseYear(track.releaseDate);
   const subtitle =
     subtitleOverride ??
     [track.artistName, track.albumTitle].filter(Boolean).join(' · ');
@@ -36,8 +48,12 @@ export const TrackRow = memo(function TrackRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${track.title} by ${track.artistName}`}
-      onPress={onPress}
+      accessibilityLabel={`${track.title} by ${track.artistName}${isLiked ? ', liked' : ''}. Double tap to ${isLiked ? 'unlike' : 'like'}.`}
+      onPress={() => {
+        // The second tap of a double tap likes the song instead of restarting it.
+        if (likeOnDoubleTap(track)) return;
+        onPress();
+      }}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
       {showArtwork ? (
@@ -69,11 +85,30 @@ export const TrackRow = memo(function TrackRow({
             </View>
           )}
         </View>
-        <Txt variant="caption" tone="muted" numberOfLines={1}>
-          {subtitle}
-        </Txt>
+        <View style={styles.metaLine}>
+          <Txt variant="caption" tone="muted" numberOfLines={1} style={{ flexShrink: 1 }}>
+            {subtitle}
+          </Txt>
+          {/* The release year, and the way into where the song stands. */}
+          {!!year && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Released ${year}. See how widely this song is played.`}
+              hitSlop={8}
+              onPress={() => songInfo(track)}
+              style={({ pressed }) => [styles.year, pressed && { opacity: 0.6 }]}
+            >
+              <Txt variant="micro" tone="secondary">
+                {year}
+              </Txt>
+            </Pressable>
+          )}
+        </View>
       </View>
 
+      {isLiked && (
+        <Ionicons name="heart" size={15} color={colors.accent} style={styles.badge} />
+      )}
       {isDownloaded && (
         <Ionicons name="arrow-down-circle" size={15} color={colors.accent} style={styles.badge} />
       )}
@@ -108,6 +143,8 @@ export const ArtistRow = memo(function ArtistRow({
   detail?: string;
   trailing?: React.ReactNode;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -138,6 +175,8 @@ export const AlbumRow = memo(function AlbumRow({
   onPress: () => void;
   onMore?: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const year = album.releaseDate ? new Date(album.releaseDate).getFullYear() : null;
   const detail = [album.artistName, year, album.albumType === 'single' ? 'Single' : null]
     .filter(Boolean)
@@ -169,27 +208,35 @@ export const AlbumRow = memo(function AlbumRow({
   );
 });
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radii.md,
-  },
-  pressed: { backgroundColor: colors.card },
-  body: { flex: 1, gap: 3 },
-  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  indexBox: { width: 28, alignItems: 'center' },
-  explicit: {
-    width: 14,
-    height: 14,
-    borderRadius: 3,
-    backgroundColor: colors.cardHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  explicitText: { fontSize: 9, fontWeight: '700', color: colors.textMuted },
-  badge: { marginRight: 2 },
-  more: { paddingLeft: 4 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: 8,
+      borderRadius: radii.md,
+    },
+    pressed: { backgroundColor: colors.card },
+    body: { flex: 1, gap: 3 },
+    titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    metaLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    year: {
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: radii.xs,
+      backgroundColor: colors.cardHigh,
+    },
+    indexBox: { width: 28, alignItems: 'center' },
+    explicit: {
+      width: 14,
+      height: 14,
+      borderRadius: 3,
+      backgroundColor: colors.cardHigh,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    explicitText: { fontSize: 9, fontWeight: '700', color: colors.textMuted },
+    badge: { marginRight: 2 },
+    more: { paddingLeft: 4 },
+  });

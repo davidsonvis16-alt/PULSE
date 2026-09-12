@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import { colors } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
+
 
 /**
  * The seek bar.
@@ -29,6 +30,8 @@ export function SeekBar({
   onSeek: (positionMs: number) => void;
   height?: number;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [width, setWidth] = useState(0);
   const widthRef = useRef(0);
   const durationRef = useRef(duration);
@@ -99,14 +102,15 @@ export function SeekBar({
   );
 }
 
-const styles = StyleSheet.create({
-  hit: { height: 28, justifyContent: 'center' },
-  track: { width: '100%', backgroundColor: colors.cardHigh, overflow: 'hidden' },
-  thumb: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.accent,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    hit: { height: 28, justifyContent: 'center' },
+    track: { width: '100%', backgroundColor: colors.cardHigh, overflow: 'hidden' },
+    thumb: {
+      position: 'absolute',
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: colors.accent,
+    },
+  });

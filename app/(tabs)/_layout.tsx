@@ -2,12 +2,13 @@ import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, layout, typography } from '@/src/theme/tokens';
+import { layout, typography } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const TABS: { name: string; title: string; icon: IconName; active: IconName }[] = [
-  { name: 'index', title: 'Music', icon: 'musical-notes-outline', active: 'musical-notes' },
+  { name: 'index', title: 'Home', icon: 'home-outline', active: 'home' },
   { name: 'discover', title: 'Discover', icon: 'search-outline', active: 'search' },
   { name: 'library', title: 'Library', icon: 'library-outline', active: 'library' },
   { name: 'events', title: 'Events', icon: 'calendar-outline', active: 'calendar' },
@@ -15,6 +16,8 @@ const TABS: { name: string; title: string; icon: IconName; active: IconName }[] 
 ];
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const barHeight = layout.tabBarHeight + insets.bottom;
 
@@ -48,11 +51,12 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    backgroundColor: colors.backgroundElevated,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderSoft,
-    elevation: 0,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    bar: {
+      backgroundColor: colors.backgroundElevated,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.borderSoft,
+      elevation: 0,
+    },
+  });

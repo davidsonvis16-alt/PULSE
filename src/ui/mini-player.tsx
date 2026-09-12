@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
-import { colors, layout, radii, spacing } from '@/src/theme/tokens';
+import { layout, radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { playerStore, progressStore } from '@/src/audio/player';
 import { useStore } from '@/src/hooks/use-store';
 
@@ -13,6 +14,8 @@ import { useStore } from '@/src/hooks/use-store';
  * between screens cannot interrupt audio.
  */
 export function MiniPlayer({ bottom }: { bottom: number }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const player = useStore(playerStore);
   const progress = useStore(progressStore);
@@ -80,40 +83,41 @@ export function MiniPlayer({ bottom }: { bottom: number }) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, paddingHorizontal: spacing.md },
-  bar: {
-    height: layout.miniPlayerHeight,
-    borderRadius: radii.lg,
-    backgroundColor: colors.cardRaised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    maxWidth: 720,
-    width: '100%',
-    alignSelf: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
-  },
-  progressTrack: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: colors.cardHigh,
-  },
-  progressFill: { height: 2, backgroundColor: colors.accent },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  meta: { flex: 1, gap: 2 },
-  control: { padding: 4 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    wrap: { position: 'absolute', left: 0, right: 0, paddingHorizontal: spacing.md },
+    bar: {
+      height: layout.miniPlayerHeight,
+      borderRadius: radii.lg,
+      backgroundColor: colors.cardRaised,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      justifyContent: 'center',
+      maxWidth: 720,
+      width: '100%',
+      alignSelf: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.4,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 10,
+    },
+    progressTrack: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 2,
+      backgroundColor: colors.cardHigh,
+    },
+    progressFill: { height: 2, backgroundColor: colors.accent },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.md,
+    },
+    meta: { flex: 1, gap: 2 },
+    control: { padding: 4 },
+  });

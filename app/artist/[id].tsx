@@ -27,7 +27,8 @@ import { TrackRow } from '@/src/ui/rows';
 import { AlbumCard, ArtistCard, EventCard } from '@/src/ui/cards';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { EmptyState, ErrorState, Skeleton, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type Tab = 'popular' | 'albums' | 'singles' | 'about';
 
@@ -42,6 +43,8 @@ interface ArtistPageData {
 
 /** The artist page: their music, their latest, and where to see them live. */
 export default function ArtistScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -365,19 +368,20 @@ export default function ArtistScreen() {
   }
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  hero: { justifyContent: 'space-between', backgroundColor: colors.cardHigh },
-  heroTop: { flexDirection: 'row' },
-  heroBottom: { paddingBottom: spacing.lg, gap: 2 },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  about: {
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    hero: { justifyContent: 'space-between', backgroundColor: colors.cardHigh },
+    heroTop: { flexDirection: 'row' },
+    heroBottom: { paddingBottom: spacing.lg, gap: 2 },
+    actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+    about: {
+      gap: spacing.md,
+      padding: spacing.lg,
+      borderRadius: radii.lg,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+  });

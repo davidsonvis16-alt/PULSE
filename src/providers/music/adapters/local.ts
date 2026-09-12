@@ -53,6 +53,7 @@ export const localProvider: MusicProvider = {
   getMoodTracks: none as (mood: Mood) => Promise<Track[]>,
   getNewReleases: none as () => Promise<Album[]>,
   getTrending: none as () => Promise<Album[]>,
+  getChartTracks: none as () => Promise<Track[]>,
 
   getArtwork(url) {
     // Local artwork is a file on disk at whatever size the tag held.

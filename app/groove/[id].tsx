@@ -18,7 +18,8 @@ import { Txt } from '@/src/ui/text';
 import { Button, IconButton } from '@/src/ui/buttons';
 import { TrackRow } from '@/src/ui/rows';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * A single Groove: what is in it, why, and the ability to play the whole thing.
@@ -27,6 +28,8 @@ import { colors, radii, spacing } from '@/src/theme/tokens';
  * and no download prompt — the audio is already on the device.
  */
 export default function GrooveScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { gutter, width } = useResponsive();
@@ -175,14 +178,15 @@ export default function GrooveScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  hero: {
-    borderRadius: radii.xl,
-    padding: spacing.xl,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.card,
-    overflow: 'hidden',
-  },
-  heroArt: { position: 'absolute', top: spacing.lg, right: spacing.lg, opacity: 0.9 },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.lg },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    hero: {
+      borderRadius: radii.xl,
+      padding: spacing.xl,
+      justifyContent: 'flex-end',
+      backgroundColor: colors.card,
+      overflow: 'hidden',
+    },
+    heroArt: { position: 'absolute', top: spacing.lg, right: spacing.lg, opacity: 0.9 },
+    actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.lg },
+  });

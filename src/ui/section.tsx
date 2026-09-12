@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { FlatList, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/src/ui/text';
-import { colors, spacing } from '@/src/theme/tokens';
+import { spacing } from '@/src/theme/tokens';
+import { useTheme } from '@/src/theme/theme';
 
 export function SectionHeader({
   title,
@@ -17,6 +18,7 @@ export function SectionHeader({
   onAction?: () => void;
   style?: ViewStyle;
 }) {
+  const { colors } = useTheme();
   return (
     <View style={[styles.header, style]}>
       <View style={{ flex: 1 }}>

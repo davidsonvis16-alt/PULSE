@@ -36,7 +36,8 @@ import { useToast } from '@/src/ui/toast';
 import { useShareSheet } from '@/src/ui/share-sheet';
 import { trackShare } from '@/src/share/share';
 import { useStore } from '@/src/hooks/use-store';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 interface TrackActionsApi {
   /** Opens the "…" menu for a track. */
@@ -58,6 +59,7 @@ export function useTrackActions(): TrackActionsApi {
 }
 
 export function TrackActionsProvider({ children }: { children: ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const toast = useToast();
   const share = useShareSheet();
@@ -293,6 +295,8 @@ function PlaylistPicker({
   onClose: () => void;
   onDone: (playlistName: string, count: number) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -406,34 +410,35 @@ function PlaylistPicker({
   );
 }
 
-const styles = StyleSheet.create({
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingBottom: spacing.md,
-    marginBottom: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSoft,
-  },
-  newRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 12 },
-  newIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.sm,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playlistRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 8 },
-  input: {
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 15,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    head: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingBottom: spacing.md,
+      marginBottom: spacing.xs,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderSoft,
+    },
+    newRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 12 },
+    newIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: radii.sm,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    playlistRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 8 },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 14,
+      color: colors.text,
+      fontSize: 15,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+  });

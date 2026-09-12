@@ -3,7 +3,8 @@ import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/src/ui/text';
 import { Button } from '@/src/ui/buttons';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * Loading, empty and error. Every data-driven screen in Pulse uses these three,
@@ -21,6 +22,7 @@ export function Skeleton({
   radius?: number;
   style?: ViewStyle;
 }) {
+  const { colors } = useTheme();
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export function Skeleton({
 }
 
 export function SkeletonRows({ count = 6, height = 56 }: { count?: number; height?: number }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={{ gap: spacing.md }}>
       {Array.from({ length: count }).map((_, index) => (
@@ -95,6 +98,8 @@ export function EmptyState({
   onAction?: () => void;
   compact?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.state, compact && { paddingVertical: spacing.xl }]}>
       <View style={styles.stateIcon}>
@@ -124,6 +129,8 @@ export function ErrorState({
   onRetry?: () => void;
   compact?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const message = typeof error === 'string' ? error : error.message;
   const offline = /network|timed out|failed to fetch/i.test(message);
   return (
@@ -160,8 +167,8 @@ export function ErrorState({
 export function ProgressBar({
   progress,
   height = 4,
-  color = colors.accent,
-  track = colors.cardHigh,
+  color,
+  track,
   style,
 }: {
   progress: number;
@@ -170,34 +177,46 @@ export function ProgressBar({
   track?: string;
   style?: ViewStyle;
 }) {
+  const { colors } = useTheme();
   const clamped = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
   return (
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ now: Math.round(clamped * 100), min: 0, max: 100 }}
-      style={[{ height, backgroundColor: track, borderRadius: height / 2, overflow: 'hidden' }, style]}
+      style={[
+        {
+          height,
+          backgroundColor: track ?? colors.cardHigh,
+          borderRadius: height / 2,
+          overflow: 'hidden',
+        },
+        style,
+      ]}
     >
-      <View style={{ width: `${clamped * 100}%`, height, backgroundColor: color }} />
+      <View
+        style={{ width: `${clamped * 100}%`, height, backgroundColor: color ?? colors.accent }}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  state: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.huge,
-    paddingHorizontal: spacing.xl,
-  },
-  stateIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.cardRaised,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    state: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.huge,
+      paddingHorizontal: spacing.xl,
+    },
+    stateIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.cardRaised,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xs,
+    },
+  });

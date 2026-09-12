@@ -19,7 +19,8 @@ import { TrackRow } from '@/src/ui/rows';
 import { MoodCard } from '@/src/ui/cards';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * A mood page.
@@ -28,6 +29,7 @@ import { colors, radii, spacing } from '@/src/theme/tokens';
  * music in that mood's genres and ranks it against the mood's energy.
  */
 export default function MoodScreen() {
+  const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { gutter, isTabletUp } = useResponsive();
@@ -160,13 +162,14 @@ export default function MoodScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  hero: {
-    borderRadius: radii.xl,
-    padding: spacing.xxl,
-    minHeight: 160,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.card,
-  },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    hero: {
+      borderRadius: radii.xl,
+      padding: spacing.xxl,
+      minHeight: 160,
+      justifyContent: 'flex-end',
+      backgroundColor: colors.card,
+    },
+    actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
+  });

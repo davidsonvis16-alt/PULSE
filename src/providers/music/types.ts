@@ -46,6 +46,11 @@ export interface MusicProvider {
   getNewReleases(options?: NewReleaseOptions): Promise<Album[]>;
   /** What the source is currently charting, used as a cold-start fallback. */
   getTrending(limit?: number): Promise<Album[]>;
+  /**
+   * The source's most-played songs for one storefront, in chart order. The
+   * position is the index: entry 0 is number one.
+   */
+  getChartTracks(options?: ChartOptions): Promise<Track[]>;
 
   /** Resize/normalise an artwork URL for a given rendered size. */
   getArtwork(url: string | null | undefined, size: number): string | null;
@@ -54,6 +59,13 @@ export interface MusicProvider {
   getPlayableSource(track: Track): Promise<PlayableSource | null>;
   /** null when this source does not permit keeping a copy. */
   getDownloadSource(track: Track): Promise<DownloadableSource | null>;
+}
+
+export interface ChartOptions {
+  /** Two-letter storefront code. Charts are published per country. */
+  country?: string;
+  limit?: number;
+  signal?: AbortSignal;
 }
 
 export interface MusicProviderCapabilities {

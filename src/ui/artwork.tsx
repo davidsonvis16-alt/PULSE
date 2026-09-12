@@ -1,7 +1,8 @@
 import { View, StyleSheet, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii } from '@/src/theme/tokens';
+import { radii } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * Album art.
@@ -27,6 +28,8 @@ export function Artwork({
   rounded?: boolean;
   dim?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const borderRadius = rounded ? size / 2 : radius;
   return (
     <View
@@ -59,15 +62,16 @@ export function Artwork({
   );
 }
 
-const styles = StyleSheet.create({
-  frame: {
-    backgroundColor: colors.cardRaised,
-    overflow: 'hidden',
-  },
-  fallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.cardHigh,
-  },
-  dim: { backgroundColor: 'rgba(0,0,0,0.35)' },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    frame: {
+      backgroundColor: colors.cardRaised,
+      overflow: 'hidden',
+    },
+    fallback: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.cardHigh,
+    },
+    dim: { backgroundColor: 'rgba(0,0,0,0.35)' },
+  });

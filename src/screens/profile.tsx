@@ -27,17 +27,25 @@ import { statsShare } from '@/src/share/share';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
-import { Button, Chip, IconButton } from '@/src/ui/buttons';
+import { Button, Chip, IconButton, SegmentedControl } from '@/src/ui/buttons';
 import { ArtistCard } from '@/src/ui/cards';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { Sheet } from '@/src/ui/sheet';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import {
+  useTheme,
+  useThemedStyles,
+  type ThemeColors,
+  type ThemePreference,
+} from '@/src/theme/theme';
 
 type Tab = 'activity' | 'following' | 'friends';
 
 /** The user's profile: who they are, what they listen to, and who they follow. */
 export function ProfileScreen() {
+  const { colors, preference, setPreference } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { profile, refreshProfile, signOut, mode } = useAuth();
   const { gutter, shelfCardWidth } = useResponsive();
@@ -397,6 +405,23 @@ export function ProfileScreen() {
                 ))}
             </View>
 
+            {/* Appearance */}
+            <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxxl }}>
+              <SectionHeader
+                title="Appearance"
+                subtitle="Pulse follows your phone unless you tell it otherwise"
+              />
+              <SegmentedControl<ThemePreference>
+                value={preference}
+                onChange={setPreference}
+                options={[
+                  { value: 'system', label: 'System' },
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                ]}
+              />
+            </View>
+
             {/* Account */}
             <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxxl, gap: spacing.md }}>
               <Button
@@ -505,6 +530,8 @@ function Field({
   multiline,
   ...props
 }: React.ComponentProps<typeof TextInput> & { label: string }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={{ gap: 6 }}>
       <Txt variant="caption" tone="muted">
@@ -538,58 +565,59 @@ function verbLabel(verb: ActivityItem['verb']): string {
   }
 }
 
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingVertical: spacing.xl,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  actions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  counts: {
-    flexDirection: 'row',
-    marginTop: spacing.xl,
-    paddingVertical: spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  statsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-    padding: spacing.xl,
-    borderRadius: radii.lg,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  tabRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  genreRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: 8,
-  },
-  input: {
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 15,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.lg,
+      paddingVertical: spacing.xl,
+    },
+    avatar: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    actions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+    counts: {
+      flexDirection: 'row',
+      marginTop: spacing.xl,
+      paddingVertical: spacing.lg,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    statsCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.xl,
+      padding: spacing.xl,
+      borderRadius: radii.lg,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    tabRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+    genreRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    activityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: 8,
+    },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 14,
+      color: colors.text,
+      fontSize: 15,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+  });

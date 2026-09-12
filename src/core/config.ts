@@ -52,6 +52,18 @@ export const config = {
     /** Storefront used for searches and charts. */
     country: read('EXPO_PUBLIC_MUSIC_COUNTRY') ?? 'US',
   },
+  /**
+   * Optional keys for the audience figures a song can carry.
+   *
+   * Neither is required: without them Pulse shows the figures that are public
+   * without a key, and says plainly which platforms publish nothing.
+   */
+  popularity: {
+    /** YouTube Data API key — turns on real view counts. */
+    youtubeKey: read('EXPO_PUBLIC_YOUTUBE_API_KEY'),
+    /** Last.fm API key — turns on listener and scrobble counts. */
+    lastfmKey: read('EXPO_PUBLIC_LASTFM_API_KEY'),
+  },
   /** Deep-link host used when building share links. */
   share: {
     webBaseUrl: read('EXPO_PUBLIC_SHARE_BASE_URL') ?? 'https://pulse.app',

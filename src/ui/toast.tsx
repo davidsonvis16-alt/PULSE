@@ -3,7 +3,8 @@ import { Animated, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/src/ui/text';
-import { colors, layout, radii, spacing } from '@/src/theme/tokens';
+import { layout, radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type ToastTone = 'default' | 'success' | 'error';
 
@@ -20,6 +21,8 @@ export function useToast() {
 
 /** Short confirmations ("Added to your library", "Download started"). */
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,18 +81,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', paddingHorizontal: spacing.xl },
-  toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: colors.cardHigh,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    maxWidth: 420,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', paddingHorizontal: spacing.xl },
+    toast: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: radii.pill,
+      backgroundColor: colors.cardHigh,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      maxWidth: 420,
+    },
+  });

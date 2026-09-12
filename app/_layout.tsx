@@ -11,7 +11,8 @@ import { PulseLogo } from '@/src/ui/logo';
 import { Txt } from '@/src/ui/text';
 import { Button } from '@/src/ui/buttons';
 import { initializePulse } from '@/src/bootstrap';
-import { brand, colors, spacing } from '@/src/theme/tokens';
+import { brand, spacing } from '@/src/theme/tokens';
+import { ThemeProvider, useTheme } from '@/src/theme/theme';
 import { WelcomeScreen } from '@/src/screens/welcome';
 import { ImportScreen } from '@/src/screens/import';
 import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
@@ -19,15 +20,28 @@ import { getLocalCounts } from '@/src/db/repos/local';
 import { GlobalMiniPlayer } from '@/src/ui/global-mini-player';
 
 export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <PulseRoot />
+    </ThemeProvider>
+  );
+}
+
+function PulseRoot() {
+  const { colors, isDark } = useTheme();
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<Error | null>(null);
 
   useEffect(() => {
-    void SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
     initializePulse()
       .then(() => setReady(true))
       .catch((error: unknown) => setBootError(error instanceof Error ? error : new Error('Start-up failed')));
   }, []);
+
+  // Follows the scheme, so the area behind the app matches when it changes.
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
+  }, [colors.background]);
 
   if (bootError) {
     return (
@@ -74,7 +88,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
         <AuthProvider>
           <PulseProviders>
             <AuthGate />
@@ -91,6 +105,7 @@ export default function RootLayout() {
  * device. Either way the music screens never render for an unknown user.
  */
 function AuthGate() {
+  const { colors } = useTheme();
   const { ready, mode, session, profile } = useAuth();
   const [needsImport, setNeedsImport] = useState<boolean | null>(null);
 
@@ -147,6 +162,7 @@ function AuthGate() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="player" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="queue" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="radio" options={{ animation: 'slide_from_bottom' }} />
       </Stack>
       <GlobalMiniPlayer />
     </View>

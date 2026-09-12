@@ -8,10 +8,12 @@ import { Txt } from '@/src/ui/text';
 import { IconButton } from '@/src/ui/buttons';
 import { TrackRow } from '@/src/ui/rows';
 import { EmptyState } from '@/src/ui/states';
-import { colors, spacing } from '@/src/theme/tokens';
+import { spacing } from '@/src/theme/tokens';
+import { useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /** What is playing next, and the ability to change it. */
 export default function QueueScreen() {
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { gutter } = useResponsive();
@@ -74,7 +76,8 @@ export default function QueueScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.backgroundElevated },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingBottom: spacing.md },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.backgroundElevated },
+    header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingBottom: spacing.md },
+  });

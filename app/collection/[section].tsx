@@ -23,7 +23,8 @@ import { PageHeader, Screen, useBottomInset } from '@/src/ui/screen';
 import { Chip, IconButton } from '@/src/ui/buttons';
 import { AlbumRow, ArtistRow, TrackRow } from '@/src/ui/rows';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 const TITLES: Record<string, string> = {
   all: 'All music',
@@ -47,6 +48,8 @@ const SORTS: { value: LibrarySort; label: string }[] = [
 
 /** One library section: search it, sort it, play it. */
 export default function CollectionScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { section = 'all' } = useLocalSearchParams<{ section: string }>();
   const router = useRouter();
   const { gutter } = useResponsive();
@@ -245,18 +248,19 @@ export default function CollectionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    height: 40,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    marginTop: spacing.md,
-  },
-  input: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    field: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      height: 40,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      marginTop: spacing.md,
+    },
+    input: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
+  });

@@ -34,10 +34,14 @@ import { TrackRow } from '@/src/ui/rows';
 import { SectionHeader } from '@/src/ui/section';
 import { Sheet, SheetAction } from '@/src/ui/sheet';
 import { EmptyState, ErrorState, ProgressBar, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { LibraryPicker } from '@/src/ui/library-picker';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /** A playlist the user built, plus songs Pulse thinks belong in it. */
 export default function PlaylistScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { gutter, width, isTabletUp } = useResponsive();
@@ -50,6 +54,7 @@ export default function PlaylistScreen() {
   const [menuTrack, setMenuTrack] = useState<{ track: Track; index: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [name, setName] = useState('');
 
   const state = useAsync<{ playlist: Playlist; tracks: Track[] }>(async () => {
@@ -195,13 +200,23 @@ export default function PlaylistScreen() {
             )}
 
             <View style={{ paddingHorizontal: gutter, marginTop: spacing.xl }}>
+              {/* Your own music first: it is the most likely source of a playlist. */}
+              <Button
+                label="Add from your library"
+                icon="add"
+                variant="secondary"
+                full
+                style={{ marginBottom: spacing.lg }}
+                onPress={() => setPickerOpen(true)}
+              />
+
               {state.loading ? (
                 <SkeletonRows count={5} />
               ) : tracks.length === 0 ? (
                 <EmptyState
                   icon="musical-notes-outline"
                   title="This playlist is empty"
-                  message="Add songs from search, an album, or the suggestions below."
+                  message="Add your own songs with the button above, or take one of the suggestions below."
                   actionLabel="Find music"
                   onAction={() => router.push('/discover')}
                   compact
@@ -326,6 +341,17 @@ export default function PlaylistScreen() {
       </Sheet>
 
       {/* Playlist settings */}
+      <LibraryPicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        existingIds={new Set(tracks.map((track) => track.id))}
+        onAdd={async (picked) => {
+          const added = await addTracksToPlaylist(id!, picked);
+          toast(`Added ${added} song${added === 1 ? '' : 's'} to ${playlist?.name ?? 'the playlist'}`, 'success');
+          reload();
+        }}
+      />
+
       <Sheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} title="Playlist">
         {playlist && (
           <>
@@ -405,22 +431,23 @@ export default function PlaylistScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xl,
-    flexWrap: 'wrap',
-  },
-  input: {
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 15,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    actions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginTop: spacing.xl,
+      flexWrap: 'wrap',
+    },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 14,
+      color: colors.text,
+      fontSize: 15,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+  });

@@ -1,8 +1,10 @@
 import { genreEnergy, MOODS } from '@/src/core/moods';
-import type { Album, Track } from '@/src/core/types';
+import type { Album, Artist, Track } from '@/src/core/types';
 import { musicProvider } from '@/src/providers/music';
-import { getRecentlyPlayed, getTopArtists } from '@/src/db/repos/history';
+import { getRecentlyPlayed, getRepeatedTracks, getTopArtists } from '@/src/db/repos/history';
+import { resolveOwnedAll } from '@/src/library/owned';
 import {
+  buildTasteProfile as buildTasteProfileInternal,
   ownedArtists,
   topGenreNames,
   withinTasteBoundary,
@@ -172,7 +174,11 @@ export async function getRecommendationShelves(
     },
   ];
 
-  return dedupeAcrossShelves(shelves).filter((shelf) => shelf.tracks.length >= MIN_SHELF);
+  const kept = dedupeAcrossShelves(shelves).filter((shelf) => shelf.tracks.length >= MIN_SHELF);
+  // Anything the listener already owns is handed back as their own file.
+  return Promise.all(
+    kept.map(async (shelf) => ({ ...shelf, tracks: await resolveOwnedAll(shelf.tracks) })),
+  );
 }
 
 /**
@@ -317,6 +323,89 @@ export async function getSimilarTracks(track: Track, limit = 20): Promise<Track[
   return results.filter((candidate) => candidate.id !== track.id);
 }
 
+/**
+ * Shelves built from songs the listener plays on repeat.
+ *
+ * Two plays of the same song is the clearest thing someone tells Pulse without
+ * typing anything, so each repeated song earns a shelf of its own: more in its
+ * vein, and the collaborations its artist appears on — the records a person
+ * usually has to hunt for, because they are filed under somebody else's name.
+ */
+export async function getRepeatPlayShelves(
+  options: { minPlays?: number; shelves?: number; perShelf?: number } = {},
+): Promise<RecommendationShelf[]> {
+  const { minPlays = 2, shelves: wanted = 2, perShelf = SHELF_SIZE } = options;
+  const repeated = await getRepeatedTracks(minPlays, wanted);
+  if (repeated.length === 0) return [];
+
+  const built = await Promise.all(
+    repeated.map(async ({ track, plays }) => {
+      const [similar, collabs] = await Promise.all([
+        getSimilarTracks(track, perShelf).catch(() => [] as Track[]),
+        getCollaborations(track.artistName, perShelf).catch(() => [] as Track[]),
+      ]);
+
+      // Collaborations lead: they are the part the listener is least likely to
+      // have found on their own.
+      const seen = new Set<string>([track.id]);
+      const tracks: Track[] = [];
+      for (const candidate of [...collabs, ...similar]) {
+        if (seen.has(candidate.id)) continue;
+        seen.add(candidate.id);
+        tracks.push(candidate);
+        if (tracks.length >= perShelf) break;
+      }
+
+      return {
+        id: `repeat:${track.id}`,
+        title: `More like ${track.title}`,
+        subtitle: `You have played this ${plays} times — here is what sits next to it`,
+        reason: 'similar_to_favorites' as ShelfReason,
+        seed: track.title,
+        tracks,
+      } satisfies RecommendationShelf;
+    }),
+  );
+
+  return built.filter((shelf) => shelf.tracks.length >= MIN_SHELF);
+}
+
+/**
+ * Records where an artist appears alongside someone else — features, joint
+ * singles, remixes. Matched on the credited names rather than guessed at.
+ */
+export async function getCollaborations(artistName: string, limit = 16): Promise<Track[]> {
+  const name = artistName.trim();
+  if (!name || name.toLowerCase() === 'unknown artist') return [];
+
+  const provider = musicProvider();
+  const [featured, joint] = await Promise.all([
+    provider.searchTracks(`${name} feat`, { limit: 25 }).catch(() => [] as Track[]),
+    provider.searchTracks(name, { limit: 25 }).catch(() => [] as Track[]),
+  ]);
+
+  const needle = name.toLowerCase();
+  const seen = new Set<string>();
+  const out: Track[] = [];
+
+  for (const track of [...featured, ...joint]) {
+    if (seen.has(track.id)) continue;
+    const credits = `${track.artistName} ${track.title}`.toLowerCase();
+    if (!credits.includes(needle)) continue;
+    // A collaboration names more than one act: either in the credit line or in
+    // the title's "(feat. …)" suffix.
+    const isCollab =
+      /\b(feat\.?|ft\.?|featuring|with)\b/.test(credits) ||
+      /[,&]|\bx\b|\bvs\.?\b/.test(track.artistName.toLowerCase());
+    if (!isCollab) continue;
+    seen.add(track.id);
+    out.push(track);
+    if (out.length >= limit) break;
+  }
+
+  return out;
+}
+
 /** Songs that would sit naturally inside an existing playlist. */
 export async function getPlaylistSuggestions(
   seed: { genres: string[]; artistNames: string[]; trackIds: string[] },
@@ -337,6 +426,52 @@ export async function getPlaylistSuggestions(
     },
     limit,
   );
+}
+
+/**
+ * The artists to put in front of someone who has not searched for anything yet.
+ *
+ * Their own artists first, as real catalogue entries with real pictures, so
+ * tapping one opens everything that artist has rather than only the songs the
+ * listener happens to own. Then the artists around them, which is how a
+ * collection grows outward instead of in circles.
+ */
+export async function getArtistsFromLibrary(limit = 12): Promise<Artist[]> {
+  const profile = await buildTasteProfileInternal();
+  const mine = ownedArtists(profile, 8);
+  const names = (mine.length ? mine : profile.artists.slice(0, 8)).map((artist) => artist.name);
+  if (names.length === 0) return [];
+
+  const provider = musicProvider();
+  const found = await Promise.all(
+    names.slice(0, 8).map((name) =>
+      provider
+        .searchArtists(name, { limit: 1 })
+        .then((results) => results[0] ?? null)
+        .catch(() => null),
+    ),
+  );
+
+  const artists: Artist[] = [];
+  const seen = new Set<string>();
+  for (const artist of found) {
+    if (!artist || seen.has(artist.id)) continue;
+    seen.add(artist.id);
+    artists.push(artist);
+  }
+
+  // Top up with neighbours so the row is never a short stub.
+  if (artists.length < limit && artists[0]) {
+    const related = await provider.getRelatedArtists(artists[0].id, limit).catch(() => [] as Artist[]);
+    for (const artist of related) {
+      if (artists.length >= limit) break;
+      if (seen.has(artist.id)) continue;
+      seen.add(artist.id);
+      artists.push(artist);
+    }
+  }
+
+  return artists.slice(0, limit);
 }
 
 /** Personalised tail for a search: artists this listener is likely to enjoy. */

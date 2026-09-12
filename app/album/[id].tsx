@@ -22,10 +22,12 @@ import { Button, IconButton } from '@/src/ui/buttons';
 import { TrackRow } from '@/src/ui/rows';
 import { ErrorState, ProgressBar, Skeleton, SkeletonRows } from '@/src/ui/states';
 import { useEffect, useMemo, useState } from 'react';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme } from '@/src/theme/theme';
 
 /** The album page, with a real tracklist and a whole-album download. */
 export default function AlbumScreen() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { gutter, width, isTabletUp } = useResponsive();

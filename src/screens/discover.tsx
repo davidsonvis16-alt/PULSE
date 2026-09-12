@@ -11,14 +11,19 @@ import { Ionicons } from '@expo/vector-icons';
 import type { SearchResults, Track } from '@/src/core/types';
 import { MOODS } from '@/src/core/moods';
 import { config } from '@/src/core/config';
-import { formatDuration } from '@/src/core/format';
+import { formatDuration, formatReleaseDate } from '@/src/core/format';
 import { musicProvider } from '@/src/providers/music';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
 import { addTrackToLibrary, isInLibrary } from '@/src/db/repos/library';
-import { getRecentSearches, recordSearch, clearSearchHistory } from '@/src/db/repos/settings';
+import { recordSearch } from '@/src/db/repos/settings';
 import { listPlaylists, type Playlist } from '@/src/db/repos/playlists';
-import { buildTasteProfile, getRelatedToSearch, type TasteProfile } from '@/src/discovery/engine';
+import {
+  buildTasteProfile,
+  getArtistsFromLibrary,
+  getRelatedToSearch,
+  type TasteProfile,
+} from '@/src/discovery/engine';
 import { useAsync, useDebounced } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { useStore } from '@/src/hooks/use-store';
@@ -31,10 +36,11 @@ import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { Chip } from '@/src/ui/buttons';
 import { AlbumRow, ArtistRow } from '@/src/ui/rows';
-import { MoodCard } from '@/src/ui/cards';
+import { ArtistCard, MoodCard } from '@/src/ui/cards';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type Filter = 'all' | 'songs' | 'artists' | 'albums' | 'playlists';
 
@@ -54,6 +60,8 @@ const FILTERS: { value: Filter; label: string }[] = [
  * do with a result without opening it first: play, download, add, share.
  */
 export function DiscoverScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const params = useLocalSearchParams<{ q?: string }>();
   const { gutter, shelfCardWidth, isTabletUp } = useResponsive();
@@ -89,8 +97,6 @@ export function DiscoverScreen() {
     },
     [debounced],
   );
-
-  const recents = useAsync(() => getRecentSearches(8), [debounced.length === 0]);
 
   const taste = useAsync(() => buildTasteProfile(), []);
 
@@ -169,12 +175,7 @@ export function DiscoverScreen() {
           <BrowseState
             gutter={gutter}
             cardWidth={isTabletUp ? 200 : 150}
-            recents={recents.data ?? []}
-            onPick={(value) => setQuery(value)}
-            onClearRecents={async () => {
-              await clearSearchHistory();
-              recents.reload();
-            }}
+            shelfCardWidth={shelfCardWidth}
             onMood={(id) => router.push(`/mood/${id}`)}
           />
         ) : results.loading ? (
@@ -203,47 +204,40 @@ export function DiscoverScreen() {
 function BrowseState({
   gutter,
   cardWidth,
-  recents,
-  onPick,
-  onClearRecents,
+  shelfCardWidth,
   onMood,
 }: {
   gutter: number;
   cardWidth: number;
-  recents: string[];
-  onPick: (value: string) => void;
-  onClearRecents: () => void;
+  shelfCardWidth: number;
   onMood: (id: string) => void;
 }) {
   const trending = useAsync(() => musicProvider().getTrending(12), []);
+  const artists = useAsync(() => getArtistsFromLibrary(12), []);
   const router = useRouter();
 
   return (
     <View style={{ gap: spacing.xxl, paddingTop: spacing.sm }}>
-      {recents.length > 0 && (
+      {/* The artists behind the collection, rather than a list of old queries. */}
+      {!!artists.data?.length && (
         <View>
           <SectionHeader
-            title="Recent searches"
-            actionLabel="Clear"
-            onAction={onClearRecents}
+            title="Artists you own"
+            subtitle="Open one for their songs, newest releases and best albums"
             style={{ paddingHorizontal: gutter }}
           />
-          <View style={{ paddingHorizontal: gutter, gap: 2 }}>
-            {recents.map((item) => (
-              <Pressable
-                key={item}
-                onPress={() => onPick(item)}
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.recent, pressed && { opacity: 0.6 }]}
-              >
-                <Ionicons name="time-outline" size={16} color={colors.textMuted} />
-                <Txt variant="body" tone="secondary" style={{ flex: 1 }} numberOfLines={1}>
-                  {item}
-                </Txt>
-                <Ionicons name="arrow-up-outline" size={14} color={colors.textFaint} />
-              </Pressable>
-            ))}
-          </View>
+          <Shelf
+            data={artists.data}
+            gutter={gutter}
+            keyExtractor={(artist) => artist.id}
+            renderItem={(artist) => (
+              <ArtistCard
+                artist={artist}
+                width={shelfCardWidth}
+                onPress={() => router.push(`/artist/${encodeURIComponent(artist.id)}`)}
+              />
+            )}
+          />
         </View>
       )}
 
@@ -310,6 +304,8 @@ function SearchResultsView({
   personalised: Track[];
   taste: TasteProfile | undefined;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
 
   const nothing =
@@ -507,6 +503,7 @@ function SearchResultsView({
 
 /** A result row carrying its own quick actions: play, download, add, share. */
 function SearchTrackRow({ track, queue, index }: { track: Track; queue: Track[]; index: number }) {
+  const styles = useThemedStyles(makeStyles);
   const actions = useTrackActions();
   const share = useShareSheet();
   const toast = useToast();
@@ -551,6 +548,12 @@ function SearchTrackRow({ track, queue, index }: { track: Track; queue: Track[];
           <Txt variant="caption" tone="muted" numberOfLines={1}>
             {[track.artistName, track.albumTitle].filter(Boolean).join(' · ')}
           </Txt>
+          {/* When a song came out is part of knowing what it is. */}
+          {!!track.releaseDate && (
+            <Txt variant="caption" tone="faint" numberOfLines={1}>
+              Released {formatReleaseDate(track.releaseDate)}
+            </Txt>
+          )}
         </View>
         <Txt variant="caption" tone="faint">
           {formatDuration(track.durationMs)}
@@ -612,6 +615,8 @@ function QuickAction({
   onPress: () => void;
   active?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -625,46 +630,47 @@ function QuickAction({
   );
 }
 
-const styles = StyleSheet.create({
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  field: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    height: 42,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  input: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
-  recent: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 11 },
-  topResult: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  resultRow: { paddingVertical: 6 },
-  resultMain: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  quickActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xl,
-    paddingLeft: 60,
-    paddingTop: 6,
-  },
-  quick: { padding: 2 },
-  playlistRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 8 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+    },
+    field: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      height: 42,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    input: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
+    recent: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 11 },
+    topResult: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.lg,
+      padding: spacing.lg,
+      borderRadius: radii.lg,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    resultRow: { paddingVertical: 6 },
+    resultMain: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    quickActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xl,
+      paddingLeft: 60,
+      paddingTop: 6,
+    },
+    quick: { padding: 2 },
+    playlistRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 8 },
+  });

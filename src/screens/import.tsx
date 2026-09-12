@@ -26,7 +26,8 @@ import { Txt } from '@/src/ui/text';
 import { Button } from '@/src/ui/buttons';
 import { ProgressBar } from '@/src/ui/states';
 import { StatTile } from '@/src/ui/cards';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type Stage = 'intro' | 'running' | 'empty' | 'summary';
 
@@ -47,6 +48,8 @@ const STEPS = [
  * artwork, their Grooves and their taste profile in one pass.
  */
 export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { gutter, isTabletUp } = useResponsive();
   const toast = useToast();
@@ -422,6 +425,7 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.detail}>
       <Txt variant="caption" tone="muted">
@@ -449,6 +453,8 @@ function permissionLabel(diagnostics: ScanDiagnostics): string {
 }
 
 function Assurance({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.assurance}>
       <Ionicons name={icon} size={17} color={colors.accent} />
@@ -468,51 +474,52 @@ export async function quickImport(mode: 'device' | 'picker' = 'picker') {
   return ingestEngine.run({ mode: 'device' });
 }
 
-const styles = StyleSheet.create({
-  centered: { alignItems: 'center', paddingTop: spacing.huge, gap: spacing.xs, width: '100%' },
-  assurances: { gap: spacing.md, marginTop: spacing.xxl, width: '100%' },
-  assurance: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  notice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  steps: { gap: spacing.md, marginTop: spacing.xxl, width: '100%' },
-  step: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  tiles: { flexDirection: 'row', gap: spacing.md },
-  artistRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
-  grooveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-  },
-  grooveDot: { width: 10, height: 10, borderRadius: 5 },
-  emptyIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  diagnostics: {
-    width: '100%',
-    marginTop: spacing.xl,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-    gap: 6,
-  },
-  detail: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    centered: { alignItems: 'center', paddingTop: spacing.huge, gap: spacing.xs, width: '100%' },
+    assurances: { gap: spacing.md, marginTop: spacing.xxl, width: '100%' },
+    assurance: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    notice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.lg,
+      padding: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    steps: { gap: spacing.md, marginTop: spacing.xxl, width: '100%' },
+    step: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    tiles: { flexDirection: 'row', gap: spacing.md },
+    artistRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
+    grooveRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      padding: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+    },
+    grooveDot: { width: 10, height: 10, borderRadius: 5 },
+    emptyIcon: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: colors.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    diagnostics: {
+      width: '100%',
+      marginTop: spacing.xl,
+      padding: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+      gap: 6,
+    },
+    detail: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
+  });

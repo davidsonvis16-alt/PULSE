@@ -23,7 +23,8 @@ import { IconButton, SegmentedControl } from '@/src/ui/buttons';
 import { SectionHeader } from '@/src/ui/section';
 import { StatTile } from '@/src/ui/cards';
 import { EmptyState, ErrorState, ProgressBar, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 const RANGES: { value: StatsRange; label: string }[] = [
   { value: 'week', label: 'This week' },
@@ -47,6 +48,8 @@ const RANGE_TITLE: Record<StatsRange, string> = {
  * seconds does not count as a play.
  */
 export default function StatsScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { gutter, isTabletUp } = useResponsive();
   const bottomInset = useBottomInset();
@@ -318,30 +321,31 @@ export default function StatsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  headline: {
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radii.xl,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-    marginBottom: spacing.lg,
-  },
-  tiles: { flexDirection: 'row', gap: spacing.md },
-  chart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 3,
-    height: 100,
-    paddingHorizontal: spacing.xs,
-  },
-  bar: { flex: 1, justifyContent: 'flex-end' },
-  chartLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  rankRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: 8,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    headline: {
+      paddingVertical: spacing.xl,
+      paddingHorizontal: spacing.xl,
+      borderRadius: radii.xl,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+      marginBottom: spacing.lg,
+    },
+    tiles: { flexDirection: 'row', gap: spacing.md },
+    chart: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 3,
+      height: 100,
+      paddingHorizontal: spacing.xs,
+    },
+    bar: { flex: 1, justifyContent: 'flex-end' },
+    chartLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+    rankRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: 8,
+    },
+  });

@@ -14,7 +14,8 @@ import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { Button } from '@/src/ui/buttons';
 import { EmptyState, ErrorState, SkeletonShelf } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * The Groove index.
@@ -24,6 +25,7 @@ import { colors, radii, spacing } from '@/src/theme/tokens';
  * actually contains rather than a category name.
  */
 export function GroovesList({ embedded }: { embedded?: boolean } = {}) {
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { gutter, width, isTabletUp } = useResponsive();
   const toast = useToast();
@@ -109,6 +111,8 @@ export function GrooveCard({
   width: number;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const accent = groove.accent ?? colors.accent;
   return (
     <Pressable
@@ -173,6 +177,8 @@ export function GrooveRail({
 
 /** Small inline badge used on the track page to show a song's Grooves. */
 export function GrooveChip({ groove, onPress }: { groove: Groove; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -186,27 +192,28 @@ export function GrooveChip({ groove, onPress }: { groove: Groove; onPress: () =>
   );
 }
 
-const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  card: {
-    borderRadius: radii.lg,
-    overflow: 'hidden',
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  cardBody: { flex: 1, padding: spacing.md, gap: 2 },
-  pill: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  chipDot: { width: 7, height: 7, borderRadius: 4 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+    card: {
+      borderRadius: radii.lg,
+      overflow: 'hidden',
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    cardBody: { flex: 1, padding: spacing.md, gap: 2 },
+    pill: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radii.pill,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    chipDot: { width: 7, height: 7, borderRadius: 4 },
+  });

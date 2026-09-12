@@ -14,7 +14,8 @@ import { PulseLogo } from '@/src/ui/logo';
 import { Txt } from '@/src/ui/text';
 import { Button } from '@/src/ui/buttons';
 import { useAuth } from '@/src/auth/auth';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { useResponsive } from '@/src/hooks/use-responsive';
 
 type Mode = 'intro' | 'signin' | 'signup' | 'local';
@@ -26,6 +27,7 @@ type Mode = 'intro' | 'signin' | 'signup' | 'local';
  * that does not exist.
  */
 export function WelcomeScreen() {
+  const styles = useThemedStyles(makeStyles);
   const { mode: authMode, signIn, signUp, continueOnDevice } = useAuth();
   const insets = useSafeAreaInsets();
   const { isTabletUp } = useResponsive();
@@ -225,6 +227,8 @@ function Field({
   label,
   ...props
 }: React.ComponentProps<typeof TextInput> & { label: string }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={{ gap: 6 }}>
       <Txt variant="caption" tone="muted">
@@ -242,6 +246,7 @@ function Field({
 
 /** The lime sweep along the bottom edge, echoing the Pulse mark. */
 function LimeWave() {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View pointerEvents="none" style={styles.wave}>
       {[0, 1, 2].map((i) => (
@@ -261,29 +266,30 @@ function LimeWave() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  scroll: { flexGrow: 1, paddingHorizontal: spacing.xxl, justifyContent: 'center' },
-  inner: { width: '100%', alignSelf: 'center', gap: spacing.huge },
-  brand: { alignItems: 'center' },
-  actions: { gap: spacing.md },
-  input: {
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 15,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  wave: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120, overflow: 'hidden' },
-  waveLine: {
-    position: 'absolute',
-    left: -40,
-    right: -40,
-    height: 2,
-    borderRadius: 2,
-    backgroundColor: colors.accent,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    scroll: { flexGrow: 1, paddingHorizontal: spacing.xxl, justifyContent: 'center' },
+    inner: { width: '100%', alignSelf: 'center', gap: spacing.huge },
+    brand: { alignItems: 'center' },
+    actions: { gap: spacing.md },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 14,
+      color: colors.text,
+      fontSize: 15,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    wave: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120, overflow: 'hidden' },
+    waveLine: {
+      position: 'absolute',
+      left: -40,
+      right: -40,
+      height: 2,
+      borderRadius: 2,
+      backgroundColor: colors.accent,
+    },
+  });

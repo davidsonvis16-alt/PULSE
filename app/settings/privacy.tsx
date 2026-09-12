@@ -21,7 +21,8 @@ import { useToast } from '@/src/ui/toast';
 import { PageHeader, Screen, useBottomInset } from '@/src/ui/screen';
 import { Txt } from '@/src/ui/text';
 import { Button } from '@/src/ui/buttons';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 const ITEMS: { key: keyof PrivacyPrefs; title: string; detail: string }[] = [
   {
@@ -48,6 +49,8 @@ const ITEMS: { key: keyof PrivacyPrefs; title: string; detail: string }[] = [
 
 /** Privacy. The defaults are private; every share is something the user chose. */
 export default function PrivacySettings() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { gutter } = useResponsive();
   const bottomInset = useBottomInset();
   const toast = useToast();
@@ -160,28 +163,29 @@ export default function PrivacySettings() {
   );
 }
 
-const styles = StyleSheet.create({
-  group: {
-    backgroundColor: colors.card,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSoft,
-  },
-  note: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    group: {
+      backgroundColor: colors.card,
+      borderRadius: radii.lg,
+      paddingHorizontal: spacing.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.lg,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderSoft,
+    },
+    note: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: spacing.lg,
+      padding: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+    },
+  });

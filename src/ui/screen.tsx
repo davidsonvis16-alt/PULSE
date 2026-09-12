@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/src/ui/text';
-import { colors, layout, spacing } from '@/src/theme/tokens';
+import { layout, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { useResponsive } from '@/src/hooks/use-responsive';
 
 /**
@@ -20,6 +21,7 @@ export function Screen({
   scroll?: boolean;
   edges?: ('top' | 'bottom')[];
 }) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -54,6 +56,8 @@ export function PageHeader({
   right?: ReactNode;
   transparent?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { gutter } = useResponsive();
   return (
@@ -101,24 +105,25 @@ export function useBottomInset(extra = spacing.xl) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  headerSolid: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSoft,
-  },
-  back: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.card,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+    },
+    headerSolid: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderSoft,
+    },
+    back: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.card,
+    },
+  });

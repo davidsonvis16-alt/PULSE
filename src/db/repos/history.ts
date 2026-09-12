@@ -182,6 +182,40 @@ export async function getTopTracks(range: StatsRange, limit = 10): Promise<TopTr
   return rows.map((r) => ({ track: rowToTrack(r), plays: r.plays, msPlayed: r.ms_played ?? 0 }));
 }
 
+/** How many times this device has played one song. */
+export async function getTrackPlayCount(trackId: string): Promise<number> {
+  const instance = await db();
+  const row = await instance.getFirstAsync<{ plays: number }>(
+    'SELECT COUNT(*) AS plays FROM listening_history WHERE track_id = ? AND ms_played >= ?;',
+    [trackId, MIN_MEANINGFUL_MS],
+  );
+  return row?.plays ?? 0;
+}
+
+/**
+ * Songs the listener came back to.
+ *
+ * Playing something once can be an accident; playing it again is a statement,
+ * and it is the strongest signal Pulse has about what someone actually likes.
+ */
+export async function getRepeatedTracks(
+  minPlays = 2,
+  limit = 5,
+  range: StatsRange = 'all',
+): Promise<TopTrack[]> {
+  const instance = await db();
+  const rows = await instance.getAllAsync<Record<string, any>>(
+    `SELECT t.*, COUNT(*) AS plays, SUM(h.ms_played) AS ms_played, MAX(h.started_at) AS last_played
+     FROM listening_history h JOIN tracks t ON t.id = h.track_id
+     WHERE h.started_at >= ? AND h.ms_played >= ?
+     GROUP BY t.id
+     HAVING plays >= ?
+     ORDER BY last_played DESC, plays DESC LIMIT ?;`,
+    [rangeStart(range), MIN_MEANINGFUL_MS, minPlays, limit],
+  );
+  return rows.map((r) => ({ track: rowToTrack(r), plays: r.plays, msPlayed: r.ms_played ?? 0 }));
+}
+
 export interface TopArtist {
   artistId: string | null;
   name: string;

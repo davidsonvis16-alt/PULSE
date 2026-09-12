@@ -53,7 +53,7 @@ export const brand = {
   launchBackground: palette.white,
 } as const;
 
-export const colors = {
+export const darkColors = {
   background: palette.black,
   backgroundElevated: palette.ink,
   card: palette.surface,
@@ -66,7 +66,7 @@ export const colors = {
   accentBright: palette.limeBright,
   accentDim: palette.limeDim,
   accentGlow: palette.limeGlow,
-  /** Text/icon colour to use *on top of* the lime accent — the mark's ink. */
+  /** Text/icon colour to use *on top of* the accent — the mark's ink. */
   onAccent: '#0A0B0A',
 
   text: palette.text,
@@ -83,6 +83,55 @@ export const colors = {
   skeletonHighlight: '#242427',
   scrim: 'rgba(7, 7, 8, 0.72)',
 } as const;
+
+/** Widened so both schemes satisfy the same shape. */
+export type ThemeColors = { [K in keyof typeof darkColors]: string };
+
+/**
+ * Light.
+ *
+ * The mark sits on white, so light mode is the mark's own background. The one
+ * colour that cannot carry over is the lime: at full brightness it is
+ * unreadable on white, so text and icons use a deepened lime of the same hue
+ * and anything filled with it carries white rather than ink. The plate on the
+ * logo itself never changes — see `brand`.
+ */
+export const lightColors: ThemeColors = {
+  background: palette.white,
+  backgroundElevated: '#FAFAF8',
+  card: '#F3F4F1',
+  cardRaised: '#EDEEEA',
+  cardHigh: '#E4E6E1',
+  border: '#D9DBD5',
+  borderSoft: '#E7E9E3',
+
+  accent: '#5F8B0C',
+  accentBright: '#74A511',
+  accentDim: '#89A85A',
+  accentGlow: 'rgba(95, 139, 12, 0.12)',
+  onAccent: palette.white,
+
+  text: '#101210',
+  textSecondary: '#4E524D',
+  textMuted: '#72776F',
+  textFaint: '#9BA097',
+
+  danger: '#C62F2F',
+  warning: '#9A6A00',
+  success: '#3F7D1F',
+  info: '#1C6FB8',
+
+  skeleton: '#E9EAE6',
+  skeletonHighlight: '#F3F4F0',
+  scrim: 'rgba(16, 18, 16, 0.55)',
+};
+
+/**
+ * The dark set, kept as a plain export for the handful of places that run
+ * outside React and cannot read the theme — module constants and the
+ * pre-mount launch screen. Everything rendered uses `useTheme()`.
+ */
+export const colors = darkColors;
 
 export const spacing = {
   xxs: 2,

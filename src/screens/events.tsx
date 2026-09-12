@@ -20,7 +20,8 @@ import { Button, Chip } from '@/src/ui/buttons';
 import { EventCard } from '@/src/ui/cards';
 import { Sheet } from '@/src/ui/sheet';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type Filter = 'all' | 'concerts' | 'festivals' | 'following';
 
@@ -40,6 +41,8 @@ const DATE_RANGES = [
  * step, rather than showing invented concerts.
  */
 export function EventsScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const params = useLocalSearchParams<{ q?: string }>();
   const { gutter, isTabletUp, width } = useResponsive();
   const bottomInset = useBottomInset();
@@ -446,43 +449,44 @@ function dedupe(events: MusicEvent[]): MusicEvent[] {
   });
 }
 
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  place: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    height: 32,
-    borderRadius: radii.pill,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    height: 42,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  input: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  cacheNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+    },
+    place: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 12,
+      height: 32,
+      borderRadius: radii.pill,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    field: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      height: 42,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    input: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+    cacheNote: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+    },
+  });

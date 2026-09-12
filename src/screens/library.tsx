@@ -24,7 +24,8 @@ import { TrackCard } from '@/src/ui/cards';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
 import { Sheet } from '@/src/ui/sheet';
 import { DownloadsScreen } from '@/src/screens/downloads';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type Tab = 'music' | 'grooves' | 'downloaded' | 'playlists';
 
@@ -44,6 +45,8 @@ const SECTIONS: { id: string; title: string; icon: IconName }[] = [
 
 /** The user's own music: what they saved, downloaded, liked and built. */
 export function LibraryScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { gutter, shelfCardWidth } = useResponsive();
   const bottomInset = useBottomInset();
@@ -331,6 +334,8 @@ export function LibraryScreen() {
 }
 
 function PlaylistRow({ playlist, onPress }: { playlist: Playlist; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -377,42 +382,43 @@ function countLabel(sectionId: string, counts?: Awaited<ReturnType<typeof getLib
   }
 }
 
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 11 },
-  sectionIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: radii.sm,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playlistRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 8 },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  input: {
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 15,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    sectionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 11 },
+    sectionIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: radii.sm,
+      backgroundColor: colors.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    playlistRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 8 },
+    banner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 14,
+      color: colors.text,
+      fontSize: 15,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+  });

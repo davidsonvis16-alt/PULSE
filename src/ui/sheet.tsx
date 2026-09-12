@@ -3,7 +3,8 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/src/ui/text';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { useResponsive } from '@/src/hooks/use-responsive';
 
 /**
@@ -25,6 +26,8 @@ export function Sheet({
   children: ReactNode;
   maxHeightRatio?: number;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { isTabletUp, height } = useResponsive();
 
@@ -88,6 +91,8 @@ export function SheetAction({
   tone?: 'default' | 'accent' | 'danger';
   disabled?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const color = tone === 'danger' ? colors.danger : tone === 'accent' ? colors.accent : colors.text;
   return (
     <Pressable
@@ -114,45 +119,46 @@ export function SheetAction({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim },
-  container: { position: 'absolute', left: 0, right: 0 },
-  bottom: { bottom: 0 },
-  centered: { top: '12%', alignItems: 'center' },
-  panel: {
-    backgroundColor: colors.backgroundElevated,
-    borderTopLeftRadius: radii.xxl,
-    borderTopRightRadius: radii.xxl,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  panelCentered: {
-    width: 460,
-    maxWidth: '92%',
-    borderRadius: radii.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingTop: spacing.xl,
-  },
-  grabber: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.cardHigh,
-    alignSelf: 'center',
-    marginBottom: spacing.md,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  action: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingVertical: 14,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim },
+    container: { position: 'absolute', left: 0, right: 0 },
+    bottom: { bottom: 0 },
+    centered: { top: '12%', alignItems: 'center' },
+    panel: {
+      backgroundColor: colors.backgroundElevated,
+      borderTopLeftRadius: radii.xxl,
+      borderTopRightRadius: radii.xxl,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    panelCentered: {
+      width: 460,
+      maxWidth: '92%',
+      borderRadius: radii.xl,
+      borderWidth: StyleSheet.hairlineWidth,
+      paddingTop: spacing.xl,
+    },
+    grabber: {
+      width: 38,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.cardHigh,
+      alignSelf: 'center',
+      marginBottom: spacing.md,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingBottom: spacing.md,
+    },
+    action: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.lg,
+      paddingVertical: 14,
+    },
+  });

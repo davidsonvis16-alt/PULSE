@@ -422,6 +422,45 @@ export const itunesProvider: MusicProvider = {
     })) satisfies Album[];
   },
 
+  /**
+   * The published most-played song chart for one storefront, in order.
+   *
+   * These are real chart positions rather than a search ranking, which is why
+   * they are fetched from the charts feed instead of being inferred. Charts are
+   * per country: there is no worldwide feed, so a global board is assembled
+   * from several of these (see `src/discovery/charts.ts`).
+   */
+  async getChartTracks(options = {}) {
+    const country = (options.country ?? 'us').toLowerCase();
+    const limit = Math.min(Math.max(options.limit ?? 25, 1), 100);
+    const url = `${CHARTS_BASE}/${country}/music/most-played/${limit}/songs.json`;
+
+    const data = await getJson<ChartsResponse>(url, {
+      ttlMs: 60 * 60 * 1000,
+      rate: RATE,
+      signal: options.signal,
+    });
+
+    return (data?.feed?.results ?? []).map((row) => ({
+      id: entityId(ITUNES_PROVIDER_ID, 'track', row.id),
+      provider: ITUNES_PROVIDER_ID,
+      providerTrackId: String(row.id),
+      title: row.name,
+      artistName: row.artistName,
+      artistId: row.artistId ? entityId(ITUNES_PROVIDER_ID, 'artist', row.artistId) : null,
+      albumTitle: null,
+      albumId: null,
+      artworkUrl: artworkAt(row.artworkUrl100, 600),
+      durationMs: null,
+      releaseDate: row.releaseDate ?? null,
+      genre: row.genres?.find((genre) => genre.name !== 'Music')?.name ?? null,
+      trackNumber: null,
+      discNumber: null,
+      explicit: row.contentAdvisoryRating === 'Explicit',
+      externalUrl: row.url ?? null,
+    })) satisfies Track[];
+  },
+
   getArtwork(url, size) {
     return artworkAt(url, size);
   },

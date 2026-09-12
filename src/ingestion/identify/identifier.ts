@@ -4,6 +4,7 @@ import { musicProvider } from '@/src/providers/music';
 import {
   cleanFilename,
   coreTitle,
+  isLowInformationName,
   similarity,
   splitArtistTitle,
 } from '@/src/ingestion/identify/text';
@@ -35,6 +36,15 @@ export interface IdentificationResult {
 
 /** Above this, Pulse applies the match without asking. */
 export const CONFIDENT_THRESHOLD = 0.8;
+/**
+ * The bar for a file whose own name is worthless — "03.mp3", "AUD-0002.mp3".
+ *
+ * There is nothing to protect in a name like that, so a decent match is
+ * allowed to replace it outright rather than sitting in a review queue. The bar
+ * is still high enough that a random result cannot take a song's name, and a
+ * junk filename produces a junk query, which scores below it anyway.
+ */
+export const RENAME_THRESHOLD = 0.62;
 /** Below this, a candidate is not even worth offering. */
 export const SUGGESTION_THRESHOLD = 0.52;
 
@@ -128,6 +138,11 @@ export const catalogIdentifier: MusicIdentifier = {
       return { status: 'unidentified', match: null, confidence: bestScore, query };
     }
     if (bestScore >= CONFIDENT_THRESHOLD) {
+      return { status: 'identified', match: best, confidence: bestScore, query };
+    }
+    // A file named after nothing is better off carrying the catalogue's name
+    // and cover than a number the user never chose.
+    if (bestScore >= RENAME_THRESHOLD && !hasUsableTags(input.tags) && isLowInformationName(input.filename)) {
       return { status: 'identified', match: best, confidence: bestScore, query };
     }
     return { status: 'needs_identification', match: best, confidence: bestScore, query };

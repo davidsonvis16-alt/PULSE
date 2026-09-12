@@ -41,6 +41,7 @@ export const SETTINGS_KEYS = {
   location: 'location.place',
   lastReleaseCheck: 'releases.lastCheckedAt',
   onboardingDone: 'onboarding.done',
+  theme: 'appearance.theme',
 } as const;
 
 export interface NotificationPrefs {

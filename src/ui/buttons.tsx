@@ -2,7 +2,8 @@ import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from '
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/src/ui/text';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
@@ -31,6 +32,8 @@ export function Button({
   full?: boolean;
   style?: ViewStyle;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const isPrimary = variant === 'primary';
   const inactive = disabled || loading;
 
@@ -86,7 +89,7 @@ export function IconButton({
   name,
   onPress,
   size = 20,
-  color = colors.text,
+  color,
   background = 'none',
   label,
   disabled,
@@ -95,12 +98,15 @@ export function IconButton({
   name: keyof typeof Ionicons.glyphMap;
   onPress?: () => void;
   size?: number;
+  /** Defaults to the theme's text colour. */
   color?: string;
   background?: 'none' | 'surface' | 'accent';
   label: string;
   disabled?: boolean;
   style?: ViewStyle;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const box = size + 20;
   return (
     <Pressable
@@ -121,7 +127,11 @@ export function IconButton({
         style,
       ]}
     >
-      <Ionicons name={name} size={size} color={background === 'accent' ? colors.onAccent : color} />
+      <Ionicons
+        name={name}
+        size={size}
+        color={background === 'accent' ? colors.onAccent : (color ?? colors.text)}
+      />
     </Pressable>
   );
 }
@@ -138,6 +148,8 @@ export function PlayButton({
   size?: number;
   loading?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -176,6 +188,8 @@ export function Chip({
   onPress?: () => void;
   icon?: keyof typeof Ionicons.glyphMap;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -209,6 +223,7 @@ export function SegmentedControl<T extends string>({
   value: T;
   onChange: (value: T) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.segment}>
       {options.map((option) => {
@@ -234,63 +249,64 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    borderRadius: radii.pill,
-  },
-  primary: { backgroundColor: colors.accent },
-  secondary: {
-    backgroundColor: colors.cardHigh,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  ghost: { backgroundColor: 'transparent' },
-  danger: {
-    backgroundColor: 'transparent',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.danger,
-  },
-  full: { alignSelf: 'stretch' },
-  iconBase: { alignItems: 'center', justifyContent: 'center' },
-  play: {
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.accent,
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    height: 32,
-    borderRadius: radii.pill,
-    backgroundColor: colors.cardRaised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  segment: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: radii.pill,
-    padding: 4,
-    gap: 4,
-  },
-  segmentItem: {
-    flex: 1,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.pill,
-  },
-  segmentItemActive: { backgroundColor: colors.accent },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    base: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      borderRadius: radii.pill,
+    },
+    primary: { backgroundColor: colors.accent },
+    secondary: {
+      backgroundColor: colors.cardHigh,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    ghost: { backgroundColor: 'transparent' },
+    danger: {
+      backgroundColor: 'transparent',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.danger,
+    },
+    full: { alignSelf: 'stretch' },
+    iconBase: { alignItems: 'center', justifyContent: 'center' },
+    play: {
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.accent,
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 8,
+    },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      height: 32,
+      borderRadius: radii.pill,
+      backgroundColor: colors.cardRaised,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+    segment: {
+      flexDirection: 'row',
+      backgroundColor: colors.card,
+      borderRadius: radii.pill,
+      padding: 4,
+      gap: 4,
+    },
+    segmentItem: {
+      flex: 1,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radii.pill,
+    },
+    segmentItemActive: { backgroundColor: colors.accent },
+  });

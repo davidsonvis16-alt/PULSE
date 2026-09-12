@@ -19,7 +19,8 @@ import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { IconButton } from '@/src/ui/buttons';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 const ICONS: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   new_release: 'sparkles-outline',
@@ -33,6 +34,8 @@ const ICONS: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
 
 /** The notification centre: new releases, events, friends, recommendations. */
 export default function NotificationsScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { gutter } = useResponsive();
   const bottomInset = useBottomInset();
@@ -177,24 +180,25 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-    marginBottom: 2,
-  },
-  unread: { backgroundColor: colors.card },
-  icon: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.sm,
-    backgroundColor: colors.cardHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+      marginBottom: 2,
+    },
+    unread: { backgroundColor: colors.card },
+    icon: {
+      width: 44,
+      height: 44,
+      borderRadius: radii.sm,
+      backgroundColor: colors.cardHigh,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
+  });

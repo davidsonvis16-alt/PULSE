@@ -9,7 +9,8 @@ import { LOCAL_PROVIDER_ID } from '@/src/db/repos/local';
 import { useStore } from '@/src/hooks/use-store';
 import { useToast } from '@/src/ui/toast';
 import { Txt } from '@/src/ui/text';
-import { colors, radii } from '@/src/theme/tokens';
+import { radii } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * Keep-this-song button.
@@ -31,6 +32,8 @@ export function DownloadButton({
   /** Sits on top of artwork, so it needs its own backing. */
   onSurface?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const downloads = useStore(downloadManager);
   const toast = useToast();
 
@@ -109,18 +112,19 @@ export function DownloadButton({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.cardHigh,
-  },
-  onSurface: {
-    backgroundColor: colors.scrim,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  percent: { fontWeight: '800', color: colors.accent },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    button: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.cardHigh,
+    },
+    onSurface: {
+      backgroundColor: colors.scrim,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    percent: { fontWeight: '800', color: colors.accent },
+  });
 
 export const DOWNLOAD_BUTTON_RADIUS = radii.pill;

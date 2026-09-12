@@ -17,6 +17,7 @@ import { useResponsive } from '@/src/hooks/use-responsive';
 import { useStore } from '@/src/hooks/use-store';
 import { useSavedState } from '@/src/hooks/use-library-state';
 import { useTrackActions } from '@/src/ui/track-actions';
+import { useSongInfo } from '@/src/ui/song-info';
 import { useShareSheet } from '@/src/ui/share-sheet';
 import { useToast } from '@/src/ui/toast';
 import { trackShare } from '@/src/share/share';
@@ -28,7 +29,8 @@ import { TrackRow } from '@/src/ui/rows';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { ArtistCard } from '@/src/ui/cards';
 import { ErrorState, Skeleton, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 interface TrackPageData {
   track: Track;
@@ -41,11 +43,14 @@ interface TrackPageData {
 
 /** The song page: everything the source knows about one recording. */
 export default function TrackScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { gutter, width, isTabletUp, shelfCardWidth } = useResponsive();
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
+  const songInfo = useSongInfo();
   const share = useShareSheet();
   const toast = useToast();
   const downloads = useStore(downloadManager);
@@ -233,7 +238,11 @@ export default function TrackScreen() {
             <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxl }}>
               <SectionHeader title="About this song" />
               <View style={styles.about}>
-                <Fact label="Release date" value={formatReleaseDate(track.releaseDate) || 'Not published'} />
+                <Fact
+                  label="Release date"
+                  value={formatReleaseDate(track.releaseDate) || 'Not published'}
+                  onPress={() => songInfo(track)}
+                />
                 <Fact label="Genre" value={track.genre ?? 'Not published'} />
                 <Fact label="Album" value={track.albumTitle ?? 'Single'} />
                 <Fact label="Length" value={formatDuration(track.durationMs)} />
@@ -328,6 +337,7 @@ function Action({
   active?: boolean;
   hidden?: boolean;
 }) {
+  const { colors } = useTheme();
   if (hidden) return null;
   return (
     <View style={{ alignItems: 'center', gap: 4 }}>
@@ -346,6 +356,7 @@ function Action({
 }
 
 function Fact({ label, value, onPress }: { label: string; value: string; onPress?: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.fact}>
       <Txt variant="caption" tone="muted" style={{ width: 108 }}>
@@ -363,33 +374,34 @@ function Fact({ label, value, onPress }: { label: string; value: string; onPress
   );
 }
 
-const styles = StyleSheet.create({
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.xl,
-    gap: spacing.sm,
-  },
-  about: {
-    backgroundColor: colors.card,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  fact: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  availability: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: spacing.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    alignSelf: 'flex-start',
-    backgroundColor: colors.card,
-  },
-  grooveRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    actions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: spacing.xl,
+      gap: spacing.sm,
+    },
+    about: {
+      backgroundColor: colors.card,
+      borderRadius: radii.lg,
+      padding: spacing.lg,
+      gap: spacing.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    fact: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+    availability: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: spacing.lg,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.pill,
+      alignSelf: 'flex-start',
+      backgroundColor: colors.card,
+    },
+    grooveRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  });

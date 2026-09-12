@@ -129,6 +129,33 @@ const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
   const noSplit = text.splitArtistTitle('untitled recording 3.m4a');
   t.is('does not invent an artist when there is no separator', noSplit.artist, null);
 
+  t.is(
+    'reads dots as separators when there are no spaces',
+    text.cleanFilename('Burna.Boy.-.Last.Last.mp3'),
+    'Burna Boy - Last Last',
+  );
+
+  t.is('fixes careless lower case', text.titleCase('burna boy'), 'Burna Boy');
+  t.is('fixes shouting', text.titleCase('BURNA BOY'), 'Burna Boy');
+  t.is('leaves deliberate capitals alone', text.titleCase('SZA'), 'SZA');
+  t.is('leaves mixed case alone', text.titleCase('DaBaby'), 'DaBaby');
+
+  const named = text.displayNameFromFilename('07 - brent faiyaz - dead man walking [320kbps].mp3');
+  t.is('names an unidentified file by its artist', named.artist, 'Brent Faiyaz');
+  t.is('names an unidentified file by its title', named.title, 'Dead Man Walking');
+
+  t.ok('spots a filename that is only a number', text.isLowInformationName('03.mp3'));
+  t.ok('spots a messenger export', text.isLowInformationName('AUD-20240113-WA0002.mp3'));
+  t.ok('spots a generic recording name', text.isLowInformationName('new recording 3.m4a'));
+  t.ok(
+    'leaves a real name alone',
+    !text.isLowInformationName('07 - Brent Faiyaz - Dead Man Walking.mp3'),
+  );
+
+  const unnamed = text.displayNameFromFilename('voice memo 4.m4a');
+  t.is('keeps a title when there is no artist', unnamed.title, 'Voice Memo 4');
+  t.is('still refuses to invent an artist', unnamed.artist, null);
+
   t.is('normalises punctuation and case', text.normalise("We Can't Be Friends"), 'we cant be friends');
   t.is('drops a featured-artist suffix', text.coreTitle('Essence (feat. Tems)'), 'essence');
 

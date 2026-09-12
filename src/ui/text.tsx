@@ -1,18 +1,20 @@
 import { Text as RNText, type TextProps, type TextStyle } from 'react-native';
-import { colors, typography } from '@/src/theme/tokens';
+import { typography } from '@/src/theme/tokens';
+import { useTheme, type ThemeColors } from '@/src/theme/theme';
 
 type Variant = keyof typeof typography;
 type Tone = 'default' | 'secondary' | 'muted' | 'faint' | 'accent' | 'danger' | 'onAccent';
 
-const TONE: Record<Tone, string> = {
-  default: colors.text,
-  secondary: colors.textSecondary,
-  muted: colors.textMuted,
-  faint: colors.textFaint,
-  accent: colors.accent,
-  danger: colors.danger,
-  onAccent: colors.onAccent,
-};
+const toneColor = (colors: ThemeColors, tone: Tone): string =>
+  ({
+    default: colors.text,
+    secondary: colors.textSecondary,
+    muted: colors.textMuted,
+    faint: colors.textFaint,
+    accent: colors.accent,
+    danger: colors.danger,
+    onAccent: colors.onAccent,
+  })[tone];
 
 export interface TxtProps extends TextProps {
   variant?: Variant;
@@ -30,12 +32,13 @@ export function Txt({
   style,
   ...rest
 }: TxtProps) {
+  const { colors } = useTheme();
   return (
     <RNText
       {...rest}
       style={[
         typography[variant],
-        { color: TONE[tone] },
+        { color: toneColor(colors, tone) },
         uppercase && { textTransform: 'uppercase' },
         align && { textAlign: align },
         style,

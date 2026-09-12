@@ -25,7 +25,8 @@ import { Txt } from '@/src/ui/text';
 import { Button } from '@/src/ui/buttons';
 import { Sheet } from '@/src/ui/sheet';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * Tracks Pulse would not guess at.
@@ -36,6 +37,8 @@ import { colors, radii, spacing } from '@/src/theme/tokens';
  * metadata and artwork; searching lets the user point at the right record.
  */
 export default function IdentifyScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { gutter } = useResponsive();
   const bottomInset = useBottomInset();
@@ -267,15 +270,16 @@ export default function IdentifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSoft,
-  },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  candidate: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 10 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderSoft,
+    },
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    candidate: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 10 },
+  });

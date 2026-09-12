@@ -9,7 +9,8 @@ import { useAsync } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { PageHeader, Screen, useBottomInset } from '@/src/ui/screen';
 import { Txt } from '@/src/ui/text';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { useEffect, useState } from 'react';
 
 const ITEMS: { key: keyof NotificationPrefs; title: string; detail: string }[] = [
@@ -23,6 +24,8 @@ const ITEMS: { key: keyof NotificationPrefs; title: string; detail: string }[] =
 
 /** Notification preferences. Everything here is off-switchable, per category. */
 export default function NotificationSettings() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { gutter } = useResponsive();
   const bottomInset = useBottomInset();
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
@@ -72,20 +75,21 @@ export default function NotificationSettings() {
   );
 }
 
-const styles = StyleSheet.create({
-  group: {
-    backgroundColor: colors.card,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSoft,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    group: {
+      backgroundColor: colors.card,
+      borderRadius: radii.lg,
+      paddingHorizontal: spacing.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.lg,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderSoft,
+    },
+  });

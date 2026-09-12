@@ -8,6 +8,7 @@ import { pruneStaleEvents } from '@/src/db/repos/events';
 import { checkForNewReleases } from '@/src/discovery/releases';
 import { startLibraryWatch } from '@/src/ingestion/watch';
 import { artworkRepair } from '@/src/ingestion/artwork/backfill';
+import { likesStore } from '@/src/ui/likes';
 
 /**
  * App start-up, in the order things depend on each other:
@@ -39,6 +40,7 @@ export async function initializePulse(): Promise<void> {
 
   await downloadManager.init();
   await playerStore.init();
+  await likesStore.load();
 
   void pruneStaleEvents();
   void checkForNewReleases().catch(() => {});

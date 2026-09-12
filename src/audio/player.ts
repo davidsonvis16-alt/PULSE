@@ -7,6 +7,7 @@ import { downloadManager } from '@/src/downloads/manager';
 import { beginPlay, updatePlay, type PlayContext } from '@/src/db/repos/history';
 import { getPlaybackPrefs, setPlaybackPrefs } from '@/src/db/repos/settings';
 import { publishListening } from '@/src/social/sync';
+import { ownedMatchOf } from '@/src/library/owned';
 
 /**
  * The global player.
@@ -209,15 +210,24 @@ class PlayerStore extends Store<PlayerState> {
     });
   }
 
-  private async load(track: Track, options: { startPositionMs?: number } = {}) {
+  private async load(requested: Track, options: { startPositionMs?: number } = {}) {
     if (!this.player) await this.init();
     const token = ++this.loadToken;
 
     this.stopHistory(false, true);
     progressStore.reset();
-    this.set({ current: track, isLoading: true, error: null, source: null, isOffline: false });
+    this.set({ current: requested, isLoading: true, error: null, source: null, isOffline: false });
 
     try {
+      // A suggestion the listener already owns is played from their own file:
+      // the whole song instead of a preview, and no network at all.
+      const track = (await ownedMatchOf(requested).catch(() => null)) ?? requested;
+      if (track.id !== requested.id) {
+        if (token !== this.loadToken) return;
+        this.set({ current: track });
+        this.replaceInQueue(requested.id, track);
+      }
+
       const localUri = downloadManager.localUri(track.id);
       let source: PlayableSource | null = null;
       let offline = false;
@@ -284,6 +294,17 @@ class PlayerStore extends Store<PlayerState> {
    *
    * It is a bonus, never a reason to fail playback, so every call is guarded.
    */
+  /** Keeps the queue pointing at the copy that is actually playing. */
+  private replaceInQueue(oldId: string, track: Track) {
+    const { queue } = this.getSnapshot();
+    const at = queue.findIndex((item) => item.id === oldId);
+    if (at === -1) return;
+    const next = [...queue];
+    next[at] = track;
+    this.unshuffled = this.unshuffled.map((item) => (item.id === oldId ? track : item));
+    this.set({ queue: next });
+  }
+
   private showNotification(track: Track) {
     try {
       this.player?.setActiveForLockScreen(
@@ -328,7 +349,14 @@ class PlayerStore extends Store<PlayerState> {
     else this.play();
   }
 
+  /** True while the radio is what is playing: forward only, no scrubbing. */
+  get isRadio() {
+    return this.getSnapshot().context === 'radio';
+  }
+
   async seekTo(ms: number) {
+    // A radio has no scrub bar. Nothing to rewind to and nothing to skip past.
+    if (this.isRadio) return;
     await this.player?.seekTo(Math.max(0, ms) / 1000).catch(() => {});
     progressStore.update(ms, progressStore.getSnapshot().durationMs);
   }
@@ -339,6 +367,7 @@ class PlayerStore extends Store<PlayerState> {
   }
 
   async skipBackward(seconds = 15) {
+    if (this.isRadio) return;
     const { positionMs } = progressStore.getSnapshot();
     await this.seekTo(Math.max(0, positionMs - seconds * 1000));
   }
@@ -361,6 +390,8 @@ class PlayerStore extends Store<PlayerState> {
   }
 
   async previous() {
+    // The radio only goes forward; a song that has played is gone.
+    if (this.isRadio) return;
     const { queue, index } = this.getSnapshot();
     const { positionMs } = progressStore.getSnapshot();
     // Standard behaviour: restart the track unless we are near the beginning.
@@ -448,8 +479,10 @@ class PlayerStore extends Store<PlayerState> {
   }
 
   async jumpTo(indexInQueue: number) {
-    const { queue } = this.getSnapshot();
+    const { queue, index } = this.getSnapshot();
     if (indexInQueue < 0 || indexInQueue >= queue.length) return;
+    // On the radio you can let it run on, but you cannot go back for something.
+    if (this.isRadio && indexInQueue <= index) return;
     this.stopHistory(false, true);
     this.set({ index: indexInQueue });
     await this.load(queue[indexInQueue]);

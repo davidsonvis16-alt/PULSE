@@ -12,7 +12,8 @@ import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { Chip, IconButton } from '@/src/ui/buttons';
 import { EmptyState, ProgressBar } from '@/src/ui/states';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type Tab = 'active' | 'completed';
 type Sort = 'recent' | 'title' | 'artist' | 'size';
@@ -28,6 +29,7 @@ const ACTIVE_STATES = ['queued', 'preparing', 'downloading', 'paused', 'failed']
  * full metadata, which is what makes it playable with no connection.
  */
 export function DownloadsScreen({ embedded }: { embedded?: boolean } = {}) {
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { gutter } = useResponsive();
   const state = useStore(downloadManager);
@@ -152,6 +154,8 @@ export function DownloadsScreen({ embedded }: { embedded?: boolean } = {}) {
 }
 
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={onPress} style={styles.tab}>
       <Txt variant="callout" tone={active ? 'default' : 'muted'}>
@@ -171,6 +175,8 @@ function DownloadRow({
   onPlay: () => void;
   onMore: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const percent = Math.round(item.progress * 100);
 
@@ -273,22 +279,23 @@ function DownloadRow({
   );
 }
 
-const styles = StyleSheet.create({
-  storage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-    marginBottom: spacing.lg,
-  },
-  tabs: { flexDirection: 'row', gap: spacing.xl, marginBottom: spacing.md },
-  tab: { gap: 8 },
-  tabRule: { height: 2, borderRadius: 1, backgroundColor: 'transparent' },
-  row: { paddingVertical: 10 },
-  rowMain: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  controls: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    storage: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      padding: spacing.lg,
+      borderRadius: radii.lg,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+      marginBottom: spacing.lg,
+    },
+    tabs: { flexDirection: 'row', gap: spacing.xl, marginBottom: spacing.md },
+    tab: { gap: 8 },
+    tabRule: { height: 2, borderRadius: 1, backgroundColor: 'transparent' },
+    row: { paddingVertical: 10 },
+    rowMain: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    controls: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  });
