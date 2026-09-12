@@ -203,13 +203,18 @@ class IngestEngine extends Store<IngestState> {
       for (let i = 0; i < needsArtwork.length; i += 1) {
         if (signal.aborted) break;
         const candidate = needsArtwork[i];
-        const artist = candidate.tags.artist ?? candidate.match?.artistName ?? '';
+        // Fall back to what the filename says. A wrong cover is still ruled out
+        // downstream: the provider only returns a match it is confident in.
+        const guessed = splitArtistTitle(candidate.file.filename);
+        const artist = candidate.tags.artist ?? candidate.match?.artistName ?? guessed.artist ?? '';
         const album = candidate.tags.album ?? candidate.match?.albumTitle ?? '';
-        const title = candidate.tags.title ?? candidate.match?.title ?? '';
+        const title =
+          candidate.tags.title ??
+          candidate.match?.title ??
+          guessed.title ??
+          cleanFilename(candidate.file.filename);
 
-        // Identification has to have succeeded for artwork to be trustworthy.
-        const identifiable = hasUsableTags(candidate.tags) || candidate.identification === 'identified';
-        if (identifiable && (album || title)) {
+        if (album || title) {
           const key = `${artist.toLowerCase()}|${album.toLowerCase()}`;
           if (album && artworkCache.has(key)) {
             candidate.artworkUrl = artworkCache.get(key) ?? undefined;

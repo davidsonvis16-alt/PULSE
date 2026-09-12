@@ -1,36 +1,40 @@
 /**
  * Pulse design tokens.
  *
- * Pulse's identity: deep neutral black canvas, soft charcoal surfaces, a single
- * bright lime accent used sparingly for the things you can act on, and artwork
- * carrying the colour. Nothing else competes with the album art.
+ * Every colour here is taken from the Pulse mark: its lime plate, the ink of
+ * the P, the cream of the flag, the grey of the wordmark and the white it sits
+ * on. Surfaces are neutral so artwork carries all the other colour in the app.
  */
 
 export const palette = {
-  /** Canvas — true near-black so artwork glows. */
-  black: '#08090A',
-  ink: '#0B0C0E',
-  surface: '#121316',
-  surfaceRaised: '#17181C',
-  surfaceHigh: '#1D1F24',
-  hairline: '#24262B',
-  hairlineSoft: '#1B1D21',
+  /** Canvas — the mark's ink, darkened to let artwork glow. */
+  black: '#070708',
+  ink: '#0C0C0D',
+  surface: '#141416',
+  surfaceRaised: '#1A1A1C',
+  surfaceHigh: '#212124',
+  hairline: '#2A2A2D',
+  hairlineSoft: '#1E1E21',
 
-  /** The Pulse lime. Reserved for primary actions and active state. */
-  lime: '#CBF24C',
-  limeBright: '#D7FF4F',
-  limeDim: '#9DBE33',
-  limeGlow: 'rgba(203, 242, 76, 0.16)',
+  /** The lime of the Pulse plate. Primary actions and active state only. */
+  lime: '#C9F62B',
+  limeBright: '#D8FF52',
+  limeDim: '#9CC61F',
+  limeGlow: 'rgba(201, 246, 43, 0.16)',
+
+  /** The cream of the flag on the mark. */
+  cream: '#F6F1DF',
 
   white: '#FFFFFF',
-  text: '#F4F5F6',
-  textSecondary: '#A2A7AF',
-  textMuted: '#6B7078',
-  textFaint: '#4A4E56',
+  text: '#F4F4F3',
+  /** The grey of the Pulse wordmark. */
+  textSecondary: '#B0B3B0',
+  textMuted: '#76797A',
+  textFaint: '#4C4F50',
 
   danger: '#FF6B6B',
   warning: '#FFC24B',
-  success: '#5CD98A',
+  success: '#8FE04A',
   info: '#63B3ED',
 
   /** Mood accents — used only as gradient washes behind mood artwork. */
@@ -38,6 +42,15 @@ export const palette = {
   moodChill: '#31C4A8',
   moodEnergetic: '#FF5C8A',
   moodRock: '#F2803C',
+} as const;
+
+/** The mark's own colours, for the logo and the launch screen. */
+export const brand = {
+  plate: palette.lime,
+  ink: '#0A0B0A',
+  flag: palette.cream,
+  wordmark: palette.textSecondary,
+  launchBackground: palette.white,
 } as const;
 
 export const colors = {
@@ -53,8 +66,8 @@ export const colors = {
   accentBright: palette.limeBright,
   accentDim: palette.limeDim,
   accentGlow: palette.limeGlow,
-  /** Text/icon colour to use *on top of* the lime accent. */
-  onAccent: palette.black,
+  /** Text/icon colour to use *on top of* the lime accent — the mark's ink. */
+  onAccent: '#0A0B0A',
 
   text: palette.text,
   textSecondary: palette.textSecondary,
@@ -66,9 +79,9 @@ export const colors = {
   success: palette.success,
   info: palette.info,
 
-  skeleton: '#191B1F',
-  skeletonHighlight: '#23262B',
-  scrim: 'rgba(8, 9, 10, 0.72)',
+  skeleton: '#1A1A1C',
+  skeletonHighlight: '#242427',
+  scrim: 'rgba(7, 7, 8, 0.72)',
 } as const;
 
 export const spacing = {

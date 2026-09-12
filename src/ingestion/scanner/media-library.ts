@@ -124,7 +124,7 @@ export const mediaLibraryScanner: MusicScanner = {
         anyMediaCount: null,
         summary:
           Platform.OS === 'ios'
-            ? 'iOS does not let an app read the Music app\u2019s library.'
+            ? 'This device does not let Pulse read its music library directly.'
             : 'This platform has no media library Pulse can read.',
         suggestion: 'Choose your audio files instead and Pulse will import them the same way.',
       };
@@ -184,7 +184,7 @@ export const mediaLibraryScanner: MusicScanner = {
         summary:
           'Pulse can read this device\u2019s media store, but there are no audio files in it.',
         suggestion:
-          'Music inside a streaming app is stored privately and no app can read it. If your files are in Downloads or on an SD card, choose them by hand.',
+          'Music held privately by another app cannot be read by Pulse. If your files are in Downloads or on an SD card, choose them by hand.',
       };
     }
 

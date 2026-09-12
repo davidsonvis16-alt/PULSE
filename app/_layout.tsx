@@ -11,7 +11,7 @@ import { PulseLogo } from '@/src/ui/logo';
 import { Txt } from '@/src/ui/text';
 import { Button } from '@/src/ui/buttons';
 import { initializePulse } from '@/src/bootstrap';
-import { colors, spacing } from '@/src/theme/tokens';
+import { brand, colors, spacing } from '@/src/theme/tokens';
 import { WelcomeScreen } from '@/src/screens/welcome';
 import { ImportScreen } from '@/src/screens/import';
 import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
@@ -32,12 +32,13 @@ export default function RootLayout() {
   if (bootError) {
     return (
       <SafeAreaProvider>
+        <StatusBar style="dark" />
         <View style={styles.boot}>
-          <PulseLogo size={44} showWordmark />
-          <Txt variant="title3" align="center" style={{ marginTop: spacing.xl }}>
+          <PulseLogo size={44} showWordmark onLight />
+          <Txt variant="title3" align="center" style={{ marginTop: spacing.xl, color: brand.ink }}>
             Pulse could not start
           </Txt>
-          <Txt variant="body" tone="muted" align="center" style={{ maxWidth: 300 }}>
+          <Txt variant="body" align="center" style={{ maxWidth: 300, color: brand.wordmark }}>
             {bootError.message}
           </Txt>
           <Button
@@ -61,9 +62,10 @@ export default function RootLayout() {
   if (!ready) {
     return (
       <SafeAreaProvider>
+        <StatusBar style="dark" />
         <View style={styles.boot}>
-          <PulseLogo size={52} showWordmark tagline />
-          <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xxxl }} />
+          <PulseLogo size={64} showWordmark tagline onLight />
+          <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxxl }} />
         </View>
       </SafeAreaProvider>
     );
@@ -114,8 +116,8 @@ function AuthGate() {
   if (!ready) {
     return (
       <View style={styles.boot}>
-        <PulseLogo size={44} showWordmark />
-        <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xxl }} />
+        <PulseLogo size={56} showWordmark onLight />
+        <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
       </View>
     );
   }
@@ -125,8 +127,8 @@ function AuthGate() {
   if (needsImport === null) {
     return (
       <View style={styles.boot}>
-        <PulseLogo size={44} showWordmark />
-        <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xxl }} />
+        <PulseLogo size={56} showWordmark onLight />
+        <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
       </View>
     );
   }
@@ -154,7 +156,8 @@ function AuthGate() {
 const styles = StyleSheet.create({
   boot: {
     flex: 1,
-    backgroundColor: colors.background,
+    // Matches the launch screen exactly, so the hand-off does not flash.
+    backgroundColor: brand.launchBackground,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,

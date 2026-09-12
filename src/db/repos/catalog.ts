@@ -223,6 +223,22 @@ export async function upsertTracks(tracks: Track[]) {
   for (const track of tracks) await upsertTrack(track);
 }
 
+/** Attaches a cover to a track, and to its album when that has none either. */
+export async function setTrackArtwork(trackId: string, artworkUrl: string) {
+  const instance = await db();
+  await instance.runAsync('UPDATE tracks SET artwork_url = ?, updated_at = ? WHERE id = ?;', [
+    artworkUrl,
+    now(),
+    trackId,
+  ]);
+  await instance.runAsync(
+    `UPDATE albums SET artwork_url = ?, updated_at = ?
+      WHERE id = (SELECT album_id FROM tracks WHERE id = ?)
+        AND (artwork_url IS NULL OR artwork_url = '');`,
+    [artworkUrl, now(), trackId],
+  );
+}
+
 export async function getCachedTrack(id: string): Promise<Track | null> {
   const instance = await db();
   const row = await instance.getFirstAsync<Row>('SELECT * FROM tracks WHERE id = ?;', [id]);

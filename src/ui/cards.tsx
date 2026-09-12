@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Artwork } from '@/src/ui/artwork';
+import { DownloadButton } from '@/src/ui/download-button';
 import { Txt } from '@/src/ui/text';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 import { formatEventDate, formatPriceRange } from '@/src/core/format';
@@ -70,19 +71,29 @@ export function TrackCard({
   track,
   width,
   onPress,
+  downloadable,
 }: {
   track: Track;
   width: number;
   onPress: () => void;
+  /** Recommendations carry a keep button so a find can be taken offline here. */
+  downloadable?: boolean;
 }) {
   return (
-    <ArtCard
-      title={track.title}
-      subtitle={track.artistName}
-      artworkUrl={track.artworkUrl}
-      width={width}
-      onPress={onPress}
-    />
+    <View style={{ width }}>
+      <ArtCard
+        title={track.title}
+        subtitle={track.artistName}
+        artworkUrl={track.artworkUrl}
+        width={width}
+        onPress={onPress}
+      />
+      {downloadable && (
+        <View style={[styles.cardDownload, { top: width - 42 }]}>
+          <DownloadButton track={track} size={34} onSurface />
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -262,6 +273,7 @@ function shade(hex: string, amount: number): string {
 }
 
 const styles = StyleSheet.create({
+  cardDownload: { position: 'absolute', right: 8 },
   badge: {
     position: 'absolute',
     top: 8,

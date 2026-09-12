@@ -189,8 +189,8 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
 
             {!checking && !scanner && Platform.OS === 'ios' && (
               <Txt variant="caption" tone="faint" align="center" style={{ marginTop: spacing.md }}>
-                iOS keeps the Music app&apos;s library private to Apple, so Pulse imports the audio
-                files you choose from Files or iCloud Drive instead.
+                This device does not let Pulse read your music library directly, so choose the audio
+                files you want and Pulse imports those.
               </Txt>
             )}
           </View>

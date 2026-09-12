@@ -7,6 +7,7 @@ import { getProfile, saveProfile } from '@/src/db/repos/social';
 import { pruneStaleEvents } from '@/src/db/repos/events';
 import { checkForNewReleases } from '@/src/discovery/releases';
 import { startLibraryWatch } from '@/src/ingestion/watch';
+import { artworkRepair } from '@/src/ingestion/artwork/backfill';
 
 /**
  * App start-up, in the order things depend on each other:
@@ -41,6 +42,9 @@ export async function initializePulse(): Promise<void> {
 
   void pruneStaleEvents();
   void checkForNewReleases().catch(() => {});
+  // Quietly finds covers for anything imported without one, including music
+  // that came in before Pulse could reach the catalogue.
+  void artworkRepair.run({ limit: 200 }).catch(() => {});
   // Picks up music added to the device since last launch, if the user has
   // already granted access and imported something.
   void startLibraryWatch().catch(() => {});

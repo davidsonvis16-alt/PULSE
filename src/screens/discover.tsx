@@ -176,7 +176,6 @@ export function DiscoverScreen() {
               recents.reload();
             }}
             onMood={(id) => router.push(`/mood/${id}`)}
-            providerName={provider.name}
           />
         ) : results.loading ? (
           <View style={{ paddingHorizontal: gutter, paddingTop: spacing.md }}>
@@ -208,7 +207,6 @@ function BrowseState({
   onPick,
   onClearRecents,
   onMood,
-  providerName,
 }: {
   gutter: number;
   cardWidth: number;
@@ -216,7 +214,6 @@ function BrowseState({
   onPick: (value: string) => void;
   onClearRecents: () => void;
   onMood: (id: string) => void;
-  providerName: string;
 }) {
   const trending = useAsync(() => musicProvider().getTrending(12), []);
   const router = useRouter();
@@ -269,7 +266,7 @@ function BrowseState({
       <View>
         <SectionHeader
           title="Charting now"
-          subtitle={`Most played on ${providerName}`}
+          subtitle="Most played right now"
           style={{ paddingHorizontal: gutter }}
         />
         {trending.loading ? (

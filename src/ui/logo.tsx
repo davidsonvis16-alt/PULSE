@@ -1,44 +1,39 @@
 import { View, StyleSheet, type ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { Txt } from '@/src/ui/text';
-import { colors, radii } from '@/src/theme/tokens';
+import { brand, radii } from '@/src/theme/tokens';
+
+const MARK = require('@/assets/images/icon.png');
 
 /**
- * The Pulse mark: a lime rounded square carrying the P, optionally followed by
- * the wordmark. This is Pulse's identity — the proportions, the colour and the
- * letterform stay exactly as they are wherever the logo appears.
+ * The Pulse mark: the lime plate carrying the P and its flag, optionally
+ * followed by the wordmark. It renders the same image file the app icon and the
+ * launch screen use, so the identity is one artwork rather than three
+ * approximations of it.
  */
 export function PulseLogo({
   size = 32,
   showWordmark = false,
   tagline,
+  onLight = false,
   style,
 }: {
   size?: number;
   showWordmark?: boolean;
   tagline?: boolean;
+  /** On the white launch screen the wordmark keeps its grey. */
+  onLight?: boolean;
   style?: ViewStyle;
 }) {
   const wordSize = size * 0.86;
   return (
     <View style={[styles.row, style]}>
-      <View
-        style={[
-          styles.mark,
-          { width: size, height: size, borderRadius: size * 0.3 },
-        ]}
-      >
-        <Txt
-          style={{
-            fontSize: size * 0.62,
-            lineHeight: size * 0.78,
-            fontWeight: '800',
-            color: colors.onAccent,
-            letterSpacing: -size * 0.03,
-          }}
-        >
-          P
-        </Txt>
-      </View>
+      <Image
+        source={MARK}
+        style={{ width: size, height: size, borderRadius: size * 0.28 }}
+        contentFit="contain"
+        accessibilityLabel="Pulse"
+      />
       {showWordmark && (
         <View style={styles.words}>
           <Txt
@@ -47,13 +42,17 @@ export function PulseLogo({
               lineHeight: wordSize * 1.15,
               fontWeight: '800',
               letterSpacing: -wordSize * 0.035,
-              color: colors.text,
+              color: brand.wordmark,
             }}
           >
             Pulse
           </Txt>
           {tagline && (
-            <Txt variant="caption" tone="muted" style={{ marginTop: 2 }}>
+            <Txt
+              variant="caption"
+              style={{ marginTop: 2, color: onLight ? brand.wordmark : undefined }}
+              tone={onLight ? undefined : 'muted'}
+            >
               Your music. Your way.
             </Txt>
           )}
@@ -65,11 +64,6 @@ export function PulseLogo({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  mark: {
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   words: { justifyContent: 'center' },
 });
 

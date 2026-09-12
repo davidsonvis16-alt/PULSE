@@ -169,6 +169,19 @@ export async function listLocalTracks(options: { limit?: number } = {}): Promise
   return rows.map((row) => ({ ...toRecord(row), track: rowToTrack({ ...row, id: row.track_id }) }));
 }
 
+/** Imported tracks that still have no cover, newest first. */
+export async function listLocalTracksMissingArtwork(limit = 500): Promise<LocalTrack[]> {
+  const instance = await db();
+  const rows = await instance.getAllAsync<Record<string, any>>(
+    `SELECT l.*, t.*, l.track_id AS track_id
+     FROM local_tracks l JOIN tracks t ON t.id = l.track_id
+     WHERE t.artwork_url IS NULL OR t.artwork_url = ''
+     ORDER BY l.added_at DESC LIMIT ?;`,
+    [limit],
+  );
+  return rows.map((row) => ({ ...toRecord(row), track: rowToTrack({ ...row, id: row.track_id }) }));
+}
+
 export async function listTracksNeedingIdentification(limit = 200): Promise<LocalTrack[]> {
   const instance = await db();
   const rows = await instance.getAllAsync<Record<string, any>>(

@@ -7,7 +7,7 @@ import { colors, layout, typography } from '@/src/theme/tokens';
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const TABS: { name: string; title: string; icon: IconName; active: IconName }[] = [
-  { name: 'index', title: 'Home', icon: 'home-outline', active: 'home' },
+  { name: 'index', title: 'Music', icon: 'musical-notes-outline', active: 'musical-notes' },
   { name: 'discover', title: 'Discover', icon: 'search-outline', active: 'search' },
   { name: 'library', title: 'Library', icon: 'library-outline', active: 'library' },
   { name: 'events', title: 'Events', icon: 'calendar-outline', active: 'calendar' },

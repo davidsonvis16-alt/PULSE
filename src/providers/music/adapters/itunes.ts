@@ -206,8 +206,8 @@ const PREVIEW_MS = 30_000;
 
 export const itunesProvider: MusicProvider = {
   id: ITUNES_PROVIDER_ID,
-  name: 'Apple iTunes',
-  attribution: 'Catalogue and previews from Apple iTunes',
+  name: 'Pulse catalogue',
+  attribution: 'Catalogue details and previews from the Pulse music catalogue',
   capabilities,
 
   async searchTracks(query, options) {
@@ -434,7 +434,7 @@ export const itunesProvider: MusicProvider = {
       mimeType: 'audio/mp4',
       durationMs: PREVIEW_MS,
       isExcerpt: true,
-      label: 'Apple 30-second preview',
+      label: '30-second preview',
     } satisfies PlayableSource;
   },
 
@@ -446,7 +446,7 @@ export const itunesProvider: MusicProvider = {
       mimeType: 'audio/mp4',
       durationMs: PREVIEW_MS,
       isExcerpt: true,
-      label: 'Apple 30-second preview',
+      label: '30-second preview',
       fileExtension: 'm4a',
       // Apple previews are consistently around a megabyte; used only to show a
       // size estimate before the real byte count arrives from the download.

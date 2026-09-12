@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "pulse",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#08090A",
+    "backgroundColor": "#070708",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
@@ -23,7 +23,7 @@
     "android": {
       "package": "app.pulse.music",
       "adaptiveIcon": {
-        "backgroundColor": "#08090A",
+        "backgroundColor": "#C9F62B",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -37,7 +37,13 @@
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.INTERNET",
         "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
       ]
     },
     "web": {
@@ -77,11 +83,11 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 180,
+          "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#08090A",
+          "backgroundColor": "#FFFFFF",
           "dark": {
-            "backgroundColor": "#08090A"
+            "backgroundColor": "#FFFFFF"
           }
         }
       ]
@@ -92,7 +98,11 @@
     },
     "extra": {
       "EXPO_PUBLIC_MUSIC_PROVIDER": "itunes",
-      "EXPO_PUBLIC_MUSIC_COUNTRY": "US"
+      "EXPO_PUBLIC_MUSIC_COUNTRY": "US",
+      "router": {},
+      "eas": {
+        "projectId": "a9630a3c-d67a-4067-93f7-aa6e824c759e"
+      }
     }
   }
 }

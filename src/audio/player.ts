@@ -261,7 +261,7 @@ class PlayerStore extends Store<PlayerState> {
 
       this.set({ source, isOffline: offline, isLoading: false, isPlaying: true });
       this.startHistory(track, offline);
-      this.updateLockScreen(track, source);
+      this.showNotification(track);
       // Shares this play only if the user turned activity sharing on.
       void publishListening(track).catch(() => {});
     } catch (error) {
@@ -274,17 +274,38 @@ class PlayerStore extends Store<PlayerState> {
     }
   }
 
-  private updateLockScreen(track: Track, source: PlayableSource) {
+  /**
+   * The playback notification.
+   *
+   * Android draws this in the shade and on the lock screen, iOS on the lock
+   * screen and in Control Centre: cover, title, artist and transport controls
+   * that drive this same player, so pausing from outside the app is reflected
+   * back here through `playbackStatusUpdate` without any extra plumbing.
+   *
+   * It is a bonus, never a reason to fail playback, so every call is guarded.
+   */
+  private showNotification(track: Track) {
     try {
-      this.player?.setActiveForLockScreen(true, {
-        title: track.title,
-        artist: track.artistName,
-        albumTitle: track.albumTitle ?? undefined,
-        artworkUrl: track.artworkUrl ?? undefined,
-      });
+      this.player?.setActiveForLockScreen(
+        true,
+        {
+          title: track.title,
+          artist: track.artistName,
+          albumTitle: track.albumTitle ?? undefined,
+          artworkUrl: track.artworkUrl ?? undefined,
+        },
+        { showSeekForward: true, showSeekBackward: true },
+      );
     } catch {
-      // Lock-screen controls are a bonus, never a reason to fail playback.
-      void source;
+      /* no media session on this platform */
+    }
+  }
+
+  private hideNotification() {
+    try {
+      this.player?.clearLockScreenControls();
+    } catch {
+      /* nothing to clear */
     }
   }
 
@@ -437,6 +458,7 @@ class PlayerStore extends Store<PlayerState> {
   clearQueue() {
     this.stopHistory(false);
     this.player?.pause();
+    this.hideNotification();
     this.unshuffled = [];
     progressStore.reset();
     this.set({ queue: [], index: -1, current: null, isPlaying: false, source: null });
@@ -450,6 +472,7 @@ class PlayerStore extends Store<PlayerState> {
 
   dispose() {
     this.stopHistory(false);
+    this.hideNotification();
     this.subscription?.remove();
     this.player?.remove();
     this.player = null;

@@ -7,6 +7,7 @@ import { getLibraryCounts, getRecentlyAdded } from '@/src/db/repos/library';
 import { getLocalCounts } from '@/src/db/repos/local';
 import { GroovesList } from '@/src/screens/grooves';
 import { ingestEngine } from '@/src/ingestion/ingest';
+import { artworkRepair } from '@/src/ingestion/artwork/backfill';
 import { useStore } from '@/src/hooks/use-store';
 import { createPlaylist, listPlaylists, type Playlist } from '@/src/db/repos/playlists';
 import { playerStore } from '@/src/audio/player';
@@ -66,8 +67,12 @@ export function LibraryScreen() {
   );
 
   const ingest = useStore(ingestEngine);
+  const repair = useStore(artworkRepair);
 
   useFocusReload(data.reload);
+
+  const local = data.data?.local;
+  const missingCovers = local ? Math.max(0, local.tracks - local.withArtwork) : 0;
 
   const create = useCallback(async () => {
     try {
@@ -161,6 +166,37 @@ export function LibraryScreen() {
                       {ingest.found} found · {Math.round(ingest.progress * 100)}%
                     </Txt>
                   </View>
+                </Pressable>
+              )}
+
+              {missingCovers > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Find covers for ${pluralize(missingCovers, 'song')}`}
+                  disabled={repair.running}
+                  onPress={() => void artworkRepair.run()}
+                  style={({ pressed }) => [
+                    styles.banner,
+                    { marginHorizontal: gutter },
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Ionicons name="image-outline" size={18} color={colors.accent} />
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="callout">
+                      {repair.running
+                        ? 'Finding covers…'
+                        : `${pluralize(missingCovers, 'song')} without a cover`}
+                    </Txt>
+                    <Txt variant="caption" tone="muted">
+                      {repair.running
+                        ? `${repair.checked} of ${repair.total} checked · ${repair.found} found`
+                        : 'Pulse can look up the real artwork for these.'}
+                    </Txt>
+                  </View>
+                  {!repair.running && (
+                    <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+                  )}
                 </Pressable>
               )}
 
