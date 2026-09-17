@@ -79,3 +79,28 @@ export async function resolveOwnedAll(tracks: Track[]): Promise<Track[]> {
     return mine.artworkUrl ? mine : { ...mine, artworkUrl: track.artworkUrl };
   });
 }
+
+/**
+ * The artists in the library, most-owned first.
+ *
+ * Credits are split so "Wizkid & Tems" counts for both, which is what matters
+ * when checking whether someone you listen to is in the news or nominated.
+ */
+export async function libraryArtistNames(limit = 200): Promise<string[]> {
+  const owned = await ownedIndex();
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const track of owned.values()) {
+    for (const part of track.artistName.split(/\s*(?:,|&|\+|\bx\b|\band\b|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b)\s*/i)) {
+      const name = part.trim();
+      if (name.length < 2 || /^unknown artist$/i.test(name)) continue;
+      const key = normalise(name);
+      const entry = counts.get(key);
+      if (entry) entry.count += 1;
+      else counts.set(key, { name, count: 1 });
+    }
+  }
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
+    .map((entry) => entry.name);
+}

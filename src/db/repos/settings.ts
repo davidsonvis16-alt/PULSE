@@ -42,6 +42,7 @@ export const SETTINGS_KEYS = {
   lastReleaseCheck: 'releases.lastCheckedAt',
   onboardingDone: 'onboarding.done',
   theme: 'appearance.theme',
+  lastNewsCheck: 'news.lastCheckedAt',
 } as const;
 
 export interface NotificationPrefs {
@@ -51,6 +52,8 @@ export interface NotificationPrefs {
   recommendations: boolean;
   playlists: boolean;
   downloads: boolean;
+  /** Award nominations, winners and headlines about artists in the library. */
+  musicNews: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
@@ -60,6 +63,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   recommendations: true,
   playlists: true,
   downloads: false,
+  musicNews: true,
 };
 
 export interface PrivacyPrefs {
@@ -92,8 +96,13 @@ export const DEFAULT_PLAYBACK_PREFS: PlaybackPrefs = {
   preferDownloads: true,
 };
 
-export async function getNotificationPrefs() {
-  return getJsonSetting(SETTINGS_KEYS.notificationPrefs, DEFAULT_NOTIFICATION_PREFS);
+export async function getNotificationPrefs(): Promise<NotificationPrefs> {
+  // Saved before a newer switch existed, the stored object lacks it: default it on.
+  const saved = await getJsonSetting<Partial<NotificationPrefs>>(
+    SETTINGS_KEYS.notificationPrefs,
+    DEFAULT_NOTIFICATION_PREFS,
+  );
+  return { ...DEFAULT_NOTIFICATION_PREFS, ...saved };
 }
 export async function setNotificationPrefs(prefs: NotificationPrefs) {
   await setJsonSetting(SETTINGS_KEYS.notificationPrefs, prefs);

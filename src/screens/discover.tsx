@@ -34,7 +34,8 @@ import { trackShare } from '@/src/share/share';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
-import { Chip } from '@/src/ui/buttons';
+import { Chip, SegmentedControl } from '@/src/ui/buttons';
+import { MusicNews } from '@/src/screens/news';
 import { AlbumRow, ArtistRow } from '@/src/ui/rows';
 import { ArtistCard, MoodCard } from '@/src/ui/cards';
 import { SectionHeader, Shelf } from '@/src/ui/section';
@@ -43,6 +44,12 @@ import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 type Filter = 'all' | 'songs' | 'artists' | 'albums' | 'playlists';
+type Page = 'explore' | 'news';
+
+const PAGES: { value: Page; label: string }[] = [
+  { value: 'explore', label: 'Explore' },
+  { value: 'news', label: 'Music news' },
+];
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -63,12 +70,13 @@ export function DiscoverScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
-  const params = useLocalSearchParams<{ q?: string }>();
+  const params = useLocalSearchParams<{ q?: string; tab?: string }>();
   const { gutter, shelfCardWidth, isTabletUp } = useResponsive();
   const bottomInset = useBottomInset();
 
   const [query, setQuery] = useState(params.q ?? '');
   const [filter, setFilter] = useState<Filter>('all');
+  const [page, setPage] = useState<Page>(params.tab === 'news' ? 'news' : 'explore');
   const inputRef = useRef<TextInput>(null);
   const debounced = useDebounced(query.trim(), 350);
 
@@ -109,6 +117,14 @@ export function DiscoverScreen() {
 
   const showBrowse = debounced.length < 2;
 
+  // A link from a nominee or a notification can arrive with a search or a page.
+  useEffect(() => {
+    if (params.q) setQuery(params.q);
+  }, [params.q]);
+  useEffect(() => {
+    if (params.tab === 'news') setPage('news');
+  }, [params.tab]);
+
   return (
     <Screen>
       {/* Search field */}
@@ -148,6 +164,13 @@ export function DiscoverScreen() {
         )}
       </View>
 
+      {/* Explore or the news, while not searching */}
+      {showBrowse && (
+        <View style={{ paddingHorizontal: gutter, paddingBottom: spacing.md }}>
+          <SegmentedControl options={PAGES} value={page} onChange={setPage} />
+        </View>
+      )}
+
       {/* Filters */}
       {!showBrowse && (
         <ScrollView
@@ -171,7 +194,9 @@ export function DiscoverScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {showBrowse ? (
+        {showBrowse && page === 'news' ? (
+          <MusicNews />
+        ) : showBrowse ? (
           <BrowseState
             gutter={gutter}
             cardWidth={isTabletUp ? 200 : 150}

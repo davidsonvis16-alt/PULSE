@@ -118,6 +118,8 @@ export interface GetJsonOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
   rate?: { capacity: number; perSecond: number };
+  /** 'text' hands back the body untouched, for feeds that are not JSON. */
+  responseType?: 'json' | 'text';
 }
 
 export async function getJson<T>(url: string, options: GetJsonOptions = {}): Promise<T> {
@@ -128,6 +130,7 @@ export async function getJson<T>(url: string, options: GetJsonOptions = {}): Pro
     headers,
     signal,
     rate = { capacity: 8, perSecond: 4 },
+    responseType = 'json',
   } = options;
 
   if (ttlMs > 0) {
@@ -148,7 +151,10 @@ export async function getJson<T>(url: string, options: GetJsonOptions = {}): Pro
       signal?.addEventListener('abort', onAbort);
       try {
         const response = await fetch(url, {
-          headers: { Accept: 'application/json', ...headers },
+          headers: {
+            Accept: responseType === 'json' ? 'application/json' : '*/*',
+            ...headers,
+          },
           signal: controller.signal,
         });
         if (!response.ok) {
@@ -159,7 +165,7 @@ export async function getJson<T>(url: string, options: GetJsonOptions = {}): Pro
           throw new HttpError(`Request failed (${response.status})`, response.status, url);
         }
         const text = await response.text();
-        const parsed = (text ? JSON.parse(text) : null) as T;
+        const parsed = (responseType === 'text' ? text : text ? JSON.parse(text) : null) as T;
         if (ttlMs > 0) writeCache(url, parsed);
         return parsed;
       } catch (error) {
@@ -188,6 +194,11 @@ export async function getJson<T>(url: string, options: GetJsonOptions = {}): Pro
   }
 
   return run;
+}
+
+/** The same timeouts, retry, rate limit and cache as `getJson`, for text bodies. */
+export function getText(url: string, options: Omit<GetJsonOptions, 'responseType'> = {}) {
+  return getJson<string>(url, { ...options, responseType: 'text' });
 }
 
 export function buildUrl(base: string, params: Record<string, string | number | undefined | null>) {

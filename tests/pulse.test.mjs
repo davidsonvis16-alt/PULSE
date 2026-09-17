@@ -26,6 +26,9 @@ const out = compile([
   'src/grooves/genres.ts',
   'src/grooves/engine.ts',
   'src/discovery/taste.ts',
+  'src/news/rss.ts',
+  'src/news/wikitext.ts',
+  'src/news/headlines.ts',
 ]);
 
 const { readTags } = await load(out, 'src/ingestion/tags/index.js');
@@ -35,6 +38,9 @@ const { catalogIdentifier, hasUsableTags } = await load(out, 'src/ingestion/iden
 const { familyForGenre } = await load(out, 'src/grooves/genres.js');
 const grooves = await load(out, 'src/grooves/engine.js');
 const { withinTasteBoundary } = await load(out, 'src/discovery/taste.js');
+const rss = await load(out, 'src/news/rss.js');
+const wiki = await load(out, 'src/news/wikitext.js');
+const { groupStories } = await load(out, 'src/news/headlines.js');
 
 const suites = [];
 const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
@@ -336,6 +342,151 @@ const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
     'with no profile yet, nothing is excluded',
     withinTasteBoundary({ genre: 'Death Metal' }, { families: [], artists: [] }),
   );
+
+  suites.push(t);
+}
+
+/* ----------------------------------------------------------------- news --- */
+{
+  const t = createSuite('music news');
+
+  const feed = `<?xml version="1.0"?><rss><channel>
+    <item><title>Tems Shares New Single &#8216;Love Me JeJe&#8217;</title>
+      <link>https://example.com/tems-single</link>
+      <pubDate>Wed, 16 Sep 2026 22:42:10 +0000</pubDate>
+      <description><![CDATA[The singer returns with <em>a new song</em>.]]></description>
+      <media:thumbnail url="https://example.com/tems.jpg" width="100"/></item>
+    <item><title>Lagos Festival Lineup Announced</title>
+      <link>https://example.com/fest</link>
+      <pubDate>Tue, 15 Sep 2026 10:00:00 +0000</pubDate>
+      <content:encoded><![CDATA[<img src="" data-lazy-src="https://site.com/wp-content/uploads/2026/09/fest.jpg?resize=237%2C147"><p>Big names.</p>]]></content:encoded></item>
+    <item><title>No link here</title></item>
+  </channel></rss>`;
+  const items = rss.parseFeed(feed, 'Test Weekly');
+  t.is('items without a link are dropped', items.length, 2);
+  t.is('entities decoded in titles', items[0].title, 'Tems Shares New Single ‘Love Me JeJe’');
+  t.is('markup stripped from the standfirst', items[0].summary, 'The singer returns with a new song .');
+  t.is('media thumbnail used as the picture', items[0].imageUrl, 'https://example.com/tems.jpg');
+  t.is(
+    'lazy-loaded body image found and served full size',
+    items[1].imageUrl,
+    'https://site.com/wp-content/uploads/2026/09/fest.jpg',
+  );
+  t.is('publication date parsed', items[0].publishedAt, Date.parse('2026-09-16T22:42:10Z'));
+  t.is('new single classed as new music', items[0].topic, 'new-music');
+  t.is('festival lineup classed as live', items[1].topic, 'tours');
+  t.is('"award-winning" alone is not award news', rss.topicOf('Award-Winning Singer Plays Lagos Concert'), 'tours');
+  t.is(
+    'a death is not filed under awards',
+    rss.topicOf('Icon Accepts Award in Video Recorded Before Her Death'),
+    'memoriam',
+  );
+  t.ok('artist named as a whole word', rss.mentionsArtist({ title: 'Rema tops the chart', summary: '' }, 'Rema'));
+  t.not(
+    'artist name inside another word is not a mention',
+    rss.mentionsArtist({ title: 'Remarkable night', summary: '' }, 'Rema'),
+  );
+
+  const now = Date.parse('2026-09-17T08:00:00Z');
+  const base = { summary: '', author: null, topic: 'tours' };
+  const stories = groupStories(
+    [
+      { ...base, id: 'a', url: 'a', imageUrl: null, publishedAt: now, source: 'One', title: 'Macklemore Donates $1 Million Tour Earnings to Palestine Aid' },
+      { ...base, id: 'b', url: 'b', imageUrl: 'pic', publishedAt: now - 1000, source: 'Two', title: 'Macklemore to Donate $1 Million Ed Sheeran Tour Earnings to Palestine' },
+      { ...base, id: 'c', url: 'c', imageUrl: null, publishedAt: now - 2000, source: 'One', title: 'Burna Boy Announces Stadium Tour' },
+    ],
+    ['Burna Boy'],
+  );
+  t.is('the same story from two outlets becomes one card', stories.length, 2);
+  t.is('the grouped card keeps the version with a picture', stories[0].imageUrl, 'pic');
+  t.is('every outlet that ran it is listed', stories[0].sources.length, 2);
+  t.is('library artists named in a story are picked out', stories[1].mentions[0], 'Burna Boy');
+
+  // The layouts award pages use, reduced to their essentials.
+  const inCell = `{{Use mdy dates|date=June 2025}}
+{{Infobox award
+| name = 2026 MTV Video Music Awards
+| date = September 27, 2026
+| host = [[Snoop Dogg]]
+| most_nominations = [[Madonna]] (11)
+}}
+{| class="wikitable"
+| style="vertical-align:top" width="50%" |
+{{Award category|#EEDD85|[[MTV Video Music Award for Best Collaboration|Best Collaboration]]}}
+* [[Shakira]] and [[Burna Boy]] – "[[Dai Dai]]"<ref>{{cite web|title=x}}</ref>
+* [[Teyana Taylor]] and [[Lucky Daye]] – "Hard Part"
+| style="vertical-align:top" width="50%" |
+{{Award category|#EEDD85|[[Grammy Award for Album of the Year|Album of the Year]]}}
+* '''''[[Debí Tirar Más Fotos]]'' – [[Bad Bunny]]'''
+* ''[[Swag (album)|Swag]]'' '''''–''''' [[Justin Bieber]]
+|-
+| {{Award category|#FFF|[[Song of the Year]]}}
+* '''"[[Wildflower (song)|Wildflower]]"'''
+** [[Billie Eilish]] & [[Finneas]], songwriters
+* "[[Abracadabra (song)|Abracadabra]]"
+** [[Lady Gaga]], Andrew Watt & Henry Walter, songwriters
+|}`;
+  const info = wiki.parseInfobox(inCell);
+  t.is('ceremony date from the infobox, not the dates template', info.date, '2026-09-27');
+  t.is('host link text', info.host, 'Snoop Dogg');
+  t.is('most nominations', info.mostNominations, 'Madonna (11)');
+  const cats = wiki.parseAwardCategories(inCell);
+  t.is(
+    'categories named inside cells',
+    cats.map((c) => c.name).join(' / '),
+    'Best Collaboration / Album of the Year / Song of the Year',
+  );
+  t.is('credit before the dash', cats[0].nominees[0].credit, 'Shakira and Burna Boy');
+  t.is('quoted work after the dash', cats[0].nominees[0].work, 'Dai Dai');
+  t.is('every linked act kept for matching', cats[0].nominees[0].artists.join(','), 'Shakira,Burna Boy');
+  t.not('no winner before the ceremony', cats[0].nominees.some((n) => n.winner));
+  t.is('italic title first, artist after', cats[1].nominees[1].work, 'Swag');
+  t.is('artist after an emphasised dash', cats[1].nominees[1].credit, 'Justin Bieber');
+  t.ok('bold nominee is the winner', cats[1].nominees[0].winner);
+  t.is('songwriters on the line below become the credit', cats[2].nominees[0].credit, 'Billie Eilish & Finneas');
+  t.is('the title stays the work', cats[2].nominees[0].work, 'Wildflower');
+
+  const headerRow = `| date = {{start date|2026|02|28|df=y}}
+{| class="wikitable"
+! width="40%" |[[Brit Award for British Album of the Year|British Album of the Year]]<br/>{{small|(presented by [[Jeff Goldblum]])}}
+! width="40%" |[[Brit Award for British Single|Song of the Year]]
+|-
+| valign="top" |
+* '''''[[The Art of Loving (album)|The Art of Loving]]'' – [[Olivia Dean]]'''
+**<small> ''[[The Boy Who Played the Harp]]'' – [[Dave (rapper)|Dave]]</small>
+**<small> ''[[West End Girl]]'' – [[Lily Allen]]</small>
+| valign="top" |
+* {{Blue ribbon}} '''"[[Rein Me In]]" – [[Sam Fender]] and [[Olivia Dean]]'''
+** "[[Blessings (song)|Blessings]]" – [[Calvin Harris]]
+** "Egwu" – [[Chike (singer)|Chike]] & [[MohBad]]
+|}
+{| class="wikitable"
+! Artist(s) !! Song(s)
+|-
+| [[Olivia Dean]] || "Man I Need"
+|}`;
+  t.is('start date template read', wiki.parseInfobox(headerRow).date, '2026-02-28');
+  const brits = wiki.parseAwardCategories(headerRow);
+  t.is(
+    'categories from a header row, presenter note dropped',
+    brits.map((c) => c.name).join(' / '),
+    'British Album of the Year / Song of the Year',
+  );
+  t.is('winner first with the field indented', brits[0].nominees.length, 3);
+  t.ok('the top line is the winner', brits[0].nominees[0].winner);
+  t.not('indented nominees did not win', brits[0].nominees[1].winner);
+  t.is('piped link shows its label', brits[0].nominees[1].credit, 'Dave');
+  t.is('ribbon-marked winner parsed', brits[1].nominees[0].work, 'Rein Me In');
+  t.is('performance tables are not categories', brits.length, 2);
+
+  t.is('"November 28–29, 2025" takes the first day', wiki.parseWikiDate('November 28–29, 2025'), '2025-11-28');
+  t.is('day-month-year dates', wiki.parseWikiDate('1 February 2026'), '2026-02-01');
+  const songwriting = wiki.parseAwardCategories(`{|
+| {{Award category|#FFF|Song of the Year}}
+* "Si Antes" – Edgar Barrera & [[Karol G]], songwriters ([[Karol G]])
+* "Bogotá" – [[Andrés Cepeda]], songwriter ([[Andrés Cepeda]])
+|}`);
+  t.is('performer in brackets leads a songwriting credit', songwriting[0].nominees[0].credit, 'Karol G');
 
   suites.push(t);
 }

@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 
 const ITEMS: { key: keyof NotificationPrefs; title: string; detail: string }[] = [
   { key: 'newReleases', title: 'New releases', detail: 'When an artist you follow puts out something new' },
+  { key: 'musicNews', title: 'Music news and awards', detail: 'When artists you play are nominated, win, or make the headlines' },
   { key: 'events', title: 'Concerts and events', detail: 'Dates announced near you or for artists you follow' },
   { key: 'friendActivity', title: 'Friend activity', detail: 'What the people you follow are playing and sharing' },
   { key: 'recommendations', title: 'Recommendations', detail: 'Occasional picks based on what you have been playing' },

@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { formatRelativeTime } from '@/src/core/format';
 import {
@@ -30,6 +31,8 @@ const ICONS: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   recommendation: 'compass-outline',
   playlist: 'albums-outline',
   download: 'arrow-down-circle-outline',
+  award: 'trophy-outline',
+  news: 'newspaper-outline',
 };
 
 /** The notification centre: new releases, events, friends, recommendations. */
@@ -70,6 +73,13 @@ export default function NotificationsScreen() {
         break;
       case 'event':
         router.push('/events');
+        break;
+      case 'award':
+        // Ids carry what the alert was about after the edition: "edition|won|artist".
+        router.push(`/awards/${encodeURIComponent(notification.entityId.split('|')[0])}`);
+        break;
+      case 'article':
+        void WebBrowser.openBrowserAsync(notification.entityId);
         break;
       default:
         break;

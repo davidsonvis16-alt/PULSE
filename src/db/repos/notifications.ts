@@ -7,7 +7,9 @@ export type NotificationType =
   | 'friend_activity'
   | 'recommendation'
   | 'playlist'
-  | 'download';
+  | 'download'
+  | 'award'
+  | 'news';
 
 export interface PulseNotification {
   id: string;

@@ -9,6 +9,7 @@ import { checkForNewReleases } from '@/src/discovery/releases';
 import { startLibraryWatch } from '@/src/ingestion/watch';
 import { artworkRepair } from '@/src/ingestion/artwork/backfill';
 import { likesStore } from '@/src/ui/likes';
+import { checkMusicWorld } from '@/src/news/notify';
 
 /**
  * App start-up, in the order things depend on each other:
@@ -44,6 +45,8 @@ export async function initializePulse(): Promise<void> {
 
   void pruneStaleEvents();
   void checkForNewReleases().catch(() => {});
+  // Nominations, winners and headlines about the artists in the library.
+  void checkMusicWorld().catch(() => {});
   // Quietly finds covers for anything imported without one, including music
   // that came in before Pulse could reach the catalogue.
   void artworkRepair.run({ limit: 200 }).catch(() => {});
