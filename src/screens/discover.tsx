@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -35,7 +36,7 @@ import { Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { Chip, SegmentedControl } from '@/src/ui/buttons';
-import { MusicNews } from '@/src/screens/news';
+import { MusicNews, useMusicNews } from '@/src/screens/news';
 import { AlbumRow, ArtistRow } from '@/src/ui/rows';
 import { ArtistCard, MoodCard } from '@/src/ui/cards';
 import { SectionHeader, Shelf } from '@/src/ui/section';
@@ -116,6 +117,8 @@ export function DiscoverScreen() {
   }, [debounced, taste.data?.hasData]);
 
   const showBrowse = debounced.length < 2;
+  const newsOpen = showBrowse && page === 'news';
+  const news = useMusicNews(newsOpen);
 
   // A link from a nominee or a notification can arrive with a search or a page.
   useEffect(() => {
@@ -193,9 +196,18 @@ export function DiscoverScreen() {
         contentContainerStyle={{ paddingBottom: bottomInset }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          newsOpen ? (
+            <RefreshControl
+              refreshing={news.refreshing}
+              onRefresh={news.refresh}
+              tintColor={colors.accent}
+            />
+          ) : undefined
+        }
       >
-        {showBrowse && page === 'news' ? (
-          <MusicNews />
+        {newsOpen ? (
+          <MusicNews feed={news} />
         ) : showBrowse ? (
           <BrowseState
             gutter={gutter}

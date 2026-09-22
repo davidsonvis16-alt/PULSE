@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { formatRelativeTime } from '@/src/core/format';
 import { useAsync } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { libraryArtistNames } from '@/src/library/owned';
 import { getAwardSeason, nominationsFor } from '@/src/news/awards';
 import { getFreshReleases } from '@/src/news/fresh';
 import { getHeadlines, type Story } from '@/src/news/headlines';
+import { isJustIn, useLiveRefresh, useNow } from '@/src/news/live';
 import { checkMusicWorld } from '@/src/news/notify';
 import type { NewsTopic } from '@/src/news/rss';
 import { AwardPoster, HeadlinePoster, ReleasePoster, StoryRow, TOPIC_LABELS } from '@/src/ui/posters';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { Chip } from '@/src/ui/buttons';
+import { Txt } from '@/src/ui/text';
 import { EmptyState, ErrorState, SkeletonRows, SkeletonShelf } from '@/src/ui/states';
 import { spacing } from '@/src/theme/tokens';
 
@@ -24,28 +27,81 @@ function openStory(story: Story) {
   void WebBrowser.openBrowserAsync(story.url).catch(() => {});
 }
 
+export interface MusicNewsFeed {
+  artists: string[];
+  stories: ReturnType<typeof useAsync<Story[]>>;
+  awards: ReturnType<typeof useAsync<Awaited<ReturnType<typeof getAwardSeason>>>>;
+  fresh: ReturnType<typeof useAsync<Awaited<ReturnType<typeof getFreshReleases>>>>;
+  /** True while anything is reloading behind content already on screen. */
+  refreshing: boolean;
+  /** Reloads everything, ignoring every cache. */
+  refresh: () => void;
+  loadedAt: number;
+}
+
+/**
+ * The news, kept current.
+ *
+ * Held outside the view so the page it sits in can drive pull-to-refresh, and
+ * so nothing is fetched at all until someone actually opens the news.
+ */
+export function useMusicNews(enabled: boolean): MusicNewsFeed {
+  const [nonce, setNonce] = useState(0);
+  const forced = useRef(false);
+  const [loadedAt, setLoadedAt] = useState(0);
+
+  const artists = useAsync(() => libraryArtistNames(), [], { enabled });
+
+  const stories = useAsync(
+    async () => {
+      const fresh = forced.current;
+      const result = await getHeadlines({ artistNames: artists.data ?? [], fresh });
+      forced.current = false;
+      setLoadedAt(Date.now());
+      // Opening or refreshing the news is also when alerts are worked out.
+      void checkMusicWorld({ force: fresh }).catch(() => {});
+      return result;
+    },
+    [artists.data, nonce],
+    { enabled },
+  );
+
+  const awards = useAsync(() => getAwardSeason({ fresh: forced.current }), [nonce], { enabled });
+  const fresh = useAsync(() => getFreshReleases(16), [nonce], { enabled });
+
+  const refresh = () => {
+    forced.current = true;
+    setNonce((value) => value + 1);
+  };
+
+  useLiveRefresh({ enabled, refresh: () => setNonce((value) => value + 1) });
+
+  return {
+    artists: artists.data ?? [],
+    stories,
+    awards,
+    fresh,
+    refreshing: stories.refreshing || awards.refreshing || fresh.refreshing,
+    refresh,
+    loadedAt,
+  };
+}
+
 /**
  * What is happening in music, as a page of Discover.
  *
  * In order: the lead story, award season, new music set as posters, your
- * artists in the news, then everything else. Opening it is also when Pulse
- * checks whether there is anything worth an alert.
+ * artists in the news, then everything else.
  */
-export function MusicNews() {
+export function MusicNews({ feed }: { feed: MusicNewsFeed }) {
   const router = useRouter();
   const { gutter, width, contentWidth, isTabletUp } = useResponsive();
   const [topic, setTopic] = useState<TopicFilter>('all');
+  const now = useNow();
 
+  const { artists, stories, awards, fresh, loadedAt } = feed;
   const columnWidth = Math.min(contentWidth, width) - gutter * 2;
   const posterWidth = isTabletUp ? 230 : Math.round(Math.min(width * 0.58, 240));
-
-  const artists = useAsync(() => libraryArtistNames(), []);
-  const stories = useAsync(async () => {
-    void checkMusicWorld().catch(() => {});
-    return getHeadlines({ artistNames: artists.data ?? [] });
-  }, [artists.data]);
-  const awards = useAsync(() => getAwardSeason(), []);
-  const fresh = useAsync(() => getFreshReleases(16), []);
 
   const all = stories.data ?? [];
   const lead = all.find((story) => story.imageUrl) ?? all[0];
@@ -54,17 +110,27 @@ export function MusicNews() {
     (story) => story !== lead && !yours.includes(story) && (topic === 'all' || story.topic === topic),
   );
   const topicsPresent = TOPIC_FILTERS.filter((t) => t === 'all' || all.some((s) => s.topic === t));
+  const justIn = all.filter((story) => isJustIn(story.publishedAt, now)).length;
 
   return (
     <View style={{ gap: spacing.xxl, paddingTop: spacing.sm }}>
       {/* Lead story */}
-      <View style={{ paddingHorizontal: gutter }}>
+      <View style={{ paddingHorizontal: gutter, gap: spacing.sm }}>
         {stories.loading && !stories.data ? (
           <SkeletonRows count={1} height={Math.min(columnWidth, 420)} />
         ) : stories.error ? (
           <ErrorState error={stories.error} onRetry={stories.reload} compact />
         ) : lead ? (
-          <HeadlinePoster story={lead} width={columnWidth} onPress={() => openStory(lead)} />
+          <>
+            <HeadlinePoster story={lead} width={columnWidth} onPress={() => openStory(lead)} />
+            <Txt variant="caption" tone="muted">
+              {stories.refreshing
+                ? 'Checking for new stories…'
+                : `${justIn > 0 ? `${justIn} in the last hour · ` : ''}Updated ${
+                    loadedAt ? formatRelativeTime(loadedAt) : 'just now'
+                  } · Pull down to refresh`}
+            </Txt>
+          </>
         ) : null}
       </View>
 
@@ -84,7 +150,7 @@ export function MusicNews() {
               <AwardPoster
                 edition={edition}
                 width={posterWidth}
-                yourNominees={nominationsFor(edition, artists.data ?? []).length}
+                yourNominees={nominationsFor(edition, artists).length}
                 onPress={() => router.push(`/awards/${encodeURIComponent(edition.id)}`)}
               />
             )}

@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { formatRelativeTime } from '@/src/core/format';
+import { isJustIn } from '@/src/news/live';
 import { musicProvider } from '@/src/providers/music';
 import type { FreshRelease } from '@/src/news/fresh';
 import { posterWords } from '@/src/news/fresh';
@@ -141,6 +142,7 @@ export function HeadlinePoster({
       <LinearGradient colors={FADE} locations={[0.25, 0.5, 1]} style={StyleSheet.absoluteFill} />
       <View style={posterStyles.top}>
         <Kicker label={TOPIC_LABELS[story.topic]} color={tint[0]} dark />
+        {isJustIn(story.publishedAt) && <Kicker label="Just in" color="#FF4D4D" />}
         {story.sources.length > 2 && (
           <View style={posterStyles.glass}>
             <Ionicons name="flame" size={12} color={INK} />
@@ -184,8 +186,9 @@ export function StoryRow({ story, onPress }: { story: Story; onPress: () => void
     >
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <View style={[styles.dot, { backgroundColor: tint[0] }]} />
+          <View style={[styles.dot, { backgroundColor: isJustIn(story.publishedAt) ? '#FF4D4D' : tint[0] }]} />
           <Txt variant="micro" tone="muted" numberOfLines={1}>
+            {isJustIn(story.publishedAt) ? 'JUST IN · ' : ''}
             {TOPIC_LABELS[story.topic].toUpperCase()}
             {story.mentions.length ? ` · ${story.mentions[0].toUpperCase()}` : ''}
           </Txt>
