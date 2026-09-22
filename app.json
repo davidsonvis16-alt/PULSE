@@ -80,6 +80,14 @@
         }
       ],
       [
+        "expo-notifications",
+        {
+          "color": "#C9F62B",
+          "defaultChannel": "music-news",
+          "enableBackgroundRemoteNotifications": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

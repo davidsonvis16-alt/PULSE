@@ -23,6 +23,7 @@ import {
 import { rebuildGrooves } from '@/src/grooves/engine';
 import { invalidateTasteProfile } from '@/src/discovery/taste';
 import { invalidateOwnedIndex } from '@/src/library/owned';
+import { refreshPushRegistration } from '@/src/notifications/push';
 
 /**
  * The import pipeline.
@@ -268,6 +269,8 @@ class IngestEngine extends Store<IngestState> {
     const grooves = await rebuildGrooves();
     invalidateTasteProfile();
     invalidateOwnedIndex();
+    // New artists in the library mean new things worth being told about.
+    void refreshPushRegistration().catch(() => {});
     this.set({ grooveCount: grooves.length, progress: 1 });
   }
 

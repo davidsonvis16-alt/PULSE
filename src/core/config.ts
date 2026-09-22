@@ -46,6 +46,14 @@ export const config = {
         ? `${read('EXPO_PUBLIC_SUPABASE_URL')}/functions/v1/events`
         : undefined),
   },
+  /** Endpoint that registers this device for music-news push. */
+  push: {
+    registerUrl:
+      read('EXPO_PUBLIC_PUSH_REGISTER_URL') ??
+      (read('EXPO_PUBLIC_SUPABASE_URL')
+        ? `${read('EXPO_PUBLIC_SUPABASE_URL')}/functions/v1/register-device`
+        : undefined),
+  },
   music: {
     /** Which registered adapter new searches run against. */
     provider: read('EXPO_PUBLIC_MUSIC_PROVIDER') ?? 'itunes',

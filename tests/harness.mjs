@@ -98,6 +98,9 @@ function rewriteImports(dir, out) {
     if (!entry.endsWith('.js')) continue;
 
     let source = readFileSync(path, 'utf8');
+    // Modules shared with the edge functions spell out `.ts`, as Deno requires
+    // and Node does not.
+    source = source.replace(/require\("(\.[^"]+)\.ts"\)/g, 'require("$1")');
     // `@/src/foo` and `@/lib/foo` become absolute paths inside the build.
     source = source.replace(/require\("@\/([^"]+)"\)/g, (_match, target) => {
       const resolved = join(out, target);

@@ -29,6 +29,7 @@ const out = compile([
   'src/news/rss.ts',
   'src/news/wikitext.ts',
   'src/news/headlines.ts',
+  'supabase/functions/_shared/alerts.ts',
 ]);
 
 const { readTags } = await load(out, 'src/ingestion/tags/index.js');
@@ -41,6 +42,7 @@ const { withinTasteBoundary } = await load(out, 'src/discovery/taste.js');
 const rss = await load(out, 'src/news/rss.js');
 const wiki = await load(out, 'src/news/wikitext.js');
 const { groupStories } = await load(out, 'src/news/headlines.js');
+const alerts = await load(out, 'supabase/functions/_shared/alerts.js');
 
 const suites = [];
 const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
@@ -487,6 +489,125 @@ const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
 * "Bogotá" – [[Andrés Cepeda]], songwriter ([[Andrés Cepeda]])
 |}`);
   t.is('performer in brackets leads a songwriting credit', songwriting[0].nominees[0].credit, 'Karol G');
+
+  suites.push(t);
+}
+
+/* ------------------------------------------------------------ push rules --- */
+{
+  const t = createSuite('push alerts');
+
+  const now = Date.parse('2026-09-22T12:00:00Z');
+  const story = (id, title, source, hoursAgo = 1, imageUrl = null) => ({
+    id,
+    url: `https://example.com/${id}`,
+    title,
+    summary: '',
+    imageUrl,
+    publishedAt: now - hoursAgo * 3600 * 1000,
+    source,
+    author: null,
+    topic: 'news',
+  });
+
+  const widelyRun = [
+    story('a', 'Burna Boy Announces World Tour Dates for 2027', 'Billboard'),
+    story('b', 'Burna Boy Announces 2027 World Tour', 'NME', 2, 'pic'),
+    story('c', 'Burna Boy Reveals World Tour Dates', 'Pitchfork', 3),
+    story('d', 'Small Label Signs New Artist', 'Stereogum'),
+  ];
+  const breaking = alerts.breakingStories(widelyRun, now);
+  t.is('only the story several outlets ran is breaking', breaking.length, 1);
+  t.ok('the breaking alert names the story', breaking[0].title.includes('Burna Boy'));
+  t.is('breaking alerts go to everyone on that topic', breaking[0].forArtists, undefined);
+  t.is(
+    'the version with a picture is the one linked',
+    breaking[0].data.url,
+    'https://example.com/b',
+  );
+
+  const stale = widelyRun.map((item) => ({ ...item, publishedAt: now - 20 * 3600 * 1000 }));
+  t.is('yesterday is not breaking news', alerts.breakingStories(stale, now).length, 0);
+
+  const edition = (date, winners, id = '2026 MTV Video Music Awards') => ({
+    id,
+    shortName: id.includes('Headies') ? 'The Headies' : 'VMAs',
+    title: id,
+    date,
+    mostNominations: 'Madonna (13)',
+    categories: [
+      {
+        name: 'Best Collaboration',
+        nominees: [
+          { credit: 'Shakira and Burna Boy', work: 'Dai Dai', artists: ['Shakira', 'Burna Boy'], winner: winners },
+          { credit: 'Tems', work: 'Free Mind', artists: ['Tems'], winner: false },
+        ],
+      },
+    ],
+  });
+
+  const upcoming = alerts.awardAlerts([edition('2026-10-10', false)], now);
+  t.ok(
+    'nominees being out is announced once',
+    upcoming.filter((a) => a.kind === 'award-nominees').length === 1,
+  );
+  t.is(
+    'each nominated artist gets their own alert',
+    upcoming.filter((a) => a.kind === 'award-nominated').length,
+    3,
+  );
+  t.is(
+    'a nomination alert is only for that artist',
+    upcoming.find((a) => a.kind === 'award-nominated').forArtists.length,
+    1,
+  );
+  t.ok(
+    'award alerts open the ceremony page',
+    upcoming[0].data.route.startsWith('/awards/'),
+  );
+
+  const tonight = alerts.awardAlerts([edition('2026-09-22', false)], now);
+  t.is('the day itself is announced', tonight.filter((a) => a.kind === 'award-today').length, 1);
+  const headies = alerts.awardAlerts([edition('2026-09-22', false, 'The Headies 2026')], now);
+  t.is(
+    'a name starting with "The" is not doubled',
+    headies.find((a) => a.kind === 'award-today').title,
+    'The Headies are on today',
+  );
+
+  const done = alerts.awardAlerts([edition('2026-09-21', true)], now);
+  t.is('winners are announced', done.filter((a) => a.kind === 'award-winners').length, 1);
+  t.is('and each winner gets their own', done.filter((a) => a.kind === 'award-won').length, 1);
+  t.ok('the winner alert names the category', done.find((a) => a.kind === 'award-won').body.includes('2026'));
+
+  const devices = [
+    { token: 'all', topics: ['breaking', 'awards', 'new-music'], artists: ['Burna Boy'] },
+    { token: 'awards-only', topics: ['awards'], artists: [] },
+    { token: 'other-taste', topics: ['breaking', 'awards'], artists: ['Metallica'] },
+  ];
+  const nomination = upcoming.find((a) => a.forArtists?.[0] === 'Burna Boy');
+  t.is(
+    'a nomination reaches only the listener who has that artist',
+    alerts.recipientsFor(nomination, devices, []).map((d) => d.token).join(','),
+    'all',
+  );
+  t.is(
+    'someone who shared no artists still hears the general award news',
+    alerts.recipientsFor(upcoming.find((a) => a.kind === 'award-nominees'), devices, []).length,
+    3,
+  );
+  t.is(
+    'breaking news skips anyone who turned that topic off',
+    alerts.recipientsFor(breaking[0], devices, widelyRun).map((d) => d.token).join(','),
+    'all,other-taste',
+  );
+
+  const personal = alerts.artistStories(widelyRun, now);
+  t.is(
+    'a story is personal only to whoever it names',
+    alerts.recipientsFor(personal[0], devices, widelyRun).map((d) => d.token).join(','),
+    'all',
+  );
 
   suites.push(t);
 }

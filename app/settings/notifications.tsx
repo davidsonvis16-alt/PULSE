@@ -5,6 +5,15 @@ import {
   setNotificationPrefs,
   type NotificationPrefs,
 } from '@/src/db/repos/settings';
+import {
+  DEFAULT_PUSH_PREFS,
+  disablePush,
+  enablePush,
+  getPushPrefs,
+  type PushPrefs,
+} from '@/src/notifications/push';
+import { config } from '@/src/core/config';
+import { useToast } from '@/src/ui/toast';
 import { useAsync } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { PageHeader, Screen, useBottomInset } from '@/src/ui/screen';
@@ -30,11 +39,52 @@ export default function NotificationSettings() {
   const { gutter } = useResponsive();
   const bottomInset = useBottomInset();
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
+  const [push, setPush] = useState<PushPrefs>(DEFAULT_PUSH_PREFS);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   const loaded = useAsync(() => getNotificationPrefs(), []);
   useEffect(() => {
     if (loaded.data) setPrefs(loaded.data);
   }, [loaded.data]);
+
+  const loadedPush = useAsync(() => getPushPrefs(), []);
+  useEffect(() => {
+    if (loadedPush.data) setPush(loadedPush.data);
+  }, [loadedPush.data]);
+
+  /**
+   * Turning alerts on asks the phone for permission and registers with the
+   * Pulse server; turning them off unregisters, so nothing is sent again.
+   */
+  const updatePush = async (next: PushPrefs) => {
+    setBusy(true);
+    try {
+      if (!next.enabled) {
+        setPush(next);
+        await disablePush();
+        return;
+      }
+      const result = await enablePush({ personalise: next.personalise });
+      if (result.status === 'ready') {
+        setPush(next);
+        toast(
+          next.personalise
+            ? 'Alerts on. You will hear when your artists are nominated, win, or make the news.'
+            : 'Alerts on for the big music news.',
+        );
+      } else {
+        setPush({ ...next, enabled: false });
+        toast(
+          result.status === 'denied'
+            ? 'Your phone is blocking notifications for Pulse. Turn them on in your phone settings.'
+            : result.reason,
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const update = async (key: keyof NotificationPrefs, value: boolean) => {
     const next = { ...prefs, [key]: value };
@@ -49,6 +99,46 @@ export default function NotificationSettings() {
         contentContainerStyle={{ paddingHorizontal: gutter, paddingBottom: bottomInset }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.group}>
+          <View style={styles.row}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt variant="bodyStrong">Alerts on this phone</Txt>
+              <Txt variant="caption" tone="muted">
+                {config.push.registerUrl
+                  ? 'Big music news, award nights and winners, sent while Pulse is closed'
+                  : 'Needs a Pulse server. Without one, news still updates whenever you open the app.'}
+              </Txt>
+            </View>
+            <Switch
+              value={push.enabled}
+              disabled={busy || !config.push.registerUrl}
+              onValueChange={(value) => void updatePush({ ...push, enabled: value })}
+              accessibilityLabel="Alerts on this phone"
+            />
+          </View>
+          {push.enabled && (
+            <View style={styles.row}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="bodyStrong">Use my artists</Txt>
+                <Txt variant="caption" tone="muted">
+                  Sends the names of artists in your library so alerts can be about them. Never your
+                  listening history, and erased when you turn this off.
+                </Txt>
+              </View>
+              <Switch
+                value={push.personalise}
+                disabled={busy}
+                onValueChange={(value) => void updatePush({ ...push, personalise: value })}
+                accessibilityLabel="Use my artists for alerts"
+              />
+            </View>
+          )}
+        </View>
+
+        <Txt variant="caption" tone="faint" style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>
+          In the app
+        </Txt>
+
         <View style={styles.group}>
           {ITEMS.map((item) => (
             <View key={item.key} style={styles.row}>

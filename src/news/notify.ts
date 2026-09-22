@@ -1,7 +1,7 @@
 import { getNotificationPrefs, getSetting, setSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { pushNotification } from '@/src/db/repos/notifications';
 import { libraryArtistNames } from '@/src/library/owned';
-import { daysUntil, getAwardSeason, nominationsFor, statusOf } from '@/src/news/awards';
+import { daysUntil, getAwardSeason, nominationsFor, statusOf, withThe } from '@/src/news/awards';
 import { getHeadlines } from '@/src/news/headlines';
 import { getFreshReleases } from '@/src/news/fresh';
 
@@ -53,7 +53,7 @@ export async function checkMusicWorld(options: { force?: boolean } = {}): Promis
           if (won.length === 0) continue;
           await send({
             type: 'award',
-            title: `${entry.artist} won at the ${edition.shortName}`,
+            title: `${entry.artist} won at ${withThe(edition.shortName)}`,
             body: list(won.slice(0, 3)) + (won.length > 3 ? ` and ${won.length - 3} more` : ''),
             entityType: 'award',
             entityId: `${edition.id}|won|${entry.artist}`,
@@ -71,7 +71,7 @@ export async function checkMusicWorld(options: { force?: boolean } = {}): Promis
       if (status === 'today') {
         await send({
           type: 'award',
-          title: `The ${edition.shortName} are on today`,
+          title: `${withThe(edition.shortName).replace(/^the\b/, 'The')} are on today`,
           body: yours.length
             ? `${list(yours.slice(0, 3).map((y) => y.artist))} ${yours.length === 1 ? 'is' : 'are'} nominated.`
             : 'Here is everyone nominated.',
@@ -85,7 +85,7 @@ export async function checkMusicWorld(options: { force?: boolean } = {}): Promis
           const names = entry.categories.map((c) => c.name);
           await send({
             type: 'award',
-            title: `${entry.artist} is nominated at the ${edition.shortName}`,
+            title: `${entry.artist} is nominated at ${withThe(edition.shortName)}`,
             body: list(names.slice(0, 2)) + (names.length > 2 ? ` and ${names.length - 2} more` : ''),
             entityType: 'award',
             entityId: `${edition.id}|nominated|${entry.artist}`,

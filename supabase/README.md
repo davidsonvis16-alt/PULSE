@@ -6,6 +6,8 @@ adds two things that genuinely need a server:
 
 1. **Accounts and the social layer** — profiles, follows and the activity feed.
 2. **The events proxy** — so the Ticketmaster key stays off the phone.
+3. **Music news alerts** — a job that watches the music press and the award
+   pages and pushes to phones, so news arrives while Pulse is closed.
 
 ## Setting it up
 
@@ -15,6 +17,52 @@ supabase db push                       # applies migrations/0001_pulse_social.sq
 supabase secrets set TICKETMASTER_API_KEY=<your-discovery-key>
 supabase functions deploy events
 ```
+
+### Music news alerts
+
+```bash
+supabase db push                              # adds 0002 and 0003
+supabase secrets set PUSH_JOB_SECRET=$(openssl rand -hex 32)
+supabase functions deploy register-device
+supabase functions deploy music-news-push
+```
+
+Then tell the database where the functions live and what the secret is, so the
+scheduler can call the job:
+
+```sql
+alter database postgres set app.pulse_functions_url = 'https://<project>.supabase.co/functions/v1';
+alter database postgres set app.pulse_job_secret    = '<the same PUSH_JOB_SECRET>';
+```
+
+The job runs every fifteen minutes. To watch what it decides without waiting:
+
+```bash
+curl -X POST https://<project>.supabase.co/functions/v1/music-news-push \
+  -H "x-pulse-job-secret: <secret>"
+```
+
+It answers with what it considered and what it sent. Nothing is ever sent
+twice: every alert is keyed in `push_sent` before delivery.
+
+**Before any of this reaches a phone**, the push credentials have to exist, and
+only the project owner can create them:
+
+- **Android** — upload a Firebase Cloud Messaging V1 service account key:
+  `eas credentials` → Android → push notifications.
+- **iOS** — an APNs key from the Apple Developer account:
+  `eas credentials` → iOS → push notifications.
+
+Both are one-time. Expo's push service uses them to deliver; Pulse never holds
+either key.
+
+### What the server knows about a listener
+
+A row in `push_devices` is a push token, a platform, which kinds of alert were
+asked for, and — only when "Use my artists" is switched on in the app — the
+**names** of artists in that library. Never a listening history, never what was
+played or when, and no account is required. Switching it off sends an empty
+list, which erases what was stored.
 
 Then point the app at it:
 

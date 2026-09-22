@@ -18,6 +18,7 @@ import { ImportScreen } from '@/src/screens/import';
 import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { getLocalCounts } from '@/src/db/repos/local';
 import { GlobalMiniPlayer } from '@/src/ui/global-mini-player';
+import { useNotificationRouting } from '@/src/notifications/routing';
 
 export default function RootLayout() {
   return (
@@ -108,6 +109,9 @@ function AuthGate() {
   const { colors } = useTheme();
   const { ready, mode, session, profile } = useAuth();
   const [needsImport, setNeedsImport] = useState<boolean | null>(null);
+
+  // A tapped news alert opens what it was about.
+  useNotificationRouting();
 
   const signedIn = mode === 'connected' ? !!session : !!profile?.displayName;
 

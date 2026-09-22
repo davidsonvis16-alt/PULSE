@@ -43,6 +43,7 @@ export const SETTINGS_KEYS = {
   onboardingDone: 'onboarding.done',
   theme: 'appearance.theme',
   lastNewsCheck: 'news.lastCheckedAt',
+  pushPrefs: 'push.prefs',
 } as const;
 
 export interface NotificationPrefs {
