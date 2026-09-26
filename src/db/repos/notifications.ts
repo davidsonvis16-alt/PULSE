@@ -109,3 +109,24 @@ export async function clearNotifications() {
   const instance = await db();
   await instance.runAsync('DELETE FROM notifications;');
 }
+
+/**
+ * Drops announcements that have stopped being news.
+ *
+ * A "new release" from two months ago is not new, and a notification centre
+ * that never forgets anything is a list nobody opens. Read items go at the
+ * shorter age; unread ones are given longer before they are dropped, because
+ * the whole point of unread is that it has not been seen yet.
+ */
+export async function pruneStaleNotifications(options: { readAfterDays?: number; unreadAfterDays?: number } = {}) {
+  const day = 24 * 60 * 60 * 1000;
+  const readCutoff = now() - (options.readAfterDays ?? 14) * day;
+  const unreadCutoff = now() - (options.unreadAfterDays ?? 45) * day;
+  const instance = await db();
+  await instance.runAsync(
+    `DELETE FROM notifications
+      WHERE (read_at IS NOT NULL AND created_at < ?)
+         OR (read_at IS NULL AND created_at < ?);`,
+    [readCutoff, unreadCutoff],
+  );
+}

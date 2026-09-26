@@ -210,6 +210,18 @@ export default function PlayerScreen() {
         </Txt>
       )}
 
+      {player.retuning ? (
+        <Txt variant="caption" tone="muted" align="center" style={{ marginTop: spacing.sm }}>
+          Retuning the audio… the song picks up where it was.
+        </Txt>
+      ) : (
+        player.mixWithOtherApps && (
+          <Txt variant="caption" tone="muted" align="center" style={{ marginTop: spacing.sm }}>
+            Playing alongside other apps — nothing else gets paused.
+          </Txt>
+        )
+      )}
+
       {player.error && (
         <Txt variant="caption" tone="danger" align="center" style={{ marginTop: spacing.sm }}>
           {player.error}
@@ -235,6 +247,29 @@ export default function PlayerScreen() {
           label="Open the queue"
           color={colors.textSecondary}
           onPress={() => router.push('/queue')}
+        />
+        {/*
+          Share the phone's audio with whatever else is playing. Switching it
+          costs a beat — the audio session is rebuilt and the OS stops playback
+          while that happens — so the button says it is retuning and the song
+          comes back where it left off.
+        */}
+        <IconButton
+          name={
+            player.retuning
+              ? 'sync-outline'
+              : player.mixWithOtherApps
+                ? 'layers'
+                : 'layers-outline'
+          }
+          label={
+            player.mixWithOtherApps
+              ? 'Playing alongside other apps. Turn off to take the audio back.'
+              : 'Play alongside other apps without pausing them'
+          }
+          color={player.mixWithOtherApps ? colors.accent : colors.textSecondary}
+          disabled={player.retuning}
+          onPress={() => void playerStore.setMixWithOtherApps(!player.mixWithOtherApps)}
         />
         <View style={{ flex: 1 }} />
         <IconButton

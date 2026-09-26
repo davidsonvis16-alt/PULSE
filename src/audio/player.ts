@@ -42,6 +42,10 @@ export interface PlayerState {
   context: PlayContext;
   contextLabel: string | null;
   moodId: string | null;
+  /** True while Pulse is sharing the phone's audio with other apps. */
+  mixWithOtherApps: boolean;
+  /** True for the moment the audio session is being reconfigured. */
+  retuning: boolean;
 }
 
 export interface ProgressState {
@@ -65,6 +69,8 @@ const EMPTY: PlayerState = {
   context: 'library',
   contextLabel: null,
   moodId: null,
+  mixWithOtherApps: false,
+  retuning: false,
 };
 
 class ProgressStore extends Store<ProgressState> {
@@ -84,6 +90,28 @@ class ProgressStore extends Store<ProgressState> {
 
 export const progressStore = new ProgressStore();
 
+/**
+ * How Pulse asks for the phone's audio.
+ *
+ * `duckOthers` is what a music app should normally do: take focus, and let
+ * whatever else was playing drop under it. `mixWithOthers` asks for no focus at
+ * all, so Pulse plays alongside another app instead of taking over from it —
+ * over a podcast, a game, or a call's background noise.
+ *
+ * Background playback is on either way. That is the setting that keeps a song
+ * going after the app is left, and it is not something a listener should have
+ * to find.
+ */
+async function applyAudioMode(mixWithOtherApps: boolean) {
+  await setAudioModeAsync({
+    playsInSilentMode: true,
+    shouldPlayInBackground: true,
+    interruptionMode: mixWithOtherApps ? 'mixWithOthers' : 'duckOthers',
+    allowsRecording: false,
+    shouldRouteThroughEarpiece: false,
+  }).catch(() => {});
+}
+
 class PlayerStore extends Store<PlayerState> {
   private player: AudioPlayer | null = null;
   private subscription: { remove: () => void } | null = null;
@@ -99,16 +127,14 @@ class PlayerStore extends Store<PlayerState> {
   }
 
   async init() {
-    await setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: 'duckOthers',
-      allowsRecording: false,
-      shouldRouteThroughEarpiece: false,
-    }).catch(() => {});
-
     const prefs = await getPlaybackPrefs();
-    this.set({ repeat: prefs.repeat, shuffle: prefs.shuffle, volume: prefs.volume });
+    await applyAudioMode(prefs.mixWithOtherApps);
+    this.set({
+      repeat: prefs.repeat,
+      shuffle: prefs.shuffle,
+      volume: prefs.volume,
+      mixWithOtherApps: prefs.mixWithOtherApps,
+    });
 
     this.player = createAudioPlayer(null, { updateInterval: 500 });
     this.player.volume = prefs.volume;
@@ -284,16 +310,6 @@ class PlayerStore extends Store<PlayerState> {
     }
   }
 
-  /**
-   * The playback notification.
-   *
-   * Android draws this in the shade and on the lock screen, iOS on the lock
-   * screen and in Control Centre: cover, title, artist and transport controls
-   * that drive this same player, so pausing from outside the app is reflected
-   * back here through `playbackStatusUpdate` without any extra plumbing.
-   *
-   * It is a bonus, never a reason to fail playback, so every call is guarded.
-   */
   /** Keeps the queue pointing at the copy that is actually playing. */
   private replaceInQueue(oldId: string, track: Track) {
     const { queue } = this.getSnapshot();
@@ -305,6 +321,21 @@ class PlayerStore extends Store<PlayerState> {
     this.set({ queue: next });
   }
 
+  /**
+   * The playback notification.
+   *
+   * Android draws this in the shade and on the lock screen, iOS on the lock
+   * screen and in Control Centre: cover, title, artist and transport controls
+   * that drive this same player, so pausing from outside the app is reflected
+   * back here through `playbackStatusUpdate` without any extra plumbing.
+   *
+   * It is a bonus, never a reason to fail playback, so every call is guarded.
+   *
+   * What is on it is what the audio session offers: play/pause, and ten
+   * seconds either way. Skipping to the next song from the notification needs
+   * the queue to live in the native media session rather than here in JS,
+   * which expo-audio does not expose — see `docs/playback.md`.
+   */
   private showNotification(track: Track) {
     try {
       this.player?.setActiveForLockScreen(
@@ -417,6 +448,36 @@ class PlayerStore extends Store<PlayerState> {
     await this.next(false);
   }
 
+  /**
+   * Shares the phone's audio with other apps, or takes it back.
+   *
+   * The audio session has to be torn down and rebuilt to change this, and the
+   * OS stops playback while that happens — so rather than let the music cut out
+   * and stay out, Pulse pauses deliberately, retunes, and picks the song back
+   * up exactly where it was. `retuning` is true for that moment so the control
+   * can show what it is doing instead of looking broken.
+   */
+  async setMixWithOtherApps(mix: boolean) {
+    if (this.getSnapshot().mixWithOtherApps === mix) return;
+
+    const wasPlaying = this.getSnapshot().isPlaying;
+    const { positionMs } = progressStore.getSnapshot();
+
+    this.set({ retuning: true });
+    if (wasPlaying) this.pause();
+
+    await applyAudioMode(mix);
+    this.set({ mixWithOtherApps: mix });
+    await this.persistPrefs();
+
+    if (wasPlaying) {
+      // Some platforms drop the playhead when the session is rebuilt.
+      await this.seekTo(positionMs);
+      this.play();
+    }
+    this.set({ retuning: false });
+  }
+
   async setRepeat(mode: RepeatMode) {
     this.set({ repeat: mode });
     if (this.player) this.player.loop = mode === 'one';
@@ -498,9 +559,9 @@ class PlayerStore extends Store<PlayerState> {
   }
 
   private async persistPrefs() {
-    const { repeat, shuffle, volume } = this.getSnapshot();
+    const { repeat, shuffle, volume, mixWithOtherApps } = this.getSnapshot();
     const prefs = await getPlaybackPrefs();
-    await setPlaybackPrefs({ ...prefs, repeat, shuffle, volume });
+    await setPlaybackPrefs({ ...prefs, repeat, shuffle, volume, mixWithOtherApps });
   }
 
   dispose() {

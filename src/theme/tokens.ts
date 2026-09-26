@@ -50,7 +50,18 @@ export const brand = {
   ink: '#0A0B0A',
   flag: palette.cream,
   wordmark: palette.textSecondary,
-  launchBackground: palette.white,
+  /**
+   * The launch screen.
+   *
+   * One solid brand ground with the mark on it in white, the way a logo is
+   * presented rather than the way an app icon is. It is the app's own black, so
+   * the splash hands over to the first screen without a flash of a different
+   * colour in between — which is the whole reason these are tokens and not
+   * three separate hex codes in three files.
+   */
+  launchBackground: palette.black,
+  launchInk: palette.white,
+  launchInkSoft: 'rgba(255,255,255,0.66)',
 } as const;
 
 export const darkColors = {

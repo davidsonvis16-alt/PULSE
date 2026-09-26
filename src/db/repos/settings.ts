@@ -88,6 +88,15 @@ export interface PlaybackPrefs {
   repeat: 'off' | 'all' | 'one';
   shuffle: boolean;
   preferDownloads: boolean;
+  /**
+   * Share the phone's audio with whatever else is playing.
+   *
+   * Off — the default, and what a music app should normally do — Pulse takes
+   * audio focus and other apps duck under it. On, Pulse plays alongside them
+   * without interrupting them, which is what you want over a podcast, a game,
+   * or a video call's background.
+   */
+  mixWithOtherApps: boolean;
 }
 
 export const DEFAULT_PLAYBACK_PREFS: PlaybackPrefs = {
@@ -95,6 +104,7 @@ export const DEFAULT_PLAYBACK_PREFS: PlaybackPrefs = {
   repeat: 'off',
   shuffle: false,
   preferDownloads: true,
+  mixWithOtherApps: false,
 };
 
 export async function getNotificationPrefs(): Promise<NotificationPrefs> {
@@ -124,8 +134,13 @@ export async function setPrivacyPrefs(prefs: PrivacyPrefs) {
     ],
   );
 }
-export async function getPlaybackPrefs() {
-  return getJsonSetting(SETTINGS_KEYS.playback, DEFAULT_PLAYBACK_PREFS);
+export async function getPlaybackPrefs(): Promise<PlaybackPrefs> {
+  // Saved before a newer switch existed, the stored object lacks it: default it.
+  const saved = await getJsonSetting<Partial<PlaybackPrefs>>(
+    SETTINGS_KEYS.playback,
+    DEFAULT_PLAYBACK_PREFS,
+  );
+  return { ...DEFAULT_PLAYBACK_PREFS, ...saved };
 }
 export async function setPlaybackPrefs(prefs: PlaybackPrefs) {
   await setJsonSetting(SETTINGS_KEYS.playback, prefs);

@@ -47,13 +47,13 @@ function PulseRoot() {
   if (bootError) {
     return (
       <SafeAreaProvider>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         <View style={styles.boot}>
-          <PulseLogo size={44} showWordmark onLight />
-          <Txt variant="title3" align="center" style={{ marginTop: spacing.xl, color: brand.ink }}>
+          <PulseLogo size={64} showWordmark variant="white" />
+          <Txt variant="title3" align="center" style={{ marginTop: spacing.xl, color: brand.launchInk }}>
             Pulse could not start
           </Txt>
-          <Txt variant="body" align="center" style={{ maxWidth: 300, color: brand.wordmark }}>
+          <Txt variant="body" align="center" style={{ maxWidth: 300, color: brand.launchInkSoft }}>
             {bootError.message}
           </Txt>
           <Button
@@ -77,9 +77,9 @@ function PulseRoot() {
   if (!ready) {
     return (
       <SafeAreaProvider>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         <View style={styles.boot}>
-          <PulseLogo size={64} showWordmark tagline onLight />
+          <PulseLogo size={96} showWordmark tagline variant="white" />
           <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxxl }} />
         </View>
       </SafeAreaProvider>
@@ -135,7 +135,7 @@ function AuthGate() {
   if (!ready) {
     return (
       <View style={styles.boot}>
-        <PulseLogo size={56} showWordmark onLight />
+        <PulseLogo size={76} showWordmark variant="white" />
         <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
       </View>
     );
@@ -146,7 +146,7 @@ function AuthGate() {
   if (needsImport === null) {
     return (
       <View style={styles.boot}>
-        <PulseLogo size={56} showWordmark onLight />
+        <PulseLogo size={76} showWordmark variant="white" />
         <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
       </View>
     );

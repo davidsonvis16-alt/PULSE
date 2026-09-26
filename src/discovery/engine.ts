@@ -10,6 +10,7 @@ import {
   withinTasteBoundary,
   type TasteProfile,
 } from '@/src/discovery/taste';
+import { currentRotation, recentlySuggested, rememberSuggested, rotate } from '@/src/discovery/rotation';
 
 export {
   buildTasteProfile,
@@ -55,18 +56,27 @@ const MIN_SHELF = 4;
 
 export async function getRecommendationShelves(
   profile: TasteProfile,
-  options: { limit?: number } = {},
+  options: { limit?: number; rotate?: number } = {},
 ): Promise<RecommendationShelf[]> {
   const perShelf = options.limit ?? SHELF_SIZE;
+  const rotation = options.rotate ?? currentRotation();
 
-  if (!profile.hasData) return coldStart(perShelf);
+  if (!profile.hasData) return coldStart(perShelf, rotation);
 
   const provider = musicProvider();
   const exclude = [...profile.knownTrackIds];
-  const genres = topGenreNames(profile, 4);
-  const owned = ownedArtists(profile, 3);
+  // Seeds are drawn from a deeper pool than the shelves need and rotated
+  // through it, so the fourth-favourite artist gets their turn at the top of
+  // the page instead of the same three names holding it forever. Same profile,
+  // different slice — which is what makes tomorrow's page new rather than
+  // random.
+  const genres = rotate(topGenreNames(profile, 10), rotation, 4);
+  const owned = ownedArtists(profile, 10);
   // Falls back to played artists when nothing has been imported yet.
-  const seedArtists = owned.length > 0 ? owned : profile.artists.slice(0, 3);
+  const seedArtists = rotate(owned.length > 0 ? owned : profile.artists.slice(0, 10), rotation, 3);
+  // Songs already put in front of this listener recently are pushed down the
+  // shelf rather than dropped, so "more suggestions" means new ones.
+  const shownRecently = await recentlySuggested();
 
   const [byArtist, likeCollection, related, likeFavourites, wider] = await Promise.all([
     Promise.all(
@@ -94,7 +104,7 @@ export async function getRecommendationShelves(
               : null,
           reason: 'in_your_library' as const,
           seed: artist.name,
-          tracks: rank(tracks, profile),
+          tracks: rank(tracks, profile, shownRecently),
         };
       }),
     ),
@@ -144,7 +154,7 @@ export async function getRecommendationShelves(
       subtitle: genres.slice(0, 3).join(' · ') || null,
       reason: 'sounds_like_collection',
       seed: genres[0] ?? null,
-      tracks: rank(likeCollection, profile),
+      tracks: rank(likeCollection, profile, shownRecently),
     },
     {
       id: 'related-artists',
@@ -154,7 +164,7 @@ export async function getRecommendationShelves(
         : null,
       reason: 'related_artists',
       seed: seedArtists[0]?.name ?? null,
-      tracks: rank(related, profile),
+      tracks: rank(related, profile, shownRecently),
     },
     {
       id: 'similar-to-favorites',
@@ -162,7 +172,7 @@ export async function getRecommendationShelves(
       subtitle: profile.repeatedTitles.length ? 'From the songs you replay' : null,
       reason: 'similar_to_favorites',
       seed: profile.repeatedTitles[0] ?? null,
-      tracks: rank(likeFavourites, profile),
+      tracks: rank(likeFavourites, profile, shownRecently),
     },
     {
       id: 'you-might-like',
@@ -170,15 +180,18 @@ export async function getRecommendationShelves(
       subtitle: profile.ownedTrackCount > 0 ? 'Based on your imported music' : null,
       reason: 'you_might_like',
       seed: null,
-      tracks: rank(wider, profile),
+      tracks: rank(wider, profile, shownRecently),
     },
   ];
 
   const kept = dedupeAcrossShelves(shelves).filter((shelf) => shelf.tracks.length >= MIN_SHELF);
   // Anything the listener already owns is handed back as their own file.
-  return Promise.all(
+  const resolved = await Promise.all(
     kept.map(async (shelf) => ({ ...shelf, tracks: await resolveOwnedAll(shelf.tracks) })),
   );
+  // Remember what was shown, so the next rotation can move past it.
+  void rememberSuggested(resolved.flatMap((shelf) => shelf.tracks.map((track) => track.id)));
+  return resolved;
 }
 
 /**
@@ -188,11 +201,15 @@ export async function getRecommendationShelves(
  * a recommendation, and it disappears the moment there is a collection to
  * reason about.
  */
-async function coldStart(perShelf: number): Promise<RecommendationShelf[]> {
+async function coldStart(perShelf: number, rotation: number): Promise<RecommendationShelf[]> {
   const provider = musicProvider();
-  const [trendingAlbums, chill] = await Promise.all([
+  // With no collection to reason about there is nothing to personalise, so the
+  // starting point moves through the moods instead of offering the same one
+  // every time somebody opens the app before importing anything.
+  const mood = MOODS[((rotation % MOODS.length) + MOODS.length) % MOODS.length];
+  const [trendingAlbums, moodTracks] = await Promise.all([
     provider.getTrending(12).catch(() => [] as Album[]),
-    provider.getMoodTracks(MOODS[1], perShelf).catch(() => [] as Track[]),
+    provider.getMoodTracks(mood, perShelf).catch(() => [] as Track[]),
   ]);
 
   const shelves: RecommendationShelf[] = [];
@@ -207,14 +224,14 @@ async function coldStart(perShelf: number): Promise<RecommendationShelf[]> {
       tracks: trendingTracks.slice(0, perShelf),
     });
   }
-  if (chill.length) {
+  if (moodTracks.length) {
     shelves.push({
-      id: 'mood-chill',
+      id: `mood-${mood.id}`,
       title: 'Somewhere to start',
-      subtitle: null,
+      subtitle: mood.name,
       reason: 'mood',
-      seed: 'chill',
-      tracks: chill,
+      seed: mood.id,
+      tracks: moodTracks,
     });
   }
   return shelves;
@@ -251,7 +268,7 @@ async function relatedToCollection(profile: TasteProfile, limit: number): Promis
  * Orders candidates by how well they match this listener, and drops anything
  * outside the taste boundary or already in their library.
  */
-function rank(tracks: Track[], profile: TasteProfile): Track[] {
+function rank(tracks: Track[], profile: TasteProfile, shownRecently?: Set<string>): Track[] {
   const avoid = new Set(profile.avoidArtists.map((name) => name.toLowerCase()));
   const known = profile.knownTrackIds;
   const ownedArtistNames = new Set(
@@ -284,6 +301,10 @@ function rank(tracks: Track[], profile: TasteProfile): Track[] {
         score += decades <= 1 ? 0.08 : decades >= 4 ? -0.12 : 0;
       }
     }
+
+    // Seen on a shelf in the last few days: still a good match, just no longer
+    // news. It sinks rather than vanishing, so a narrow library still fills.
+    if (shownRecently?.has(track.id)) score -= 0.35;
 
     scored.push({ track, score });
   }

@@ -439,6 +439,8 @@ export const itunesProvider: MusicProvider = {
       ttlMs: 60 * 60 * 1000,
       rate: RATE,
       signal: options.signal,
+      timeoutMs: options.timeoutMs,
+      retries: options.retries,
     });
 
     return (data?.feed?.results ?? []).map((row) => ({

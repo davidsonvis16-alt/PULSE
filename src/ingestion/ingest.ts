@@ -23,6 +23,7 @@ import {
 import { rebuildGrooves } from '@/src/grooves/engine';
 import { invalidateTasteProfile } from '@/src/discovery/taste';
 import { invalidateOwnedIndex } from '@/src/library/owned';
+import { chartsStore } from '@/src/discovery/charts';
 import { refreshPushRegistration } from '@/src/notifications/push';
 
 /**
@@ -269,6 +270,9 @@ class IngestEngine extends Store<IngestState> {
     const grooves = await rebuildGrooves();
     invalidateTasteProfile();
     invalidateOwnedIndex();
+    // A charting song the listener now owns should play from their own file,
+    // so the board on screen is re-matched against the grown library.
+    void chartsStore.reresolveOwned().catch(() => {});
     // New artists in the library mean new things worth being told about.
     void refreshPushRegistration().catch(() => {});
     this.set({ grooveCount: grooves.length, progress: 1 });

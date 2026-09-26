@@ -29,6 +29,9 @@ const out = compile([
   'src/news/rss.ts',
   'src/news/wikitext.ts',
   'src/news/headlines.ts',
+  'src/news/fresh.ts',
+  'src/core/http.ts',
+  'src/discovery/rotation.ts',
   'supabase/functions/_shared/alerts.ts',
 ]);
 
@@ -43,6 +46,9 @@ const rss = await load(out, 'src/news/rss.js');
 const wiki = await load(out, 'src/news/wikitext.js');
 const { groupStories } = await load(out, 'src/news/headlines.js');
 const alerts = await load(out, 'supabase/functions/_shared/alerts.js');
+const { settleWithin } = await load(out, 'src/core/http.js');
+const { rotate } = await load(out, 'src/discovery/rotation.js');
+const fresh = await load(out, 'src/news/fresh.js');
 
 const suites = [];
 const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
@@ -608,6 +614,74 @@ const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
     alerts.recipientsFor(personal[0], devices, widelyRun).map((d) => d.token).join(','),
     'all',
   );
+
+  suites.push(t);
+}
+
+/* ------------------------------------------------- work that may be late --- */
+{
+  const t = createSuite('slow sources');
+
+  const answers = (value, afterMs) =>
+    new Promise((resolve) => setTimeout(() => resolve(value), afterMs));
+  /** A source that has stopped answering — the failure this exists for. */
+  const hangs = () => new Promise(() => {});
+
+  const startedAt = Date.now();
+  const got = await settleWithin([answers('us', 5), hangs(), answers('gb', 5), hangs()], 60);
+  const took = Date.now() - startedAt;
+
+  t.is('what arrived in time is kept, in order', got, ['us', undefined, 'gb', undefined]);
+  t.ok('one dead source costs the deadline, not its own timeout', took < 400);
+
+  const rejected = await settleWithin([Promise.reject(new Error('no')), answers('ok', 1)], 60);
+  t.is('a source that fails outright is simply absent', rejected, [undefined, 'ok']);
+
+  t.is('nothing to wait for resolves immediately', await settleWithin([], 60), []);
+
+  suites.push(t);
+}
+
+/* ----------------------------------------------- suggestions stay fresh --- */
+{
+  const t = createSuite('rotation');
+
+  const pool = ['a', 'b', 'c', 'd', 'e'];
+  t.is('a rotation takes its slice of the pool', rotate(pool, 0, 3), ['a', 'b', 'c']);
+  t.is('the next one has moved on', rotate(pool, 1, 3), ['b', 'c', 'd']);
+  t.is('and wraps round the end rather than running out', rotate(pool, 4, 3), ['e', 'a', 'b']);
+  t.is('the same rotation always gives the same slice', rotate(pool, 7, 3), rotate(pool, 7, 3));
+  t.is('a pool no bigger than the slice is used whole', rotate(['a', 'b'], 3, 3), ['a', 'b']);
+  t.is('nothing to draw from is not an error', rotate([], 2, 3), []);
+
+  suites.push(t);
+}
+
+/* -------------------------------------------------- new music ages out --- */
+{
+  const t = createSuite('release window');
+
+  const now = Date.parse('2026-09-22T12:00:00Z');
+  const daysAgo = (n) => new Date(now - n * 24 * 3600 * 1000).toISOString();
+
+  t.is('a record out today is nought days old', fresh.daysSinceRelease(daysAgo(0), now), 0);
+  t.is('and one from last week is seven', fresh.daysSinceRelease(daysAgo(7), now), 7);
+  t.is('no release date means no place on a rail about dates', fresh.daysSinceRelease(null, now), null);
+  t.is('nor does an unreadable one', fresh.daysSinceRelease('not a date', now), null);
+
+  const poster = (days, reason = 'your-artist') =>
+    fresh.posterWords(
+      { album: { albumType: 'single', releaseDate: daysAgo(days) }, reason, daysOut: days, leavingSoon: false },
+      now,
+    );
+
+  t.is('today is said plainly', poster(0).when, 'Out today');
+  t.is('yesterday too', poster(1).when, 'Out yesterday');
+  t.is('inside a week it is the weekday it landed', poster(3).when, 'Out Saturday');
+  t.is('the week after that is said as a week', poster(9).when, 'Out last week');
+  t.ok('older than that gets a date', poster(20).when.startsWith('Out 2 Sep'));
+  t.is('the poster says why it is here', poster(0).why, 'From your library');
+  t.is('a charting record says so instead', poster(0, 'charting').why, 'Already charting');
 
   suites.push(t);
 }

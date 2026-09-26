@@ -23,7 +23,7 @@
     "android": {
       "package": "app.pulse.music",
       "adaptiveIcon": {
-        "backgroundColor": "#C9F62B",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -90,15 +90,17 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 220,
+          "image": "./assets/images/splash-icon-white.png",
+          "imageWidth": 300,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF",
+          "backgroundColor": "#070708",
           "dark": {
-            "backgroundColor": "#FFFFFF"
+            "backgroundColor": "#070708"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { db } from '@/src/db/client';
 import { downloadManager } from '@/src/downloads/manager';
 import { playerStore } from '@/src/audio/player';
@@ -5,6 +6,7 @@ import { config } from '@/src/core/config';
 import { setActiveMusicProvider } from '@/src/providers/music';
 import { getProfile, saveProfile } from '@/src/db/repos/social';
 import { pruneStaleEvents } from '@/src/db/repos/events';
+import { pruneStaleNotifications } from '@/src/db/repos/notifications';
 import { checkForNewReleases } from '@/src/discovery/releases';
 import { startLibraryWatch } from '@/src/ingestion/watch';
 import { artworkRepair } from '@/src/ingestion/artwork/backfill';
@@ -43,14 +45,57 @@ export async function initializePulse(): Promise<void> {
   await playerStore.init();
   await likesStore.load();
 
-  void pruneStaleEvents();
-  void checkForNewReleases().catch(() => {});
-  // Nominations, winners and headlines about the artists in the library.
-  void checkMusicWorld().catch(() => {});
+  startBackgroundWork();
   // Quietly finds covers for anything imported without one, including music
   // that came in before Pulse could reach the catalogue.
   void artworkRepair.run({ limit: 200 }).catch(() => {});
   // Picks up music added to the device since last launch, if the user has
   // already granted access and imported something.
   void startLibraryWatch().catch(() => {});
+}
+
+/**
+ * The work that keeps the app current.
+ *
+ * New releases, award news and the notification centre are not things that
+ * happen once at launch. Running them only on a cold start meant an app left
+ * open all day — or resumed from the background, which is most of the time —
+ * never noticed that a record had come out. So they run at launch and again
+ * whenever the app comes back to the foreground after being away a while.
+ *
+ * Each one is cheap to call needlessly: every check keeps its own last-run
+ * timestamp and returns immediately if it is too soon, so this is a trigger
+ * rather than a schedule.
+ */
+let backgroundWorkStarted = false;
+
+function startBackgroundWork() {
+  const run = () => {
+    void pruneStaleEvents().catch(() => {});
+    // Announcements that have stopped being news leave the notification centre.
+    void pruneStaleNotifications().catch(() => {});
+    void checkForNewReleases().catch(() => {});
+    // Nominations, winners and headlines about the artists in the library.
+    void checkMusicWorld().catch(() => {});
+  };
+
+  run();
+
+  // Start-up can be retried from the error screen, and one listener is enough.
+  if (backgroundWorkStarted) return;
+  backgroundWorkStarted = true;
+
+  /** Below this, coming back is flicking between apps rather than returning. */
+  const AWAY_MS = 5 * 60 * 1000;
+  let leftAt = 0;
+
+  AppState.addEventListener('change', (state) => {
+    if (state !== 'active') {
+      if (!leftAt) leftAt = Date.now();
+      return;
+    }
+    const away = leftAt ? Date.now() - leftAt : 0;
+    leftAt = 0;
+    if (away >= AWAY_MS) run();
+  });
 }

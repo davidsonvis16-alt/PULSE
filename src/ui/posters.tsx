@@ -85,6 +85,9 @@ export function ReleasePoster({
       <LinearGradient colors={FADE} locations={[0.3, 0.55, 1]} style={StyleSheet.absoluteFill} />
       <View style={posterStyles.top}>
         <Kicker label={words.kicker} color="#C9F62B" dark />
+        {/* New music has a shelf life. This says when a record is near the end
+            of its run on the rail rather than letting it vanish unannounced. */}
+        {release.leavingSoon && <Kicker label="Last days" color="rgba(10,11,10,0.66)" />}
       </View>
       <View style={posterStyles.bottom}>
         <Txt variant="micro" style={{ color: '#C9F62B' }} numberOfLines={1}>

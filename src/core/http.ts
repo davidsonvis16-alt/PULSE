@@ -110,6 +110,35 @@ export function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Work that is allowed to be late.
+ *
+ * `Promise.all` over a dozen endpoints runs at the speed of the worst one, and
+ * a public feed that stops answering is not an unusual event — it is a Tuesday.
+ * Anything assembled from many sources uses this instead: it hands back what
+ * arrived inside the deadline and `undefined` for the rest, so one dead
+ * endpoint costs the deadline rather than its own timeout.
+ *
+ * Nothing is cancelled. A late answer still lands in the response cache above,
+ * which means the next call gets it for free.
+ */
+export function settleWithin<T>(
+  work: Promise<T>[],
+  deadlineMs: number,
+): Promise<(T | undefined)[]> {
+  if (work.length === 0) return Promise.resolve([]);
+
+  let reachDeadline: () => void = () => {};
+  const deadline = new Promise<undefined>((resolve) => {
+    reachDeadline = () => resolve(undefined);
+  });
+  const timer = setTimeout(reachDeadline, deadlineMs);
+
+  return Promise.all(
+    work.map((item) => Promise.race([item.catch(() => undefined), deadline])),
+  ).finally(() => clearTimeout(timer));
+}
+
 export interface GetJsonOptions {
   /** Cache lifetime. Pass 0 to bypass the cache entirely. */
   ttlMs?: number;

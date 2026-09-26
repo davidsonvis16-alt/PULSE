@@ -66,6 +66,14 @@ export interface ChartOptions {
   country?: string;
   limit?: number;
   signal?: AbortSignal;
+  /** How long this one market gets before it is given up on. */
+  timeoutMs?: number;
+  /**
+   * Retries. Zero on purpose wherever a caller is assembling many markets: a
+   * retry there does not rescue the board, it only doubles what a dead market
+   * costs everybody waiting for it.
+   */
+  retries?: number;
 }
 
 export interface MusicProviderCapabilities {

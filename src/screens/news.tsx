@@ -7,7 +7,7 @@ import { useAsync } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { libraryArtistNames } from '@/src/library/owned';
 import { getAwardSeason, nominationsFor } from '@/src/news/awards';
-import { getFreshReleases } from '@/src/news/fresh';
+import { getFreshReleases, RELEASE_WINDOW_DAYS } from '@/src/news/fresh';
 import { getHeadlines, type Story } from '@/src/news/headlines';
 import { isJustIn, useLiveRefresh, useNow } from '@/src/news/live';
 import { checkMusicWorld } from '@/src/news/notify';
@@ -162,7 +162,7 @@ export function MusicNews({ feed }: { feed: MusicNewsFeed }) {
       <View>
         <SectionHeader
           title="New music"
-          subtitle="Fresh releases from your artists and what is charting straight away"
+          subtitle={`Out in the last ${RELEASE_WINDOW_DAYS / 7} weeks, newest first — releases leave the rail after that`}
           style={{ paddingHorizontal: gutter }}
         />
         {fresh.loading && !fresh.data ? (
@@ -183,7 +183,7 @@ export function MusicNews({ feed }: { feed: MusicNewsFeed }) {
         ) : (
           <EmptyState
             icon="disc-outline"
-            title="No new releases this week"
+            title="Nothing out in the last few weeks"
             message="Import more of your music and Pulse will watch those artists for you."
             compact
           />

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +16,8 @@ import {
 } from '@/src/discovery/engine';
 import type { TasteProfile } from '@/src/discovery/taste';
 import { getNewReleasesFromFollowed } from '@/src/discovery/releases';
-import { getGlobalChart, type ChartEntry } from '@/src/discovery/charts';
+import { advanceRotation, currentRotation } from '@/src/discovery/rotation';
+import { chartsStore, CHART_MARKET_COUNT, type ChartEntry } from '@/src/discovery/charts';
 import {
   getContinueListening,
   getStatsSummary,
@@ -56,7 +57,13 @@ import { EmptyState, ErrorState, SkeletonRows, SkeletonShelf } from '@/src/ui/st
 import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
-interface HomeData {
+/**
+ * Everything that comes out of the device's own database.
+ *
+ * This is what draws the page. None of it touches the network, so it is ready
+ * in milliseconds and the user sees their own music straight away.
+ */
+interface LocalHome {
   /** The user's own files — the first music on the page. */
   yourMusic: Track[];
   yourMusicTotal: number;
@@ -64,24 +71,37 @@ interface HomeData {
   counts: Awaited<ReturnType<typeof getLocalCounts>>;
   continueTrack: { track: Track; positionMs: number } | null;
   taste: TasteProfile;
-  shelves: RecommendationShelf[];
-  /** Built from songs played more than once — the strongest signal there is. */
-  repeatShelves: RecommendationShelf[];
-  charts: Album[];
-  /** The worldwide top ten, with real positions and movement. */
-  globalTop: ChartEntry[];
-  newReleases: Album[];
-  followedReleases: boolean;
   topArtists: TopArtist[];
   topTracks: TopTrack[];
   grooves: Groove[];
-  events: MusicEvent[];
   unread: number;
   stats: { totalMs: number; artistCount: number; trackCount: number };
 }
 
+/** Suggestions, which need the taste profile first and then the catalogue. */
+interface Suggestions {
+  shelves: RecommendationShelf[];
+  /** Built from songs played more than once — the strongest signal there is. */
+  repeatShelves: RecommendationShelf[];
+}
+
+/** What the catalogue itself says is new and charting. */
+interface Catalogue {
+  charts: Album[];
+  newReleases: Album[];
+  followedReleases: boolean;
+}
+
+interface HomeData extends LocalHome, Suggestions, Catalogue {
+  /** The worldwide top ten, with real positions and movement. */
+  globalTop: ChartEntry[];
+  events: MusicEvent[];
+}
+
 /** How many of the user's own songs the Home screen shows before "see all". */
 const OWN_SONGS_ON_HOME = 10;
+/** How much of the worldwide board Home shows before "see all". */
+const TOP_ON_HOME = 10;
 
 /**
  * Home.
@@ -109,47 +129,33 @@ export function HomeScreen() {
   const radio = useStore(radioStation);
   const player = useStore(playerStore);
 
-  const state = useAsync<HomeData>(async () => {
+  // Which slice of this listener's taste today's shelves are drawn from. Pull
+  // to refresh moves it on, so asking for more really does bring new songs
+  // rather than re-fetching the ones already on screen.
+  const [rotation, setRotation] = useState(currentRotation);
+
+  // Four loads rather than one, because they do not run at the same speed.
+  // The page used to wait for the slowest thing on it — the worldwide board,
+  // which is twelve public endpoints and only as quick as the worst of them —
+  // before drawing a single row of the user's own music. Now the device's own
+  // database paints the page, and everything off the network fills in behind
+  // it as it lands.
+  const local = useAsync<LocalHome>(async () => {
     const counts = await getLocalCounts();
     const own = counts.tracks > 0 ? (await listLocalTracks({ limit: 200 })).map((e) => e.track) : [];
     const yourMusic = own.length ? own : await getLibraryTracks({ sort: 'recent', limit: 200 });
 
-    const taste = await buildTasteProfile();
-    const [
-      continueTrack,
-      recentlyAdded,
-      shelves,
-      repeatShelves,
-      charts,
-      globalTop,
-      followed,
-      topArtists,
-      topTracks,
-      grooves,
-      unread,
-      stats,
-    ] = await Promise.all([
-      getContinueListening(),
-      getRecentlyAdded(12),
-      getRecommendationShelves(taste).catch(() => [] as RecommendationShelf[]),
-      getRepeatPlayShelves().catch(() => [] as RecommendationShelf[]),
-      musicProvider().getTrending(12).catch(() => [] as Album[]),
-      getGlobalChart({ limit: 10 }).catch(() => [] as ChartEntry[]),
-      getNewReleasesFromFollowed(12),
-      getTopArtists('month', 10),
-      getTopTracks('month', 5),
-      listGrooves(),
-      unreadNotificationCount(),
-      getStatsSummary('month'),
-    ]);
-
-    // Following nobody yet is not a reason to show an empty page: fall back to
-    // what is actually new in the catalogue.
-    const newReleases = followed.length
-      ? followed
-      : await musicProvider()
-          .getNewReleases({ limit: 12, country: config.music.country })
-          .catch(() => [] as Album[]);
+    const [continueTrack, recentlyAdded, taste, topArtists, topTracks, grooves, unread, stats] =
+      await Promise.all([
+        getContinueListening(),
+        getRecentlyAdded(12),
+        buildTasteProfile(),
+        getTopArtists('month', 10),
+        getTopTracks('month', 5),
+        listGrooves(),
+        unreadNotificationCount(),
+        getStatsSummary('month'),
+      ]);
 
     return {
       yourMusic: yourMusic.slice(0, OWN_SONGS_ON_HOME),
@@ -158,16 +164,9 @@ export function HomeScreen() {
       counts,
       continueTrack,
       taste,
-      shelves,
-      repeatShelves,
-      charts,
-      globalTop,
-      newReleases,
-      followedReleases: followed.length > 0,
       topArtists,
       topTracks,
       grooves,
-      events: await loadNearbyEvents(),
       unread,
       stats: {
         totalMs: stats.totalMs,
@@ -177,9 +176,76 @@ export function HomeScreen() {
     };
   }, []);
 
-  useFocusReload(state.reload);
+  const taste = local.data?.taste;
 
-  const data = state.data;
+  const suggestions = useAsync<Suggestions>(
+    async () => {
+      const [shelves, repeatShelves] = await Promise.all([
+        getRecommendationShelves(taste!, { rotate: rotation }).catch(
+          () => [] as RecommendationShelf[],
+        ),
+        getRepeatPlayShelves().catch(() => [] as RecommendationShelf[]),
+      ]);
+      return { shelves, repeatShelves };
+    },
+    [taste, rotation],
+    { enabled: !!taste },
+  );
+
+  const catalogue = useAsync<Catalogue>(async () => {
+    const [charts, followed] = await Promise.all([
+      musicProvider().getTrending(12).catch(() => [] as Album[]),
+      getNewReleasesFromFollowed(12).catch(() => [] as Album[]),
+    ]);
+    // Following nobody yet is not a reason to show an empty page: fall back to
+    // what is actually new in the catalogue.
+    const newReleases = followed.length
+      ? followed
+      : await musicProvider()
+          .getNewReleases({ limit: 12, country: config.music.country })
+          .catch(() => [] as Album[]);
+    return { charts, newReleases, followedReleases: followed.length > 0 };
+  }, []);
+
+  const events = useAsync<MusicEvent[]>(() => loadNearbyEvents().catch(() => []), []);
+
+  // The worldwide board is shared with the charts page and cached on disk, so
+  // this is usually a read rather than a fetch.
+  const chart = useStore(chartsStore);
+  useEffect(() => {
+    void chartsStore.open();
+  }, []);
+
+  const reload = useCallback(() => {
+    local.reload();
+    suggestions.reload();
+    catalogue.reload();
+    events.reload();
+    void chartsStore.refresh();
+  }, [local, suggestions, catalogue, events]);
+
+  // Coming back to Home should show what was just played or imported. That is
+  // all in the local database, so only that part re-reads: returning to a tab
+  // is not a reason to re-download the charts.
+  useFocusReload(local.reload);
+
+  const data: HomeData | undefined = useMemo(
+    () =>
+      local.data && {
+        ...local.data,
+        shelves: suggestions.data?.shelves ?? [],
+        repeatShelves: suggestions.data?.repeatShelves ?? [],
+        charts: catalogue.data?.charts ?? [],
+        newReleases: catalogue.data?.newReleases ?? [],
+        followedReleases: catalogue.data?.followedReleases ?? false,
+        globalTop: chart.board?.entries.slice(0, TOP_ON_HOME) ?? [],
+        events: events.data ?? [],
+      },
+    [local.data, suggestions.data, catalogue.data, chart.board, events.data],
+  );
+
+  const refreshing =
+    local.refreshing || suggestions.refreshing || catalogue.refreshing || chart.refreshing;
 
   const playOwn = useCallback(
     (index: number, shuffle = false) => {
@@ -203,10 +269,10 @@ export function HomeScreen() {
     });
   }, []);
 
-  if (state.error && !data) {
+  if (local.error && !data) {
     return (
       <Screen>
-        <ErrorState error={state.error} onRetry={state.reload} />
+        <ErrorState error={local.error} onRetry={reload} />
       </Screen>
     );
   }
@@ -229,8 +295,11 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={state.refreshing}
-            onRefresh={state.reload}
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRotation(advanceRotation());
+              reload();
+            }}
             tintColor={colors.accent}
           />
         }
@@ -314,7 +383,7 @@ export function HomeScreen() {
           />
         )}
 
-        {state.loading && !data && (
+        {local.loading && !data && (
           <View style={{ paddingHorizontal: gutter, gap: spacing.xxl }}>
             <SkeletonRows count={5} />
             <SkeletonShelf cardWidth={shelfCardWidth} />
@@ -409,6 +478,12 @@ export function HomeScreen() {
           </Section>
         )}
 
+        {suggestions.loading && !suggestions.data && !!data && (
+          <View style={{ paddingHorizontal: gutter, marginBottom: spacing.xxl }}>
+            <SkeletonShelf cardWidth={shelfCardWidth} />
+          </View>
+        )}
+
         {/* 3. The station */}
         <View style={{ paddingHorizontal: gutter, marginBottom: spacing.xxl }}>
           <Pressable
@@ -435,8 +510,8 @@ export function HomeScreen() {
         {/* 4. The worldwide top ten, with real positions and movement */}
         {!!data?.globalTop.length && (
           <Section
-            title="Top 10 worldwide"
-            subtitle="Most played across 12 country charts, updated daily"
+            title={`Top ${data.globalTop.length} worldwide`}
+            subtitle={`Most played across ${chart.board?.markets ?? CHART_MARKET_COUNT} country charts, updated daily`}
             gutter={gutter}
             onSeeAll={() => router.push('/charts')}
           >
@@ -445,7 +520,7 @@ export function HomeScreen() {
                 <ChartRow
                   key={entry.track.id}
                   entry={entry}
-                  markets={12}
+                  markets={chart.board?.markets ?? CHART_MARKET_COUNT}
                   compact
                   onPress={() =>
                     void playerStore.playQueue(
@@ -729,7 +804,7 @@ export function HomeScreen() {
         )}
 
         {/* Nothing of their own and nothing played yet */}
-        {!state.loading && data && data.yourMusic.length === 0 && (
+        {!local.loading && data && data.yourMusic.length === 0 && (
           <EmptyState
             icon="phone-portrait-outline"
             title="Bring your music in first"

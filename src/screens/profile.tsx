@@ -438,6 +438,13 @@ export function ProfileScreen() {
                 full
                 onPress={() => router.push('/settings/notifications')}
               />
+              <Button
+                label="Playback"
+                variant="secondary"
+                icon="musical-notes-outline"
+                full
+                onPress={() => router.push('/settings/playback')}
+              />
               {mode === 'connected' && (
                 <Button label="Sign out" variant="danger" full onPress={() => void signOut()} />
               )}
