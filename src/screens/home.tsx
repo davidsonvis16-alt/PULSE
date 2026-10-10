@@ -43,6 +43,8 @@ import { AlbumCard, ArtCard, EventCard, MoodCard, TrackCard } from '@/src/ui/car
 import { ChartRow } from '@/src/ui/chart-row';
 import { Artwork } from '@/src/ui/artwork';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
+import { FriendNoteCard, NotesRow, StoryViewer, TasteMatchCard } from '@/src/ui/notes';
+import { notesStore, tasteMatch } from '@/src/social/notes';
 import { Txt } from '@/src/ui/text';
 import { EmptyState, ErrorState, SkeletonShelf } from '@/src/ui/states';
 import { radii, spacing } from '@/src/theme/tokens';
@@ -331,11 +333,16 @@ export function HomeScreen() {
             accessibilityLabel="Your profile"
             onPress={() => router.push('/profile')}
           >
-            <ProfileAvatar size={34} />
+            <ProfileAvatar size={28} />
           </Pressable>
-          <Txt variant="title2" numberOfLines={1} style={{ flex: 1 }}>
-            {name ? `${greeting()}, ${name}` : greeting()}
-          </Txt>
+          <View style={{ flex: 1 }}>
+            <Txt variant="caption" tone="muted" numberOfLines={1}>
+              {name ? `${greeting()}, ${name}` : greeting()}
+            </Txt>
+            <Txt variant="bodyStrong" numberOfLines={1}>
+              What your friends are playing
+            </Txt>
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add music from this device"
@@ -354,6 +361,10 @@ export function HomeScreen() {
             {!!data?.unread && <View style={styles.dot} />}
           </Pressable>
         </View>
+
+        {/* Friends' song notes, then the cards that open them up */}
+        <NotesRow gutter={gutter} />
+        <FriendsSection gutter={gutter} />
 
         {importing && (
           <Banner
@@ -672,6 +683,61 @@ export function HomeScreen() {
         )}
       </ScrollView>
     </Screen>
+  );
+}
+
+/**
+ * What friends have on repeat, as wide colour cards, and how close each one's
+ * taste is to yours, with a one-tap blend.
+ */
+function FriendsSection({ gutter }: { gutter: number }) {
+  const router = useRouter();
+  const notes = useStore(notesStore);
+  const { width } = useResponsive();
+  const [viewing, setViewing] = useState<number | null>(null);
+  const withNotes = notes.friends.filter((friend) => !!friend.note);
+  if (!withNotes.length) return null;
+
+  const cardWidth = Math.min(300, width * 0.78);
+  const byMatch = [...notes.friends].sort(
+    (a, b) => tasteMatch(b, notes.taste).percent - tasteMatch(a, notes.taste).percent,
+  );
+
+  return (
+    <>
+      <Section title="Friends on repeat" subtitle="Their song of the day, and how many plays" gutter={gutter}>
+        <Shelf
+          data={withNotes}
+          gutter={gutter}
+          gap={spacing.lg}
+          keyExtractor={(friend) => friend.id}
+          renderItem={(friend, index) => (
+            // Room under each card so its coloured shadow is not clipped.
+            <View style={{ paddingBottom: spacing.xl, paddingTop: spacing.xs }}>
+              <FriendNoteCard friend={friend} width={cardWidth} onPress={() => setViewing(index)} />
+            </View>
+          )}
+        />
+      </Section>
+
+      <Section title="Taste match" subtitle="Mix your taste with a friend's into one playlist" gutter={gutter}>
+        <Shelf
+          data={byMatch}
+          gutter={gutter}
+          gap={spacing.lg}
+          keyExtractor={(friend) => friend.id}
+          renderItem={(friend) => (
+            <View style={{ paddingBottom: spacing.xl, paddingTop: spacing.xs }}>
+              <TasteMatchCard friend={friend} width={190} onOpen={() => router.push(`/friend/${friend.id}`)} />
+            </View>
+          )}
+        />
+      </Section>
+
+      {viewing !== null && (
+        <StoryViewer friends={withNotes} startIndex={viewing} onClose={() => setViewing(null)} />
+      )}
+    </>
   );
 }
 

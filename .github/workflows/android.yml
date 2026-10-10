@@ -1,0 +1,91 @@
+name: Android APK
+
+# Builds Pulse into an installable APK and publishes it, so there is always one
+# link to download the newest build again:
+#
+#   https://github.com/davidsonvis16-alt/PULSE/releases/latest/download/pulse.apk
+#
+#   • Push to main or apk  → a new release with pulse.apk attached
+#   • Push a tag like v1.2.0 → the same, named after the tag
+#   • Actions → Android APK → Run workflow → build by hand
+#
+# The native android/ folder is generated from app.json on the runner (it is
+# not committed), exactly like `npm run build:android` does on your computer.
+
+on:
+  push:
+    branches: [main, apk]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test and type-check
+        run: |
+          npm test
+          npm run typecheck
+
+      - name: Generate the Android project
+        run: CI=1 npx expo prebuild --platform android --no-install
+
+      - name: Number this build
+        run: |
+          sed -i "s/versionCode [0-9]*/versionCode ${GITHUB_RUN_NUMBER}/" android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
+
+      - name: Build the release APK
+        working-directory: android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon
+
+      - name: Collect the APK
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk out/pulse.apk
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pulse-apk
+          path: out/pulse.apk
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('build-{0}', github.run_number) }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('Pulse build {0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: out/pulse.apk
+          body: |
+            Install on Android: download `pulse.apk`, open it, and allow installing
+            from this source if your phone asks. Installing over an earlier Pulse
+            build keeps your music and settings.

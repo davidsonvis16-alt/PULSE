@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useStore } from '@/src/hooks/use-store';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { formatListeningTime, formatRelativeTime, pluralize } from '@/src/core/format';
@@ -27,6 +28,8 @@ import { statsShare } from '@/src/share/share';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
+import { ComposeNoteSheet, NoteBubble, StoryRing } from '@/src/ui/notes';
+import { isCurrent, notesStore } from '@/src/social/notes';
 import { Txt } from '@/src/ui/text';
 import { Button, Chip, IconButton, SegmentedControl } from '@/src/ui/buttons';
 import { ArtistCard } from '@/src/ui/cards';
@@ -118,13 +121,7 @@ export function ProfileScreen() {
       >
         {/* Header */}
         <View style={[styles.header, { paddingHorizontal: gutter }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change your profile picture"
-            onPress={() => router.push('/settings/picture')}
-          >
-            <ProfileAvatar size={64} />
-          </Pressable>
+          <MyNoteAvatar onPicture={() => router.push('/settings/picture')} />
           <View style={{ flex: 1 }}>
             <Txt variant="title2" numberOfLines={1}>
               {profile?.displayName ?? 'Your profile'}
@@ -625,3 +622,34 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
   });
+
+/**
+ * Your picture as friends see it: your song note above it and a ring while the
+ * note is up. Tapping the note edits it; long-pressing the picture changes it.
+ */
+function MyNoteAvatar({ onPicture }: { onPicture: () => void }) {
+  const notes = useStore(notesStore);
+  const [composing, setComposing] = useState(false);
+  useEffect(() => {
+    void notesStore.load();
+  }, []);
+  const mine = isCurrent(notes.mine) ? notes.mine : null;
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={mine ? 'Edit your song note' : 'Add a song note'}
+        accessibilityHint="Long press to change your picture"
+        onPress={() => setComposing(true)}
+        onLongPress={onPicture}
+        style={{ alignItems: 'center' }}
+      >
+        <NoteBubble note={mine} maxWidth={110} placeholder="Add a song" />
+        <StoryRing size={64} state={mine ? 'unseen' : 'none'}>
+          <ProfileAvatar size={64} />
+        </StoryRing>
+      </Pressable>
+      <ComposeNoteSheet visible={composing} onClose={() => setComposing(false)} />
+    </>
+  );
+}

@@ -34,6 +34,7 @@ const out = compile([
   'src/discovery/rotation.ts',
   'src/discovery/mix.ts',
   'src/profile/schedule.ts',
+  'src/social/notes.ts',
   'supabase/functions/_shared/alerts.ts',
 ]);
 
@@ -775,6 +776,49 @@ const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
     avatar.normaliseSchedule({ enabled: true, slots: [happy, sleepy, photo, news, happy] }).slots.length,
     4,
   );
+
+  suites.push(t);
+}
+
+// ---------------------------------------------------------------------------
+{
+  const t = createSuite('Song notes');
+  const notes = await load(out, 'src/social/notes.js');
+
+  t.ok('twelve feelings, each with an emoji and colour', notes.FEELINGS.length === 12 && notes.FEELINGS.every((f) => f.emoji && /^#/.test(f.color)));
+  t.is('an unknown feeling falls back rather than breaking', notes.feelingById('nope').id, 'hyped');
+  t.is('a card colour is stable for the same seed', notes.cardColor('wanjiru'), notes.cardColor('wanjiru'));
+
+  const now = Date.now();
+  const day = { scope: 'day', createdAt: now - 60_000 };
+  const yesterday = { scope: 'day', createdAt: now - 26 * 3_600_000 };
+  const week = { scope: 'week', createdAt: now - 3 * 24 * 3_600_000 };
+  const stale = { scope: 'week', createdAt: now - 8 * 24 * 3_600_000 };
+  t.ok('a note from today is current', notes.isCurrent(day));
+  t.ok('a day note from yesterday has expired', !notes.isCurrent(yesterday));
+  t.ok('a week note lasts the week', notes.isCurrent(week));
+  t.ok('and expires after it', !notes.isCurrent(stale));
+  t.ok('no note is not current', !notes.isCurrent(null));
+
+  const friend = {
+    topArtists: ['Wizkid', 'Tems', 'Burna Boy', 'Rema', 'Ayra Starr'],
+    topGenres: ['Afrobeats', 'R&B/Soul'],
+  };
+  const family = (id) => ({ id });
+  const taste = (artists, genres) => ({
+    hasData: true,
+    artists: artists.map((name) => ({ name })),
+    genres: genres.map(([genre, fam]) => ({ genre, family: family(fam) })),
+  });
+  const none = notes.tasteMatch(friend, null);
+  t.is('no taste yet means no match claimed', none.percent, 0);
+
+  const close = notes.tasteMatch(friend, taste(['wizkid', 'Tems', 'Rema'], [['Afrobeats', 'african'], ['R&B/Soul', 'rnb']]));
+  const far = notes.tasteMatch(friend, taste(['Metallica'], [['Metal', 'rock']]));
+  t.is('shared artists are found regardless of case', close.sharedArtists, ['Wizkid', 'Tems', 'Rema']);
+  t.ok('a close taste scores higher than a distant one', close.percent > far.percent);
+  t.ok('the match never claims 100%', close.percent <= 99);
+  t.ok('nothing shared still lands on a sane floor', far.percent >= 18 && far.sharedArtists.length === 0);
 
   suites.push(t);
 }
