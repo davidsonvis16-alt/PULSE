@@ -1,51 +1,62 @@
-import { Tabs } from "expo-router";
-import { Text } from "react-native";
+import { StyleSheet, View } from 'react-native';
+import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { layout, typography } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+const TABS: { name: string; title: string; icon: IconName; active: IconName }[] = [
+  { name: 'index', title: 'Home', icon: 'home-outline', active: 'home' },
+  { name: 'discover', title: 'Discover', icon: 'search-outline', active: 'search' },
+  { name: 'library', title: 'Library', icon: 'library-outline', active: 'library' },
+  { name: 'events', title: 'Events', icon: 'calendar-outline', active: 'calendar' },
+  { name: 'profile', title: 'Profile', icon: 'person-outline', active: 'person' },
+];
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
+  const barHeight = layout.tabBarHeight + insets.bottom;
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: "#0a0a0f",
-          borderTopColor: "#1a1a2e",
-          borderTopWidth: 1,
-          height: 65,
-          paddingBottom: 8,
-        },
-        tabBarActiveTintColor: "#00d4ff",
-        tabBarInactiveTintColor: "#444",
-        tabBarLabelStyle: { fontSize: 11 },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22 }}>🏠</Text>,
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: colors.background },
+          tabBarActiveTintColor: colors.accent,
+          tabBarInactiveTintColor: colors.textMuted,
+          tabBarStyle: [styles.bar, { height: barHeight, paddingBottom: insets.bottom }],
+          tabBarLabelStyle: typography.micro,
+          tabBarItemStyle: { paddingTop: 8 },
         }}
-      />
-      <Tabs.Screen
-        name="discover"
-        options={{
-          title: "Discover",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22 }}>🌍</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="concerts"
-        options={{
-          title: "Concerts",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22 }}>🎤</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="library"
-        options={{
-          title: "Library",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22 }}>📚</Text>,
-        }}
-      />
-    </Tabs>
+      >
+        {TABS.map((tab) => (
+          <Tabs.Screen
+            key={tab.name}
+            name={tab.name}
+            options={{
+              title: tab.title,
+              tabBarIcon: ({ color, focused }) => (
+                <Ionicons name={focused ? tab.active : tab.icon} size={22} color={color} />
+              ),
+            }}
+          />
+        ))}
+      </Tabs>
+    </View>
   );
 }
+
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    bar: {
+      backgroundColor: colors.backgroundElevated,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.borderSoft,
+      elevation: 0,
+    },
+  });

@@ -1,132 +1,186 @@
-import { Stack } from "expo-router";
-import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { supabase } from "../lib/supabase";
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as SystemUI from 'expo-system-ui';
+import { AuthProvider, useAuth } from '@/src/auth/auth';
+import { PulseProviders } from '@/src/ui/providers';
+import { PulseLogo } from '@/src/ui/logo';
+import { Txt } from '@/src/ui/text';
+import { Button } from '@/src/ui/buttons';
+import { initializePulse } from '@/src/bootstrap';
+import { brand, spacing } from '@/src/theme/tokens';
+import { ThemeProvider, useTheme } from '@/src/theme/theme';
+import { WelcomeScreen } from '@/src/screens/welcome';
+import { ImportScreen } from '@/src/screens/import';
+import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
+import { getLocalCounts } from '@/src/db/repos/local';
+import { GlobalMiniPlayer } from '@/src/ui/global-mini-player';
+import { useNotificationRouting } from '@/src/notifications/routing';
 
 export default function RootLayout() {
-  const [session, setSession] = useState(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  return (
+    <ThemeProvider>
+      <PulseRoot />
+    </ThemeProvider>
+  );
+}
+
+function PulseRoot() {
+  const { colors, isDark } = useTheme();
+  const [ready, setReady] = useState(false);
+  const [bootError, setBootError] = useState<Error | null>(null);
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => setSession(session));
-    supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    initializePulse()
+      .then(() => setReady(true))
+      .catch((error: unknown) => setBootError(error instanceof Error ? error : new Error('Start-up failed')));
   }, []);
 
-  async function handleLogin() {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) alert(error.message);
-    setLoading(false);
-  }
+  // Follows the scheme, so the area behind the app matches when it changes.
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
+  }, [colors.background]);
 
-  async function handleSignUp() {
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) alert(error.message);
-    else alert("Check your email to confirm!");
-    setLoading(false);
-  }
-
-  if (!session) {
+  if (bootError) {
     return (
-      <View style={styles.authScreen}>
-        <Text style={styles.authLogo}>PULSE</Text>
-        <Text style={styles.authTagline}>Feel the music</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#666"
-          onChangeText={setEmail}
-          value={email}
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#666"
-          secureTextEntry
-          onChangeText={setPassword}
-          value={password}
-        />
-        <TouchableOpacity style={styles.authBtn} onPress={handleLogin}>
-          {loading ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <Text style={styles.authBtnText}>Login</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleSignUp}>
-          <Text style={styles.switchText}>Create Account</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <View style={styles.boot}>
+          <PulseLogo size={64} showWordmark variant="white" />
+          <Txt variant="title3" align="center" style={{ marginTop: spacing.xl, color: brand.launchInk }}>
+            Pulse could not start
+          </Txt>
+          <Txt variant="body" align="center" style={{ maxWidth: 300, color: brand.launchInkSoft }}>
+            {bootError.message}
+          </Txt>
+          <Button
+            label="Try again"
+            icon="refresh"
+            style={{ marginTop: spacing.lg }}
+            onPress={() => {
+              setBootError(null);
+              initializePulse()
+                .then(() => setReady(true))
+                .catch((error: unknown) =>
+                  setBootError(error instanceof Error ? error : new Error('Start-up failed')),
+                );
+            }}
+          />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <View style={styles.boot}>
+          <PulseLogo size={96} showWordmark tagline variant="white" />
+          <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxxl }} />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="upload" />
-    </Stack>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaProvider>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <AuthProvider>
+          <PulseProviders>
+            <AuthGate />
+          </PulseProviders>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+/**
+ * Pulse needs an identity before it can personalise anything. With a backend
+ * configured that means signing in; without one it means a name held on the
+ * device. Either way the music screens never render for an unknown user.
+ */
+function AuthGate() {
+  const { colors } = useTheme();
+  const { ready, mode, session, profile } = useAuth();
+  const [needsImport, setNeedsImport] = useState<boolean | null>(null);
+
+  // A tapped news alert opens what it was about.
+  useNotificationRouting();
+
+  const signedIn = mode === 'connected' ? !!session : !!profile?.displayName;
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    void (async () => {
+      const [done, counts] = await Promise.all([
+        getSetting(SETTINGS_KEYS.onboardingDone),
+        getLocalCounts(),
+      ]);
+      // Offer the import once. After that the Library screen is where music
+      // gets added, and Pulse never interrupts with it again.
+      if (!cancelled) setNeedsImport(!done && counts.tracks === 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
+
+  if (!ready) {
+    return (
+      <View style={styles.boot}>
+        <PulseLogo size={76} showWordmark variant="white" />
+        <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
+      </View>
+    );
+  }
+
+  if (!signedIn) return <WelcomeScreen />;
+
+  if (needsImport === null) {
+    return (
+      <View style={styles.boot}>
+        <PulseLogo size={76} showWordmark variant="white" />
+        <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
+      </View>
+    );
+  }
+
+  if (needsImport) return <ImportScreen onFinished={() => setNeedsImport(false)} />;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="player" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="queue" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="radio" options={{ animation: 'slide_from_bottom' }} />
+      </Stack>
+      <GlobalMiniPlayer />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  authScreen: {
+  boot: {
     flex: 1,
-    backgroundColor: "#0a0a0f",
-    justifyContent: "center",
-    padding: 30,
-  },
-  authLogo: {
-    color: "#00d4ff",
-    fontSize: 48,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 8,
-    letterSpacing: 8,
-  },
-  authTagline: {
-    color: "#666",
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 40,
-    letterSpacing: 3,
-  },
-  input: {
-    backgroundColor: "#1a1a2e",
-    color: "#fff",
-    padding: 18,
-    borderRadius: 12,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#2a2a3e",
-  },
-  authBtn: {
-    backgroundColor: "#00d4ff",
-    padding: 18,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  authBtnText: { fontWeight: "bold", fontSize: 16, color: "#000" },
-  switchText: {
-    color: "#666",
-    textAlign: "center",
-    marginTop: 25,
-    fontSize: 14,
+    // Matches the launch screen exactly, so the hand-off does not flash.
+    backgroundColor: brand.launchBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.xxl,
   },
 });
