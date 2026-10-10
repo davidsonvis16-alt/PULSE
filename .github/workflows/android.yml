@@ -66,9 +66,24 @@ jobs:
           sed -i "s/versionCode [0-9]*/versionCode ${GITHUB_RUN_NUMBER}/" android/app/build.gradle
           grep -n "versionCode\|versionName" android/app/build.gradle
 
+      - name: Give Gradle room
+        run: |
+          sed -i '/^org.gradle.jvmargs/d' android/gradle.properties
+          echo 'org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' >> android/gradle.properties
+
       - name: Build the release APK
         working-directory: android
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon
+        run: |
+          set -o pipefail
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon 2>&1 | tee ../gradle.log
+
+      # Puts the reason a build failed where it can be read from the run page
+      # (and the API) without downloading the whole log.
+      - name: Report why the build failed
+        if: failure()
+        run: |
+          grep -n -A12 "What went wrong" gradle.log | head -40 | while IFS= read -r line; do echo "::error::$line"; done
+          grep -n -m10 -i "error:\|exception\|SyntaxError\|Unable to resolve" gradle.log | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Collect the APK
         run: |
