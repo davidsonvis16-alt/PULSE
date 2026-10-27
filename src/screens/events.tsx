@@ -44,7 +44,7 @@ export function EventsScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const params = useLocalSearchParams<{ q?: string }>();
-  const { gutter, isTabletUp, width } = useResponsive();
+  const { gutter, isTabletUp, pageWidth: width } = useResponsive();
   const bottomInset = useBottomInset();
   const share = useShareSheet();
   const toast = useToast();

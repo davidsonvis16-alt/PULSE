@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Track } from '@/src/core/types';
-import { downloadManager } from '@/src/downloads/manager';
+import { downloadManager, downloadsSupported } from '@/src/downloads/manager';
 import { providerFor } from '@/src/providers/music';
 import { LOCAL_PROVIDER_ID } from '@/src/db/repos/local';
 import { useStore } from '@/src/hooks/use-store';
@@ -51,7 +51,7 @@ export function DownloadButton({
   }, [track.id]);
 
   if (track.provider === LOCAL_PROVIDER_ID) return null;
-  if (!providerFor(track.provider).capabilities.download) return null;
+  if (!downloadsSupported || !providerFor(track.provider).capabilities.download) return null;
 
   const iconSize = Math.round(size * 0.58);
 

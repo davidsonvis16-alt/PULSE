@@ -1,0 +1,7 @@
+# Netlify / Cloudflare Pages. Pulse keeps each listener's library in an
+# in-browser SQLite database, which needs SharedArrayBuffer, which browsers only
+# allow on cross-origin-isolated pages. "credentialless" keeps artwork and
+# freestyle audio from other hosts loading.
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless

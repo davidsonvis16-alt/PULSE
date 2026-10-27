@@ -40,9 +40,14 @@ export const ArtCard = memo(function ArtCard({
       accessibilityRole="button"
       accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
       onPress={onPress}
-      style={({ pressed }) => [{ width }, pressed && { opacity: 0.75 }]}
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+        { width },
+        // With a mouse, the art rises to meet the pointer.
+        hovered && { transform: [{ translateY: -4 }] },
+        pressed && { opacity: 0.75 },
+      ]}
     >
-      <View>
+      <View style={styles.artLift}>
         <Artwork uri={artworkUrl} size={width} rounded={rounded} radius={radii.md} />
         {badge && (
           <View style={styles.badge}>
@@ -182,18 +187,24 @@ export function MoodCard({
       onPress={onPress}
       style={({ pressed }) => [pressed && { opacity: 0.85 }]}
     >
+      {/* A poster, not a tile: the tagline up top, the mood's name set big at the foot. */}
       <LinearGradient
-        colors={[mood.accent, shade(mood.accent, -0.55)]}
+        colors={[mood.accent, shade(mood.accent, -0.35)]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0.4, y: 1 }}
         style={[styles.mood, { width, height: height ?? width * 0.72 }]}
       >
         <View style={styles.moodPulse} />
-        <Txt variant="title3" style={{ color: '#fff' }}>
-          {mood.name}
-        </Txt>
-        <Txt variant="caption" style={{ color: 'rgba(255,255,255,0.82)' }}>
+        <Txt variant="micro" uppercase numberOfLines={2} style={{ color: 'rgba(255,255,255,0.86)' }}>
           {mood.tagline}
+        </Txt>
+        <Txt
+          variant={width >= 160 ? 'display' : 'title1'}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={{ color: '#fff' }}
+        >
+          {mood.name}
         </Txt>
       </LinearGradient>
     </Pressable>
@@ -323,17 +334,23 @@ const makeStyles = (colors: ThemeColors) =>
     mood: {
       borderRadius: radii.lg,
       padding: spacing.lg,
-      justifyContent: 'flex-end',
+      justifyContent: 'space-between',
       overflow: 'hidden',
     },
     moodPulse: {
       position: 'absolute',
-      right: -30,
-      top: -30,
-      width: 110,
-      height: 110,
-      borderRadius: 55,
-      backgroundColor: 'rgba(255,255,255,0.14)',
+      right: -40,
+      bottom: -40,
+      width: 150,
+      height: 150,
+      borderRadius: 75,
+      backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    artLift: {
+      shadowColor: '#000',
+      shadowOpacity: 0.3,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 8 },
     },
     event: {
       flexDirection: 'row',

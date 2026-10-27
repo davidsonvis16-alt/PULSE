@@ -34,8 +34,15 @@ export interface IdentificationResult {
   query: string | null;
 }
 
-/** Above this, Pulse applies the match without asking. */
-export const CONFIDENT_THRESHOLD = 0.8;
+/**
+ * Above this, Pulse applies the match without asking.
+ *
+ * A 65% match is right far more often than it is wrong, and leaving it in a
+ * queue means a song without its name or cover until someone confirms it —
+ * which in practice is most of them, forever. A wrong match is fixable from
+ * the song's own page; an unnamed library is just a worse library.
+ */
+export const CONFIDENT_THRESHOLD = 0.65;
 /**
  * The bar for a file whose own name is worthless — "03.mp3", "AUD-0002.mp3".
  *
@@ -87,6 +94,9 @@ export const catalogIdentifier: MusicIdentifier = {
     // With no artist to go on, the title has to carry the whole decision, so it
     // is held to a higher bar by counting for less.
     let score = artist ? titleScore * 0.6 + artistScore * 0.4 : titleScore * 0.72;
+    // A named artist that is plainly someone else means a different recording
+    // with the same title, however good the title looks.
+    if (artist && artistScore < 0.4) score -= 0.2;
 
     if (input.tags.album && candidate.albumTitle) {
       score += similarity(input.tags.album, candidate.albumTitle) * 0.1;
@@ -97,7 +107,7 @@ export const catalogIdentifier: MusicIdentifier = {
       const deltaSeconds = Math.abs(input.durationMs - candidate.durationMs) / 1000;
       if (deltaSeconds <= 2) score += 0.14;
       else if (deltaSeconds <= 5) score += 0.07;
-      else if (deltaSeconds > 20) score -= 0.35;
+      else if (deltaSeconds > 20) score -= 0.4;
       else if (deltaSeconds > 10) score -= 0.12;
     }
 

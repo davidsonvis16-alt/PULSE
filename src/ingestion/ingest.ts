@@ -1,4 +1,5 @@
 import { Store } from '@/src/core/store';
+import { mapConcurrent } from '@/src/core/concurrency';
 import { entityId, type Track } from '@/src/core/types';
 import { estimateBitrate, readFileTags, type FileTags } from '@/src/ingestion/tags';
 import {
@@ -33,12 +34,36 @@ import { refreshPushRegistration } from '@/src/notifications/push';
  * enough, get real artwork onto them, then rebuild the Grooves and the taste
  * profile from what was found.
  *
- * Two things shape the order of work. Reading tags is local and fast, so it
- * happens for everything up front and most collections need nothing more.
- * Identification and artwork lookups cost network round trips, so they run only
- * for the files that actually need them, and artwork is fetched once per album
- * rather than once per track.
+ * Three things shape the order of work:
+ *
+ *  - The first songs matter most. The first FIRST_BATCH files go all the way
+ *    through — tags, identification, covers, saved, Grooves built — before
+ *    anything else is touched, so a listener is looking at their own music in
+ *    seconds instead of waiting for a whole collection. The rest follow in
+ *    larger batches while they listen.
+ *  - Work runs side by side. Files are read a few at a time and lookups run in
+ *    parallel; the HTTP layer's per-host rate limiter is what keeps the
+ *    catalogue from being flooded, not a one-at-a-time loop.
+ *  - Network only where it is needed. Identification runs only for files whose
+ *    own tags are not enough, and artwork is fetched once per album, with
+ *    concurrent requests for the same album sharing one lookup.
  */
+
+/** Songs taken all the way through before the rest of the collection. */
+export const FIRST_BATCH = 20;
+/** Size of each batch after the first. */
+const BATCH = 60;
+/**
+ * New songs taken in by one import. A big collection all at once kept the
+ * phone busy for minutes; the rest come in whenever the listener adds more.
+ */
+export const MAX_PER_IMPORT = 100;
+/** Files read from storage at once. Reading tags runs on the UI thread, so few. */
+const READ_CONCURRENCY = 2;
+/** Counters change for every song; the screen hears about them this often. */
+const UPDATE_EVERY_MS = 300;
+/** Catalogue lookups in flight at once. */
+const LOOKUP_CONCURRENCY = 6;
 
 export type IngestPhase =
   | 'idle'
@@ -57,8 +82,17 @@ export interface IngestState {
   phase: IngestPhase;
   /** Files discovered so far. */
   found: number;
+  /** Files that needed importing this run (new or changed). */
+  total: number;
+  /**
+   * The first batch is saved and the Grooves are built from it — the library
+   * is usable while the rest of the collection keeps importing.
+   */
+  firstBatchReady: boolean;
   /** Files fully processed. */
   processed: number;
+  /** New songs found but left for next time, past MAX_PER_IMPORT. */
+  remaining: number;
   /** Of those, how many needed looking up rather than having usable tags. */
   identified: number;
   needsIdentification: number;
@@ -74,7 +108,10 @@ export interface IngestState {
 const IDLE: IngestState = {
   phase: 'idle',
   found: 0,
+  total: 0,
+  firstBatchReady: false,
   processed: 0,
+  remaining: 0,
   identified: 0,
   needsIdentification: 0,
   artworkFound: 0,
@@ -96,6 +133,44 @@ export interface IngestOptions {
 class IngestEngine extends Store<IngestState> {
   private controller: AbortController | null = null;
   private running = false;
+  private pending: Partial<IngestState> | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Every change goes out at once, carrying any counters still waiting with it.
+   * Phase changes use this, so the screen never shows a step late.
+   */
+  protected override set(patch: Partial<IngestState> | ((prev: IngestState) => Partial<IngestState>)) {
+    const waiting = this.pending;
+    this.pending = null;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (!waiting) {
+      super.set(patch);
+      return;
+    }
+    super.set((prev) => ({
+      ...waiting,
+      ...(typeof patch === 'function' ? patch({ ...prev, ...waiting }) : patch),
+    }));
+  }
+
+  /**
+   * Per-song counters. Telling every screen about each one re-rendered them
+   * hundreds of times a minute, which is what made importing lag; these are
+   * gathered and sent a few times a second instead.
+   */
+  private soon(patch: Partial<IngestState>) {
+    this.pending = { ...this.pending, ...patch };
+    this.timer ??= setTimeout(() => this.set({}), UPDATE_EVERY_MS);
+  }
+
+  /** A counter's latest value, including one not yet sent. */
+  private latest<K extends keyof IngestState>(key: K): IngestState[K] {
+    return (this.pending?.[key] ?? this.getSnapshot()[key]) as IngestState[K];
+  }
 
   constructor() {
     super(IDLE);
@@ -133,9 +208,12 @@ class IngestEngine extends Store<IngestState> {
       // 1. Find the files.
       this.set({ phase: 'finding' });
       const discovered = await scanner.scanLibrary({
-        limit: options.limit,
+        // Picked files are copied into Pulse as they are found, so the cap
+        // applies while picking; a device scan lists everything (cheap) and
+        // the cap applies below, so the next import picks up where this ended.
+        limit: options.limit ?? (scanner.id === 'file-picker' ? MAX_PER_IMPORT : undefined),
         signal,
-        onProgress: (found) => this.set({ found }),
+        onProgress: (found) => this.soon({ found }),
       });
       this.set({ found: discovered.length });
       if (discovered.length === 0) {
@@ -158,89 +236,31 @@ class IngestEngine extends Store<IngestState> {
         return this.getSnapshot();
       }
 
-      // 2. Read what each file says about itself.
-      this.set({ phase: 'reading' });
-      const candidates: Candidate[] = [];
-      for (let i = 0; i < pending.length; i += 1) {
-        if (signal.aborted) break;
-        const file = pending[i];
-        const tags = await readFileTags(file.uri, file.sizeBytes || undefined);
-        candidates.push({ file, tags });
-        this.set({
-          processed: i + 1,
-          progress: ((i + 1) / pending.length) * 0.45,
-        });
+      const taking = pending.slice(0, MAX_PER_IMPORT);
+      this.set({ total: taking.length, remaining: pending.length - taking.length });
+      const artworkLookups = new Map<string, Promise<string | null>>();
+      const batches = [taking.slice(0, FIRST_BATCH)];
+      for (let i = FIRST_BATCH; i < taking.length; i += BATCH) {
+        batches.push(taking.slice(i, i + BATCH));
       }
 
-      // 3. Identify the ones whose own tags are not enough.
-      this.set({ phase: 'identifying', processed: 0 });
-      const needsLookup = candidates.filter((candidate) => !hasUsableTags(candidate.tags));
-      for (let i = 0; i < needsLookup.length; i += 1) {
+      let done = 0;
+      for (let b = 0; b < batches.length; b += 1) {
         if (signal.aborted) break;
-        const candidate = needsLookup[i];
-        const result = await identify({
-          filename: candidate.file.filename,
-          tags: candidate.tags,
-          durationMs: candidate.tags.durationMs ?? candidate.file.durationMs,
+        await this.importBatch(batches[b], artworkLookups, signal, (count) => {
+          this.soon({
+            processed: Math.floor(done + count),
+            progress: Math.min(0.93, ((done + count) / taking.length) * 0.93),
+          });
         });
-        candidate.identification = result.status;
-        candidate.confidence = result.confidence;
-        candidate.match = result.match ?? undefined;
-        if (result.status === 'identified') {
-          this.set({ identified: this.getSnapshot().identified + 1 });
-        } else {
-          this.set({ needsIdentification: this.getSnapshot().needsIdentification + 1 });
+        done += batches[b].length;
+
+        // The first songs are in: build Grooves from them so the library is
+        // worth opening now, then carry on with the rest.
+        if (b === 0 && batches.length > 1 && !signal.aborted) {
+          await this.analyze(false);
+          this.set({ firstBatchReady: true });
         }
-        this.set({
-          processed: i + 1,
-          progress: 0.45 + ((i + 1) / Math.max(1, needsLookup.length)) * 0.25,
-        });
-      }
-
-      // 4. Find real artwork for anything that has none of its own.
-      this.set({ phase: 'artwork', processed: 0 });
-      const artworkCache = new Map<string, string | null>();
-      const needsArtwork = candidates.filter(
-        (candidate) => !candidate.tags.picture && !candidate.match?.artworkUrl,
-      );
-      for (let i = 0; i < needsArtwork.length; i += 1) {
-        if (signal.aborted) break;
-        const candidate = needsArtwork[i];
-        // Fall back to what the filename says. A wrong cover is still ruled out
-        // downstream: the provider only returns a match it is confident in.
-        const named = displayNameFromFilename(candidate.file.filename);
-        const artist = candidate.tags.artist ?? candidate.match?.artistName ?? named.artist ?? '';
-        const album = candidate.tags.album ?? candidate.match?.albumTitle ?? '';
-        const title = candidate.tags.title ?? candidate.match?.title ?? named.title;
-
-        if (album || title) {
-          const key = `${artist.toLowerCase()}|${album.toLowerCase()}`;
-          if (album && artworkCache.has(key)) {
-            candidate.artworkUrl = artworkCache.get(key) ?? undefined;
-          } else {
-            const found = await artworkProvider().getArtwork({ title, artist, album });
-            if (album) artworkCache.set(key, found);
-            candidate.artworkUrl = found ?? undefined;
-          }
-          if (candidate.artworkUrl) {
-            this.set({ artworkFound: this.getSnapshot().artworkFound + 1 });
-          }
-        }
-        this.set({
-          processed: i + 1,
-          progress: 0.7 + ((i + 1) / Math.max(1, needsArtwork.length)) * 0.15,
-        });
-      }
-
-      // 5. Write everything to the library.
-      this.set({ phase: 'analyzing', processed: 0 });
-      for (let i = 0; i < candidates.length; i += 1) {
-        if (signal.aborted) break;
-        await persist(candidates[i]);
-        this.set({
-          processed: i + 1,
-          progress: 0.85 + ((i + 1) / candidates.length) * 0.08,
-        });
       }
 
       if (signal.aborted) {
@@ -264,9 +284,85 @@ class IngestEngine extends Store<IngestState> {
     }
   }
 
+  /**
+   * Takes one batch of files all the way into the library: read, identify
+   * what needs it, find covers, save.
+   */
+  private async importBatch(
+    files: ScannedFile[],
+    artworkLookups: Map<string, Promise<string | null>>,
+    signal: AbortSignal,
+    onProgress: (count: number) => void,
+  ) {
+    // 1. Read what each file says about itself.
+    this.set({ phase: 'reading' });
+    let read = 0;
+    const candidates = await mapConcurrent(files, READ_CONCURRENCY, signal, async (file) => {
+      const tags = await readFileTags(file.uri, file.sizeBytes || undefined);
+      // Let the screen draw a frame between files.
+      await breathe();
+      read += 1;
+      onProgress(read * 0.4);
+      return { file, tags } as Candidate;
+    });
+
+    // 2. Identify the ones whose own tags are not enough.
+    this.set({ phase: 'identifying' });
+    const needsLookup = candidates.filter((candidate) => !hasUsableTags(candidate.tags));
+    await mapConcurrent(needsLookup, LOOKUP_CONCURRENCY, signal, async (candidate) => {
+      const result = await identify({
+        filename: candidate.file.filename,
+        tags: candidate.tags,
+        durationMs: candidate.tags.durationMs ?? candidate.file.durationMs,
+      });
+      candidate.identification = result.status;
+      candidate.confidence = result.confidence;
+      candidate.match = result.match ?? undefined;
+      if (result.status === 'identified') this.soon({ identified: this.latest('identified') + 1 });
+      else this.soon({ needsIdentification: this.latest('needsIdentification') + 1 });
+    });
+
+    // 3. Find real artwork for anything that has none of its own.
+    this.set({ phase: 'artwork' });
+    const needsArtwork = candidates.filter(
+      (candidate) => !candidate.tags.picture && !candidate.match?.artworkUrl,
+    );
+    await mapConcurrent(needsArtwork, LOOKUP_CONCURRENCY, signal, async (candidate) => {
+      // Fall back to what the filename says. A wrong cover is still ruled out
+      // downstream: the provider only returns a match it is confident in.
+      const named = displayNameFromFilename(candidate.file.filename);
+      const artist = candidate.tags.artist ?? candidate.match?.artistName ?? named.artist ?? '';
+      const album = candidate.tags.album ?? candidate.match?.albumTitle ?? '';
+      const title = candidate.tags.title ?? candidate.match?.title ?? named.title;
+      if (!album && !title) return;
+
+      // Songs from one album share one lookup, even when they are in flight together.
+      const key = album ? `${artist.toLowerCase()}|${album.toLowerCase()}` : null;
+      let lookup = key ? artworkLookups.get(key) : undefined;
+      if (!lookup) {
+        lookup = artworkProvider()
+          .getArtwork({ title, artist, album })
+          .catch(() => null);
+        if (key) artworkLookups.set(key, lookup);
+      }
+      candidate.artworkUrl = (await lookup) ?? undefined;
+      if (candidate.artworkUrl) {
+        this.soon({ artworkFound: this.latest('artworkFound') + 1 });
+      }
+    });
+
+    // 4. Write everything to the library.
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (signal.aborted) break;
+      await persist(candidates[i]);
+      if (i % 5 === 4) await breathe();
+      onProgress(0.4 * candidates.length + 0.6 * (i + 1));
+    }
+  }
+
   /** Clusters the collection and refreshes the taste profile. */
-  private async analyze() {
-    this.set({ phase: 'grooving', progress: 0.94 });
+  private async analyze(final = true) {
+    if (final) this.set({ phase: 'grooving', progress: 0.94 });
     const grooves = await rebuildGrooves();
     invalidateTasteProfile();
     invalidateOwnedIndex();
@@ -275,11 +371,16 @@ class IngestEngine extends Store<IngestState> {
     void chartsStore.reresolveOwned().catch(() => {});
     // New artists in the library mean new things worth being told about.
     void refreshPushRegistration().catch(() => {});
-    this.set({ grooveCount: grooves.length, progress: 1 });
+    this.set({ grooveCount: grooves.length, ...(final ? { progress: 1 } : {}) });
   }
 
   private finish(phase: IngestPhase) {
-    this.set({ phase, progress: phase === 'done' ? 1 : this.getSnapshot().progress, finishedAt: Date.now() });
+    this.set({
+      phase,
+      firstBatchReady: phase === 'done' || this.getSnapshot().firstBatchReady,
+      progress: phase === 'done' ? 1 : this.getSnapshot().progress,
+      finishedAt: Date.now(),
+    });
   }
 }
 
@@ -290,6 +391,11 @@ interface Candidate {
   confidence?: number;
   match?: Track;
   artworkUrl?: string;
+}
+
+/** Hands the thread back for a moment, so taps and scrolling stay smooth. */
+function breathe(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 async function pickScanner(mode: IngestOptions['mode']): Promise<MusicScanner | null> {

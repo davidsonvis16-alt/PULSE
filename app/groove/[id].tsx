@@ -32,7 +32,7 @@ export default function GrooveScreen() {
   const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { gutter, width } = useResponsive();
+  const { gutter, pageWidth: width } = useResponsive();
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
   const share = useShareSheet();

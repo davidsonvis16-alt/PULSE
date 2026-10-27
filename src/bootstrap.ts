@@ -9,6 +9,7 @@ import { pruneStaleEvents } from '@/src/db/repos/events';
 import { pruneStaleNotifications } from '@/src/db/repos/notifications';
 import { checkForNewReleases } from '@/src/discovery/releases';
 import { startLibraryWatch } from '@/src/ingestion/watch';
+import { applyConfidentMatches } from '@/src/ingestion/identify/apply';
 import { artworkRepair } from '@/src/ingestion/artwork/backfill';
 import { likesStore } from '@/src/ui/likes';
 import { checkMusicWorld } from '@/src/news/notify';
@@ -49,6 +50,8 @@ export async function initializePulse(): Promise<void> {
   // Quietly finds covers for anything imported without one, including music
   // that came in before Pulse could reach the catalogue.
   void artworkRepair.run({ limit: 200 }).catch(() => {});
+  // Songs left waiting on a match that is now good enough get it applied.
+  void applyConfidentMatches().catch(() => {});
   // Picks up music added to the device since last launch, if the user has
   // already granted access and imported something.
   void startLibraryWatch().catch(() => {});

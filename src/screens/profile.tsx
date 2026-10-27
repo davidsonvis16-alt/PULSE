@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { formatListeningTime, formatRelativeTime, initialsOf, pluralize } from '@/src/core/format';
+import { formatListeningTime, formatRelativeTime, pluralize } from '@/src/core/format';
 import { getFollowedArtists, getLibraryCounts } from '@/src/db/repos/library';
 import { getStatsSummary, getTopArtists, getTopGenres } from '@/src/db/repos/history';
 import { listActivity, listFriends, saveProfile, type ActivityItem, type Friend } from '@/src/db/repos/social';
@@ -26,6 +26,7 @@ import { useToast } from '@/src/ui/toast';
 import { statsShare } from '@/src/share/share';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
+import { ProfileAvatar } from '@/src/ui/profile-avatar';
 import { Txt } from '@/src/ui/text';
 import { Button, Chip, IconButton, SegmentedControl } from '@/src/ui/buttons';
 import { ArtistCard } from '@/src/ui/cards';
@@ -47,7 +48,7 @@ export function ProfileScreen() {
   const { colors, preference, setPreference } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
-  const { profile, refreshProfile, signOut, mode } = useAuth();
+  const { profile, refreshProfile, signOut, session } = useAuth();
   const { gutter, shelfCardWidth } = useResponsive();
   const bottomInset = useBottomInset();
   const share = useShareSheet();
@@ -117,21 +118,19 @@ export function ProfileScreen() {
       >
         {/* Header */}
         <View style={[styles.header, { paddingHorizontal: gutter }]}>
-          <View style={styles.avatar}>
-            {profile?.avatarUrl ? (
-              <Artwork uri={profile.avatarUrl} size={64} rounded />
-            ) : (
-              <Txt variant="title2" tone="onAccent">
-                {initialsOf(profile?.displayName)}
-              </Txt>
-            )}
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change your profile picture"
+            onPress={() => router.push('/settings/picture')}
+          >
+            <ProfileAvatar size={64} />
+          </Pressable>
           <View style={{ flex: 1 }}>
             <Txt variant="title2" numberOfLines={1}>
               {profile?.displayName ?? 'Your profile'}
             </Txt>
             <Txt variant="caption" tone="muted">
-              {profile?.handle ? `@${profile.handle}` : mode === 'local' ? 'On this device' : 'Set a handle'}
+              {profile?.handle ? `@${profile.handle}` : 'Set a handle'}
             </Txt>
           </View>
           <IconButton
@@ -158,6 +157,13 @@ export function ProfileScreen() {
               setBio(profile?.bio ?? '');
               setEditing(true);
             }}
+          />
+          <Button
+            label="Picture"
+            variant="secondary"
+            size="sm"
+            icon="happy-outline"
+            onPress={() => router.push('/settings/picture')}
           />
           {social && (
             <Button
@@ -445,7 +451,7 @@ export function ProfileScreen() {
                 full
                 onPress={() => router.push('/settings/playback')}
               />
-              {mode === 'connected' && (
+              {!!session && (
                 <Button label="Sign out" variant="danger" full onPress={() => void signOut()} />
               )}
             </View>
@@ -579,15 +585,6 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       gap: spacing.lg,
       paddingVertical: spacing.xl,
-    },
-    avatar: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: colors.accent,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
     },
     actions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
     counts: {

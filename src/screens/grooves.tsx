@@ -27,7 +27,7 @@ import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 export function GroovesList({ embedded }: { embedded?: boolean } = {}) {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
-  const { gutter, width, isTabletUp } = useResponsive();
+  const { gutter, pageWidth: width, isTabletUp } = useResponsive();
   const toast = useToast();
 
   const state = useAsync(async () => {

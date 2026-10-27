@@ -44,6 +44,9 @@ export const SETTINGS_KEYS = {
   theme: 'appearance.theme',
   lastNewsCheck: 'news.lastCheckedAt',
   pushPrefs: 'push.prefs',
+  avatarSchedule: 'profile.avatarSchedule',
+  /** How many unidentified songs there were when the Home banner was closed. */
+  identifyBannerDismissed: 'home.identifyBannerDismissed',
 } as const;
 
 export interface NotificationPrefs {

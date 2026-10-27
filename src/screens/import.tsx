@@ -10,7 +10,7 @@ import {
   type MusicScanner,
   type ScanDiagnostics,
 } from '@/src/ingestion/scanner';
-import { ingestEngine, PHASE_LABELS } from '@/src/ingestion/ingest';
+import { FIRST_BATCH, ingestEngine, MAX_PER_IMPORT, PHASE_LABELS } from '@/src/ingestion/ingest';
 import { getLocalCounts } from '@/src/db/repos/local';
 import { listGrooves, type Groove } from '@/src/db/repos/grooves';
 import { getTopArtists } from '@/src/db/repos/history';
@@ -130,7 +130,13 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
   );
 
   const done = () => {
-    onFinished?.();
+    // Skipping counts: Pulse offers the import once, then Library is where music is added.
+    void setSetting(SETTINGS_KEYS.onboardingDone, 'true');
+    if (onFinished) {
+      // Shown before the app's screens exist, so there is nowhere to navigate yet.
+      onFinished();
+      return;
+    }
     router.replace('/');
   };
 
@@ -236,13 +242,32 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
                     </Txt>
                     {status === 'active' && state.processed > 0 && (
                       <Txt variant="caption" tone="muted">
-                        {state.processed}
+                        {state.total ? `${state.processed} of ${state.total}` : state.processed}
                       </Txt>
                     )}
                   </View>
                 );
               })}
             </View>
+
+            {state.firstBatchReady && state.total > FIRST_BATCH && (
+              <View style={{ width: '100%', gap: spacing.sm, marginTop: spacing.xl }}>
+                <Button
+                  label="Start listening"
+                  icon="play"
+                  full
+                  onPress={() => {
+                    // The import carries on in the background; Home shows its progress.
+                    void setSetting(SETTINGS_KEYS.onboardingDone, 'true');
+                    done();
+                  }}
+                />
+                <Txt variant="caption" tone="muted" align="center">
+                  Your first {FIRST_BATCH} songs are ready. The other{' '}
+                  {pluralize(state.total - FIRST_BATCH, 'song')} keep importing while you listen.
+                </Txt>
+              </View>
+            )}
 
             <Button
               label="Stop"
@@ -320,6 +345,13 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
               <Txt variant="body" tone="muted" align="center">
                 Everything from here on is built from this.
               </Txt>
+              {state.remaining > 0 && (
+                <Txt variant="callout" tone="accent" align="center" style={{ marginTop: spacing.sm }}>
+                  Pulse brought in {MAX_PER_IMPORT} songs to start. You have{' '}
+                  {pluralize(state.remaining, 'more song')} — tap “Add more music” for the next{' '}
+                  {Math.min(MAX_PER_IMPORT, state.remaining)} whenever you like.
+                </Txt>
+              )}
             </View>
 
             <View style={[styles.tiles, { marginTop: spacing.xxl }]}>

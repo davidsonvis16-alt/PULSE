@@ -44,7 +44,7 @@ export default function PlaylistScreen() {
   const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { gutter, width, isTabletUp } = useResponsive();
+  const { gutter, pageWidth: width, isTabletUp } = useResponsive();
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
   const share = useShareSheet();
@@ -283,6 +283,7 @@ export default function PlaylistScreen() {
         onClose={() => setMenuTrack(null)}
         title={menuTrack?.track.title}
         subtitle={menuTrack?.track.artistName}
+        menu
       >
         {menuTrack && playlist && (
           <>

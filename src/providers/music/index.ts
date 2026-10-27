@@ -1,6 +1,7 @@
 import { itunesProvider, ITUNES_PROVIDER_ID } from '@/src/providers/music/adapters/itunes';
 import { localProvider } from '@/src/providers/music/adapters/local';
 import type { MusicProvider } from '@/src/providers/music/types';
+import { freestyleProvider } from '@/src/radio/freestyle-provider';
 
 export * from '@/src/providers/music/types';
 export { ITUNES_PROVIDER_ID };
@@ -17,6 +18,8 @@ const registry = new Map<string, MusicProvider>([
   // Always registered, never the active source: it only resolves music that is
   // already on the device.
   [localProvider.id, localProvider],
+  // Resolves uploads heard on Pulse Radio.
+  [freestyleProvider.id, freestyleProvider],
 ]);
 
 let activeProviderId = itunesProvider.id;

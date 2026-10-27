@@ -2,31 +2,30 @@ import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useResponsive } from '@/src/hooks/use-responsive';
+import { TABS } from '@/src/ui/sidebar';
 import { layout, typography } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
-type IconName = keyof typeof Ionicons.glyphMap;
-
-const TABS: { name: string; title: string; icon: IconName; active: IconName }[] = [
-  { name: 'index', title: 'Home', icon: 'home-outline', active: 'home' },
-  { name: 'discover', title: 'Discover', icon: 'search-outline', active: 'search' },
-  { name: 'library', title: 'Library', icon: 'library-outline', active: 'library' },
-  { name: 'events', title: 'Events', icon: 'calendar-outline', active: 'calendar' },
-  { name: 'profile', title: 'Profile', icon: 'person-outline', active: 'person' },
-];
-
+/**
+ * Phones get tabs along the bottom, under the thumb. Laptops get the sidebar
+ * instead (see Sidebar), so the bar is not drawn there at all.
+ */
 export default function TabLayout() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
+  const { isLaptopUp } = useResponsive();
   const barHeight = layout.tabBarHeight + insets.bottom;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: isLaptopUp ? 'transparent' : colors.background }}>
       <Tabs
+        // On a laptop the sidebar (mounted around the whole app) is the navigation.
+        tabBar={isLaptopUp ? () => null : undefined}
         screenOptions={{
           headerShown: false,
-          sceneStyle: { backgroundColor: colors.background },
+          sceneStyle: { backgroundColor: isLaptopUp ? 'transparent' : colors.background },
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle: [styles.bar, { height: barHeight, paddingBottom: insets.bottom }],

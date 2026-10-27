@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Store } from '@/src/core/store';
 import type { Track } from '@/src/core/types';
@@ -17,6 +18,10 @@ import {
 import { addTrackToLibrary, removeFromLibrary } from '@/src/db/repos/library';
 import { pushNotification } from '@/src/db/repos/notifications';
 import { getNotificationPrefs } from '@/src/db/repos/settings';
+
+
+/** False on the web, where there is nowhere to keep a downloaded song. */
+export const downloadsSupported = Platform.OS !== 'web';
 
 /**
  * Download manager.
@@ -69,8 +74,11 @@ class DownloadManager extends Store<DownloadsState> {
   }
 
   async init() {
-    await ensureDirectories();
-    await markInterruptedAsPaused();
+    // A browser has no file system to keep songs in; the web version streams.
+    if (downloadsSupported) {
+      await ensureDirectories();
+      await markInterruptedAsPaused();
+    }
     await this.refresh();
     this.set({ ready: true });
   }

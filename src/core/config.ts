@@ -17,8 +17,26 @@ const extra: Extra = {
   ...(Constants.expoConfig?.extra as Extra | undefined),
 };
 
+/**
+ * Every variable is written out in full on purpose: Expo bakes
+ * `process.env.EXPO_PUBLIC_*` into the bundle only where it appears literally,
+ * so `process.env[key]` would be empty in every real build.
+ */
+const env: Record<string, string | undefined> = {
+  EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  EXPO_PUBLIC_PULSE_API_URL: process.env.EXPO_PUBLIC_PULSE_API_URL,
+  EXPO_PUBLIC_EVENTS_PROXY_URL: process.env.EXPO_PUBLIC_EVENTS_PROXY_URL,
+  EXPO_PUBLIC_PUSH_REGISTER_URL: process.env.EXPO_PUBLIC_PUSH_REGISTER_URL,
+  EXPO_PUBLIC_MUSIC_PROVIDER: process.env.EXPO_PUBLIC_MUSIC_PROVIDER,
+  EXPO_PUBLIC_MUSIC_COUNTRY: process.env.EXPO_PUBLIC_MUSIC_COUNTRY,
+  EXPO_PUBLIC_YOUTUBE_API_KEY: process.env.EXPO_PUBLIC_YOUTUBE_API_KEY,
+  EXPO_PUBLIC_LASTFM_API_KEY: process.env.EXPO_PUBLIC_LASTFM_API_KEY,
+  EXPO_PUBLIC_SHARE_BASE_URL: process.env.EXPO_PUBLIC_SHARE_BASE_URL,
+};
+
 function read(key: string): string | undefined {
-  const value = process.env[key] ?? extra[key];
+  const value = env[key] ?? extra[key];
   const trimmed = typeof value === 'string' ? value.trim() : '';
   return trimmed.length > 0 ? trimmed : undefined;
 }
@@ -74,7 +92,14 @@ export const config = {
   },
   /** Deep-link host used when building share links. */
   share: {
-    webBaseUrl: read('EXPO_PUBLIC_SHARE_BASE_URL') ?? 'https://pulse.app',
+    // The address the web version is published at, so a shared link opens
+    // Pulse in the browser for anyone without the app. On the web itself the
+    // page's own address is always right.
+    webBaseUrl:
+      read('EXPO_PUBLIC_SHARE_BASE_URL') ??
+      (typeof window !== 'undefined' && window.location?.origin?.startsWith('http')
+        ? window.location.origin
+        : 'https://pulse.app'),
   },
 } as const;
 

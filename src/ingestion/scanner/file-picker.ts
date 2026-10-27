@@ -1,5 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import { clearWebFiles, storeWebFile } from '@/src/ingestion/web-store';
 import {
   isAudioFilename,
   type MusicScanner,
@@ -56,15 +58,21 @@ export const filePickerScanner: MusicScanner = {
     });
     if (result.canceled) return [];
 
-    await ensureImportDir();
+    if (Platform.OS !== 'web') await ensureImportDir();
 
     const files: ScannedFile[] = [];
     for (const asset of result.assets ?? []) {
       if (options.signal?.aborted) break;
+      if (options.limit !== undefined && files.length >= options.limit) break;
       // Keep it only if the name or the reported type says it is audio.
       if (!isAudioFilename(asset.name) && !asset.mimeType?.startsWith('audio/')) continue;
 
-      const stored = await persist(asset.uri, asset.name);
+      const stored =
+        Platform.OS === 'web'
+          ? await storeWebFile(safeName(asset.name), asset.file ?? (await (await fetch(asset.uri)).blob())).catch(
+              () => null,
+            )
+          : await persist(asset.uri, asset.name);
       if (!stored) continue;
 
       files.push({
@@ -124,6 +132,10 @@ function safeName(filename: string): string {
 }
 
 export async function clearImportedFiles() {
+  if (Platform.OS === 'web') {
+    await clearWebFiles().catch(() => {});
+    return;
+  }
   try {
     await FileSystem.deleteAsync(IMPORT_DIR, { idempotent: true });
   } catch {

@@ -1,36 +1,37 @@
 /**
- * Pulse design tokens.
+ * Pulse design tokens — "Afterglow".
  *
- * Every colour here is taken from the Pulse mark: its lime plate, the ink of
- * the P, the cream of the flag, the grey of the wordmark and the white it sits
- * on. Surfaces are neutral so artwork carries all the other colour in the app.
+ * A deep ink with a breath of violet in it, and one hot ember accent that is
+ * nobody else's: not Spotify's green, Apple's red or Deezer's purple. Surfaces
+ * stay quiet so artwork carries the rest of the colour; the player goes further
+ * and takes its whole background from the cover that is playing.
  */
 
 export const palette = {
-  /** Canvas — the mark's ink, darkened to let artwork glow. */
-  black: '#070708',
-  ink: '#0C0C0D',
-  surface: '#141416',
-  surfaceRaised: '#1A1A1C',
-  surfaceHigh: '#212124',
-  hairline: '#2A2A2D',
-  hairlineSoft: '#1E1E21',
+  /** Canvas — ink with a breath of violet, so artwork glows against it. */
+  black: '#0C0B10',
+  ink: '#141319',
+  surface: '#1C1B23',
+  surfaceRaised: '#22212A',
+  surfaceHigh: '#2A2932',
+  hairline: '#2E2D36',
+  hairlineSoft: '#222129',
 
-  /** The lime of the Pulse plate. Primary actions and active state only. */
-  lime: '#C9F62B',
-  limeBright: '#D8FF52',
-  limeDim: '#9CC61F',
-  limeGlow: 'rgba(201, 246, 43, 0.16)',
+  /** Ember. Primary actions and active state only. */
+  ember: '#FF6A3D',
+  emberBright: '#FF8A5B',
+  emberDim: '#C9502C',
+  emberGlow: 'rgba(255, 106, 61, 0.16)',
 
   /** The cream of the flag on the mark. */
   cream: '#F6F1DF',
 
   white: '#FFFFFF',
-  text: '#F4F4F3',
-  /** The grey of the Pulse wordmark. */
-  textSecondary: '#B0B3B0',
-  textMuted: '#76797A',
-  textFaint: '#4C4F50',
+  text: '#F5F3F7',
+  textSecondary: '#C9C6D2',
+  textMuted: '#A09DAB',
+  /** Still readable: 4.6:1 on the canvas, so small print never disappears. */
+  textFaint: '#7C7987',
 
   danger: '#FF6B6B',
   warning: '#FFC24B',
@@ -46,8 +47,8 @@ export const palette = {
 
 /** The mark's own colours, for the logo and the launch screen. */
 export const brand = {
-  plate: palette.lime,
-  ink: '#0A0B0A',
+  plate: palette.ember,
+  ink: '#1A0A04',
   flag: palette.cream,
   wordmark: palette.textSecondary,
   /**
@@ -73,12 +74,12 @@ export const darkColors = {
   border: palette.hairline,
   borderSoft: palette.hairlineSoft,
 
-  accent: palette.lime,
-  accentBright: palette.limeBright,
-  accentDim: palette.limeDim,
-  accentGlow: palette.limeGlow,
-  /** Text/icon colour to use *on top of* the accent — the mark's ink. */
-  onAccent: '#0A0B0A',
+  accent: palette.ember,
+  accentBright: palette.emberBright,
+  accentDim: palette.emberDim,
+  accentGlow: palette.emberGlow,
+  /** Text/icon colour to use *on top of* the accent. */
+  onAccent: '#1A0A04',
 
   text: palette.text,
   textSecondary: palette.textSecondary,
@@ -90,9 +91,9 @@ export const darkColors = {
   success: palette.success,
   info: palette.info,
 
-  skeleton: '#1A1A1C',
-  skeletonHighlight: '#242427',
-  scrim: 'rgba(7, 7, 8, 0.72)',
+  skeleton: '#1C1B23',
+  skeletonHighlight: '#26252E',
+  scrim: 'rgba(12, 11, 16, 0.72)',
 } as const;
 
 /** Widened so both schemes satisfy the same shape. */
@@ -109,32 +110,34 @@ export type ThemeColors = { [K in keyof typeof darkColors]: string };
  */
 export const lightColors: ThemeColors = {
   background: palette.white,
-  backgroundElevated: '#FAFAF8',
-  card: '#F3F4F1',
-  cardRaised: '#EDEEEA',
-  cardHigh: '#E4E6E1',
-  border: '#D9DBD5',
-  borderSoft: '#E7E9E3',
+  backgroundElevated: '#FAF9FB',
+  card: '#F3F2F6',
+  cardRaised: '#ECEBF0',
+  cardHigh: '#E3E1E8',
+  border: '#D8D6DE',
+  borderSoft: '#E8E6EC',
 
-  accent: '#5F8B0C',
-  accentBright: '#74A511',
-  accentDim: '#89A85A',
-  accentGlow: 'rgba(95, 139, 12, 0.12)',
+  // Full-strength ember is too light for text on white; this is the same hue
+  // deepened to pass 4.5:1.
+  accent: '#C73E14',
+  accentBright: '#E0552A',
+  accentDim: '#E89A80',
+  accentGlow: 'rgba(199, 62, 20, 0.12)',
   onAccent: palette.white,
 
-  text: '#101210',
-  textSecondary: '#4E524D',
-  textMuted: '#72776F',
-  textFaint: '#9BA097',
+  text: '#121117',
+  textSecondary: '#4D4A57',
+  textMuted: '#6D6A78',
+  textFaint: '#8E8B99',
 
   danger: '#C62F2F',
   warning: '#9A6A00',
   success: '#3F7D1F',
   info: '#1C6FB8',
 
-  skeleton: '#E9EAE6',
-  skeletonHighlight: '#F3F4F0',
-  scrim: 'rgba(16, 18, 16, 0.55)',
+  skeleton: '#ECEBF0',
+  skeletonHighlight: '#F5F4F8',
+  scrim: 'rgba(18, 17, 23, 0.55)',
 };
 
 /**
@@ -166,16 +169,31 @@ export const radii = {
   pill: 999,
 } as const;
 
+/**
+ * Bricolage Grotesque for headings — it has a voice, which a music app should —
+ * and Inter for everything you read. Native platforms pick a weight by family
+ * name rather than by fontWeight, so each style names the exact cut it uses.
+ */
+export const fonts = {
+  display: 'BricolageGrotesque_800ExtraBold',
+  heading: 'BricolageGrotesque_700Bold',
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+} as const;
+
 export const typography = {
-  display: { fontSize: 34, lineHeight: 40, fontWeight: '800' as const, letterSpacing: -0.8 },
-  title1: { fontSize: 27, lineHeight: 33, fontWeight: '800' as const, letterSpacing: -0.6 },
-  title2: { fontSize: 22, lineHeight: 28, fontWeight: '700' as const, letterSpacing: -0.4 },
-  title3: { fontSize: 18, lineHeight: 24, fontWeight: '700' as const, letterSpacing: -0.2 },
-  body: { fontSize: 15, lineHeight: 21, fontWeight: '500' as const, letterSpacing: -0.1 },
-  bodyStrong: { fontSize: 15, lineHeight: 21, fontWeight: '700' as const, letterSpacing: -0.1 },
-  callout: { fontSize: 14, lineHeight: 19, fontWeight: '600' as const },
-  caption: { fontSize: 12.5, lineHeight: 17, fontWeight: '500' as const },
-  micro: { fontSize: 11, lineHeight: 14, fontWeight: '700' as const, letterSpacing: 0.6 },
+  hero: { fontFamily: fonts.display, fontSize: 56, lineHeight: 56, fontWeight: '800' as const, letterSpacing: -2 },
+  display: { fontFamily: fonts.display, fontSize: 36, lineHeight: 40, fontWeight: '800' as const, letterSpacing: -1.2 },
+  title1: { fontFamily: fonts.display, fontSize: 28, lineHeight: 32, fontWeight: '800' as const, letterSpacing: -0.8 },
+  title2: { fontFamily: fonts.heading, fontSize: 22, lineHeight: 27, fontWeight: '700' as const, letterSpacing: -0.5 },
+  title3: { fontFamily: fonts.heading, fontSize: 18, lineHeight: 23, fontWeight: '700' as const, letterSpacing: -0.3 },
+  body: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, fontWeight: '500' as const, letterSpacing: -0.1 },
+  bodyStrong: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, fontWeight: '600' as const, letterSpacing: -0.1 },
+  callout: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, fontWeight: '600' as const },
+  caption: { fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 17, fontWeight: '500' as const },
+  micro: { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, fontWeight: '600' as const, letterSpacing: 0.8 },
 } as const;
 
 /** Breakpoints: phone -> tablet -> laptop -> desktop. Layouts change, not stretch. */
@@ -194,6 +212,9 @@ export const layout = {
   maxContentWidth: 1240,
   miniPlayerHeight: 64,
   tabBarHeight: 62,
+  /** Laptop and up: the navigation sidebar and the player bar under everything. */
+  sidebarWidth: 264,
+  playerBarHeight: 88,
 } as const;
 
 export const shadow = {
@@ -212,7 +233,7 @@ export const shadow = {
     elevation: 16,
   },
   accent: {
-    shadowColor: palette.lime,
+    shadowColor: palette.ember,
     shadowOpacity: 0.35,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 6 },

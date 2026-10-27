@@ -100,7 +100,8 @@ export function IconButton({
   size?: number;
   /** Defaults to the theme's text colour. */
   color?: string;
-  background?: 'none' | 'surface' | 'accent';
+  /** 'glass' is for sitting on artwork: a dark, see-through disc. */
+  background?: 'none' | 'surface' | 'accent' | 'glass';
   label: string;
   disabled?: boolean;
   style?: ViewStyle;
@@ -118,11 +119,14 @@ export function IconButton({
         void Haptics.selectionAsync().catch(() => {});
         onPress?.();
       }}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
         styles.iconBase,
         { width: box, height: box, borderRadius: box / 2 },
+        // A pointer gets a soft disc under the icon, as desktop apps do.
+        hovered && background === 'none' && { backgroundColor: colors.card },
         background === 'surface' && { backgroundColor: colors.cardRaised },
         background === 'accent' && { backgroundColor: colors.accent },
+        background === 'glass' && { backgroundColor: hovered ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.25)' },
         { opacity: disabled ? 0.4 : pressed ? 0.7 : 1 },
         style,
       ]}
@@ -136,7 +140,7 @@ export function IconButton({
   );
 }
 
-/** The big lime circle that starts playback. */
+/** The big ember circle that starts playback. */
 export function PlayButton({
   playing,
   onPress,

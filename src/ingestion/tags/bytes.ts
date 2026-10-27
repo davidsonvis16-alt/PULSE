@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { isWebFile, readWebFileSlice, webFileSize } from '@/src/ingestion/web-store';
 
 /**
  * Byte-level helpers for reading audio tags.
@@ -78,6 +79,7 @@ export async function readSlice(
   position: number,
   length: number,
 ): Promise<Uint8Array> {
+  if (isWebFile(uri)) return readWebFileSlice(uri, position, length);
   const encoded = await FileSystem.readAsStringAsync(uri, {
     encoding: 'base64',
     position,
@@ -87,6 +89,7 @@ export async function readSlice(
 }
 
 export async function fileSize(uri: string): Promise<number> {
+  if (isWebFile(uri)) return webFileSize(uri);
   const info = await FileSystem.getInfoAsync(uri);
   if (!info.exists) return 0;
   return 'size' in info && typeof info.size === 'number' ? info.size : 0;

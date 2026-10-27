@@ -47,7 +47,7 @@
       ]
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -56,7 +56,8 @@
       [
         "expo-audio",
         {
-          "microphonePermission": false
+          "microphonePermission": "Pulse uses the microphone only while you record a freestyle for Pulse Radio.",
+          "recordAudioAndroid": true
         }
       ],
       [
@@ -113,6 +114,12 @@
       "eas": {
         "projectId": "a9630a3c-d67a-4067-93f7-aa6e824c759e"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a9630a3c-d67a-4067-93f7-aa6e824c759e"
     }
   }
 }

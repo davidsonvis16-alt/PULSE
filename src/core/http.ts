@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+import { config } from '@/src/core/config';
 /**
  * Networking used by every provider adapter.
  *
@@ -139,6 +141,43 @@ export function settleWithin<T>(
   ).finally(() => clearTimeout(timer));
 }
 
+/**
+ * Hosts a browser cannot call directly because they send no CORS headers. On
+ * the web, requests to them go through Pulse's `web-proxy` function; on a
+ * phone, there is no such restriction and they are called directly.
+ */
+const RELAYED_HOSTS = new Set([
+  'itunes.apple.com',
+  'rss.marketingtools.apple.com',
+  'rss.applemarketingtools.com',
+  'en.wikipedia.org',
+  'api.deezer.com',
+  'www.rollingstone.com',
+  'www.stereogum.com',
+  'www.nme.com',
+  'www.billboard.com',
+  'pitchfork.com',
+  'consequence.net',
+]);
+
+function webRelay(url: string): { url: string; headers: Record<string, string> } | null {
+  if (Platform.OS !== 'web' || !config.supabase.url || !config.supabase.anonKey) return null;
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return null;
+  }
+  if (!RELAYED_HOSTS.has(host)) return null;
+  return {
+    url: `${config.supabase.url}/functions/v1/web-proxy?url=${encodeURIComponent(url)}`,
+    headers: {
+      apikey: config.supabase.anonKey,
+      Authorization: `Bearer ${config.supabase.anonKey}`,
+    },
+  };
+}
+
 export interface GetJsonOptions {
   /** Cache lifetime. Pass 0 to bypass the cache entirely. */
   ttlMs?: number;
@@ -179,9 +218,11 @@ export async function getJson<T>(url: string, options: GetJsonOptions = {}): Pro
       const onAbort = () => controller.abort();
       signal?.addEventListener('abort', onAbort);
       try {
-        const response = await fetch(url, {
+        const relayed = webRelay(url);
+        const response = await fetch(relayed?.url ?? url, {
           headers: {
             Accept: responseType === 'json' ? 'application/json' : '*/*',
+            ...relayed?.headers,
             ...headers,
           },
           signal: controller.signal,

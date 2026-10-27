@@ -23,10 +23,14 @@ export function Screen({
 }) {
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const { isLaptopUp } = useResponsive();
   return (
     <View
       style={[
         styles.screen,
+        // Inside the laptop's page panel, which is a step lighter than the canvas.
+        isLaptopUp && { backgroundColor: colors.backgroundElevated },
         { paddingTop: edges.includes('top') ? insets.top : 0 },
         scroll && { flex: 1 },
       ]}
@@ -97,6 +101,9 @@ export function PageHeader({
 /** Bottom padding that clears the tab bar and the mini player. */
 export function useBottomInset(extra = spacing.xl) {
   const insets = useSafeAreaInsets();
+  const { isLaptopUp } = useResponsive();
+  // On a laptop the player bar sits below the page rather than over it.
+  if (isLaptopUp) return extra + spacing.xl;
   return (
     layout.tabBarHeight +
     layout.miniPlayerHeight +

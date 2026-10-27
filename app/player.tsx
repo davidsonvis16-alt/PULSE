@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDuration } from '@/src/core/format';
 import { playerStore, progressStore } from '@/src/audio/player';
@@ -22,18 +24,29 @@ import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
+ * On the player everything sits on the song's own cover, blurred and darkened,
+ * so it is always light-on-dark whatever theme the rest of the app is in.
+ */
+const ON_ART = '#F5F3F7';
+const ON_ART_SOFT = 'rgba(245, 243, 247, 0.74)';
+const ON_ART_FAINT = 'rgba(245, 243, 247, 0.55)';
+
+/**
  * The full player.
  *
- * Artwork leads, controls sit under the thumb, and the line above the art says
- * exactly where the audio came from — including when it is a provider preview
- * or a file already on the device.
+ * The background is the cover that is playing, blurred, so every song brings
+ * its own colour. On a phone the artwork leads and the controls sit under the
+ * thumb; on a laptop the song takes the left of the window and what plays next
+ * takes the right. The line under the title says exactly where the audio came
+ * from — including when it is a provider preview or a file already on the
+ * device.
  */
 export default function PlayerScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width, height, isTabletUp } = useResponsive();
+  const { width, height, isLaptopUp } = useResponsive();
   const player = useStore(playerStore);
   const onRadio = player.context === 'radio';
   const progress = useStore(progressStore);
@@ -72,41 +85,28 @@ export default function PlayerScreen() {
     );
   }
 
-  const artSize = Math.min(width - spacing.xxl * 2, isTabletUp ? 420 : height * 0.42);
+  const artSize = isLaptopUp
+    ? Math.min(460, height * 0.56, (width - 380 - 56 * 2 - 48 * 2) * 0.5)
+    : Math.min(width - spacing.xxl * 2, height * 0.42);
   const position = scrubbing ?? progress.positionMs;
   const duration = progress.durationMs || player.source?.durationMs || track.durationMs || 0;
   const record = downloads.byTrackId[track.id];
   const downloaded = record?.status === 'completed';
+  const upNext = player.queue
+    .map((item, index) => ({ item, index }))
+    .slice(player.index + 1, player.index + 31);
 
-  return (
-    <View style={[styles.root, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.lg }]}>
-      {/* Top bar */}
-      <View style={styles.top}>
-        <IconButton name="chevron-down" label="Close player" onPress={() => router.back()} />
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Txt variant="micro" tone="muted" uppercase>
-            Playing from
-          </Txt>
-          <Txt variant="callout" numberOfLines={1}>
-            {player.contextLabel ?? track.albumTitle ?? 'Pulse'}
-          </Txt>
-        </View>
-        <IconButton
-          name="ellipsis-horizontal"
-          label="More options"
-          onPress={() => actions.openTrack(track, { queue: player.queue })}
-        />
-      </View>
-
-      {/* Artwork */}
-      <View style={styles.artWrap}>
-        <Artwork uri={track.artworkUrl} size={artSize} radius={radii.xl} />
-      </View>
-
+  const details = (
+    <View style={{ gap: spacing.lg }}>
       {/* Title */}
       <View style={styles.meta}>
-        <View style={{ flex: 1 }}>
-          <Txt variant="title2" numberOfLines={2}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Txt
+            // Short titles get the poster treatment; long ones step down so they still fit.
+            variant={isLaptopUp ? (track.title.length > 16 ? 'display' : 'hero') : 'title1'}
+            numberOfLines={3}
+            style={{ color: ON_ART }}
+          >
             {track.title}
           </Txt>
           <Pressable
@@ -115,15 +115,29 @@ export default function PlayerScreen() {
               track.artistId && router.push(`/artist/${encodeURIComponent(track.artistId)}`)
             }
           >
-            <Txt variant="body" tone="secondary" numberOfLines={1}>
+            <Txt variant={isLaptopUp ? 'title3' : 'body'} numberOfLines={1} style={{ color: ON_ART_SOFT }}>
               {track.artistName}
             </Txt>
           </Pressable>
+          {/* Source honesty line */}
+          {player.source && (
+            <View style={styles.sourceLine}>
+              <Ionicons
+                name={player.isOffline ? 'cloud-offline-outline' : 'radio-outline'}
+                size={12}
+                color={ON_ART_FAINT}
+              />
+              <Txt variant="caption" numberOfLines={1} style={{ color: ON_ART_FAINT }}>
+                {player.source.label}
+              </Txt>
+            </View>
+          )}
         </View>
         <IconButton
           name={liked ? 'heart' : 'heart-outline'}
           label={liked ? 'Unlike' : 'Like'}
-          color={liked ? colors.accent : colors.textSecondary}
+          background="glass"
+          color={liked ? colors.accent : ON_ART}
           onPress={async () => {
             const next = await toggleFavorite('track', track.id);
             if (next) await addTrackToLibrary(track);
@@ -131,24 +145,17 @@ export default function PlayerScreen() {
             toast(next ? 'Liked' : 'Removed from liked songs');
           }}
         />
+        <IconButton
+          name="ellipsis-horizontal"
+          label="More options"
+          background="glass"
+          color={ON_ART}
+          onPress={() => actions.openTrack(track, { queue: player.queue })}
+        />
       </View>
 
-      {/* Source honesty line */}
-      {player.source && (
-        <View style={styles.sourceLine}>
-          <Ionicons
-            name={player.isOffline ? 'cloud-offline-outline' : 'radio-outline'}
-            size={12}
-            color={colors.textFaint}
-          />
-          <Txt variant="caption" tone="faint" numberOfLines={1}>
-            {player.source.label}
-          </Txt>
-        </View>
-      )}
-
       {/* Seek. The radio has no scrub bar: it plays forward and that is all. */}
-      <View style={styles.seek}>
+      <View>
         {onRadio ? (
           <ProgressBar progress={duration > 0 ? position / duration : 0} height={3} />
         ) : (
@@ -160,11 +167,11 @@ export default function PlayerScreen() {
           />
         )}
         <View style={styles.times}>
-          <Txt variant="caption" tone="muted">
+          <Txt variant="caption" style={{ color: ON_ART_SOFT }}>
             {onRadio ? 'Pulse Radio · live' : formatDuration(position)}
           </Txt>
-          <Txt variant="caption" tone="muted">
-            {formatDuration(duration)}
+          <Txt variant="caption" style={{ color: ON_ART_SOFT }}>
+            {onRadio ? formatDuration(duration) : `-${formatDuration(Math.max(0, duration - position))}`}
           </Txt>
         </View>
       </View>
@@ -174,14 +181,15 @@ export default function PlayerScreen() {
         <IconButton
           name="shuffle"
           label={player.shuffle ? 'Shuffle on' : 'Shuffle off'}
-          color={player.shuffle ? colors.accent : colors.textMuted}
+          color={player.shuffle ? colors.accent : ON_ART_SOFT}
           onPress={() => playerStore.toggleShuffle()}
         />
         {!onRadio && (
           <IconButton
             name="play-skip-back"
             label="Previous track"
-            size={26}
+            size={30}
+            color={ON_ART}
             onPress={() => void playerStore.previous()}
           />
         )}
@@ -189,18 +197,19 @@ export default function PlayerScreen() {
           playing={player.isPlaying}
           loading={player.isLoading}
           onPress={() => playerStore.toggle()}
-          size={70}
+          size={76}
         />
         <IconButton
           name="play-skip-forward"
           label="Next track"
-          size={26}
+          size={30}
+          color={ON_ART}
           onPress={() => void playerStore.next()}
         />
         <IconButton
-          name={player.repeat === 'one' ? 'repeat' : 'repeat'}
+          name="repeat"
           label={`Repeat ${player.repeat}`}
-          color={player.repeat === 'off' ? colors.textMuted : colors.accent}
+          color={player.repeat === 'off' ? ON_ART_SOFT : colors.accent}
           onPress={() => playerStore.cycleRepeat()}
         />
       </View>
@@ -211,19 +220,19 @@ export default function PlayerScreen() {
       )}
 
       {player.retuning ? (
-        <Txt variant="caption" tone="muted" align="center" style={{ marginTop: spacing.sm }}>
+        <Txt variant="caption" align="center" style={{ color: ON_ART_SOFT }}>
           Retuning the audio… the song picks up where it was.
         </Txt>
       ) : (
         player.mixWithOtherApps && (
-          <Txt variant="caption" tone="muted" align="center" style={{ marginTop: spacing.sm }}>
+          <Txt variant="caption" align="center" style={{ color: ON_ART_SOFT }}>
             Playing alongside other apps — nothing else gets paused.
           </Txt>
         )
       )}
 
       {player.error && (
-        <Txt variant="caption" tone="danger" align="center" style={{ marginTop: spacing.sm }}>
+        <Txt variant="caption" tone="danger" align="center">
           {player.error}
         </Txt>
       )}
@@ -233,7 +242,7 @@ export default function PlayerScreen() {
         <IconButton
           name={downloaded ? 'arrow-down-circle' : 'arrow-down-circle-outline'}
           label={downloaded ? 'Downloaded' : 'Download'}
-          color={downloaded ? colors.accent : colors.textSecondary}
+          color={downloaded ? colors.accent : ON_ART_SOFT}
           onPress={() => {
             if (downloaded) {
               toast('Already downloaded');
@@ -242,12 +251,14 @@ export default function PlayerScreen() {
             void actions.download(track);
           }}
         />
-        <IconButton
-          name="list-outline"
-          label="Open the queue"
-          color={colors.textSecondary}
-          onPress={() => router.push('/queue')}
-        />
+        {!isLaptopUp && (
+          <IconButton
+            name="list-outline"
+            label="Open the queue"
+            color={ON_ART_SOFT}
+            onPress={() => router.push('/queue')}
+          />
+        )}
         {/*
           Share the phone's audio with whatever else is playing. Switching it
           costs a beat — the audio session is rebuilt and the OS stops playback
@@ -267,7 +278,7 @@ export default function PlayerScreen() {
               ? 'Playing alongside other apps. Turn off to take the audio back.'
               : 'Play alongside other apps without pausing them'
           }
-          color={player.mixWithOtherApps ? colors.accent : colors.textSecondary}
+          color={player.mixWithOtherApps ? colors.accent : ON_ART_SOFT}
           disabled={player.retuning}
           onPress={() => void playerStore.setMixWithOtherApps(!player.mixWithOtherApps)}
         />
@@ -275,21 +286,135 @@ export default function PlayerScreen() {
         <IconButton
           name="volume-low-outline"
           label="Lower volume"
-          color={colors.textSecondary}
+          color={ON_ART_SOFT}
           onPress={() => void playerStore.setVolume(player.volume - 0.1)}
         />
         <IconButton
           name="volume-high-outline"
           label="Raise volume"
-          color={colors.textSecondary}
+          color={ON_ART_SOFT}
           onPress={() => void playerStore.setVolume(player.volume + 0.1)}
         />
-        <IconButton
-          name="share-outline"
-          label="Share this song"
-          color={colors.textSecondary}
-          onPress={() => share(trackShare(track))}
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.root}>
+      {/* The cover, blurred, is the whole background. */}
+      {track.artworkUrl ? (
+        <Image
+          source={{ uri: track.artworkUrl }}
+          blurRadius={isLaptopUp ? 90 : 60}
+          contentFit="cover"
+          style={StyleSheet.absoluteFill}
+          accessibilityIgnoresInvertColors
         />
+      ) : null}
+      <LinearGradient
+        colors={['rgba(12, 11, 16, 0.35)', 'rgba(12, 11, 16, 0.6)', 'rgba(12, 11, 16, 0.9)']}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <View
+        style={{
+          flex: 1,
+          paddingTop: insets.top + spacing.sm,
+          paddingBottom: insets.bottom + spacing.lg,
+          paddingHorizontal: isLaptopUp ? 56 : spacing.xxl,
+        }}
+      >
+        {/* Top bar */}
+        <View style={styles.top}>
+          <IconButton
+            name="chevron-down"
+            label="Close player"
+            background="glass"
+            color={ON_ART}
+            onPress={() => router.back()}
+          />
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Txt variant="micro" uppercase style={{ color: ON_ART_SOFT }}>
+              Playing from
+            </Txt>
+            <Txt variant="callout" numberOfLines={1} style={{ color: ON_ART }}>
+              {player.contextLabel ?? track.albumTitle ?? 'Pulse'}
+            </Txt>
+          </View>
+          <IconButton
+            name="share-outline"
+            label="Share this song"
+            background="glass"
+            color={ON_ART}
+            onPress={() => share(trackShare(track))}
+          />
+        </View>
+
+        {isLaptopUp ? (
+          <View style={styles.wide}>
+            <View style={styles.wideSong}>
+              <View style={styles.artShadow}>
+                <Artwork uri={track.artworkUrl} size={artSize} radius={radii.lg} />
+              </View>
+              <View style={{ flex: 1, maxWidth: 480 }}>{details}</View>
+            </View>
+
+            {/* What plays next */}
+            <View style={styles.upNext}>
+              <View style={styles.upNextHead}>
+                <Txt variant="title3" style={{ color: ON_ART }}>
+                  Up next
+                </Txt>
+                <Pressable accessibilityRole="button" onPress={() => router.push('/queue')} hitSlop={8}>
+                  <Txt variant="callout" style={{ color: ON_ART_SOFT }}>
+                    Edit queue
+                  </Txt>
+                </Pressable>
+              </View>
+              {upNext.length === 0 ? (
+                <Txt variant="caption" style={{ color: ON_ART_SOFT, padding: spacing.md }}>
+                  Nothing queued after this song.
+                </Txt>
+              ) : (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {upNext.map(({ item, index }) => (
+                    <Pressable
+                      key={`${item.id}-${index}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Play ${item.title} by ${item.artistName}`}
+                      onPress={() => void playerStore.jumpTo(index)}
+                      style={({ pressed }) => [styles.queueRow, pressed && { opacity: 0.7 }]}
+                    >
+                      <Artwork uri={item.artworkUrl} size={44} radius={radii.xs} />
+                      <View style={{ flex: 1 }}>
+                        <Txt variant="callout" numberOfLines={1} style={{ color: ON_ART }}>
+                          {item.title}
+                        </Txt>
+                        <Txt variant="caption" numberOfLines={1} style={{ color: ON_ART_SOFT }}>
+                          {item.artistName}
+                        </Txt>
+                      </View>
+                      {item.durationMs ? (
+                        <Txt variant="caption" style={{ color: ON_ART_SOFT }}>
+                          {formatDuration(item.durationMs)}
+                        </Txt>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        ) : (
+          <>
+            <View style={styles.artWrap}>
+              <View style={styles.artShadow}>
+                <Artwork uri={track.artworkUrl} size={artSize} radius={radii.xl} />
+              </View>
+            </View>
+            {details}
+          </>
+        )}
       </View>
     </View>
   );
@@ -297,26 +422,45 @@ export default function PlayerScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: {
-      flex: 1,
-      backgroundColor: colors.backgroundElevated,
-      paddingHorizontal: spacing.xxl,
-    },
+    root: { flex: 1, backgroundColor: colors.background, overflow: 'hidden' },
     top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     artWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', marginVertical: spacing.lg },
-    meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-    sourceLine: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-    seek: { marginTop: spacing.md },
+    artShadow: {
+      shadowColor: '#000',
+      shadowOpacity: 0.5,
+      shadowRadius: 40,
+      shadowOffset: { width: 0, height: 24 },
+      elevation: 20,
+    },
+    meta: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+    sourceLine: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
     times: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 },
     transport: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: spacing.lg,
+      maxWidth: 440,
     },
-    bottom: {
+    bottom: { flexDirection: 'row', alignItems: 'center' },
+    wide: { flex: 1, flexDirection: 'row', gap: 48, paddingVertical: spacing.xxl },
+    wideSong: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 48 },
+    upNext: {
+      width: 380,
+      borderRadius: radii.lg,
+      backgroundColor: 'rgba(0, 0, 0, 0.28)',
+      padding: spacing.sm,
+    },
+    upNextHead: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: spacing.xl,
+      justifyContent: 'space-between',
+      padding: spacing.md,
+    },
+    queueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      padding: spacing.sm,
+      borderRadius: radii.sm,
     },
   });

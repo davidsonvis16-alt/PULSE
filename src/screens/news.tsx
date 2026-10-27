@@ -95,7 +95,7 @@ export function useMusicNews(enabled: boolean): MusicNewsFeed {
  */
 export function MusicNews({ feed }: { feed: MusicNewsFeed }) {
   const router = useRouter();
-  const { gutter, width, contentWidth, isTabletUp } = useResponsive();
+  const { gutter, pageWidth: width, contentWidth, isTabletUp } = useResponsive();
   const [topic, setTopic] = useState<TopicFilter>('all');
   const now = useNow();
 

@@ -43,10 +43,16 @@ export function MiniPlayer({ bottom }: { bottom: number }) {
             <Txt variant="callout" numberOfLines={1}>
               {track.title}
             </Txt>
-            <Txt variant="caption" tone="muted" numberOfLines={1}>
-              {player.isOffline ? 'On device · ' : ''}
-              {track.artistName}
-            </Txt>
+            {player.error ? (
+              <Txt variant="caption" tone="danger" numberOfLines={1}>
+                {player.error}
+              </Txt>
+            ) : (
+              <Txt variant="caption" tone="muted" numberOfLines={1}>
+                {player.isOffline ? 'On device · ' : ''}
+                {track.artistName}
+              </Txt>
+            )}
           </View>
 
           <Pressable

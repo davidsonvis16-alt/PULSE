@@ -32,13 +32,17 @@ const out = compile([
   'src/news/fresh.ts',
   'src/core/http.ts',
   'src/discovery/rotation.ts',
+  'src/discovery/mix.ts',
+  'src/profile/schedule.ts',
+  'src/radio/schedule.ts',
+  'src/core/concurrency.ts',
   'supabase/functions/_shared/alerts.ts',
 ]);
 
 const { readTags } = await load(out, 'src/ingestion/tags/index.js');
 const { bufferByteSource } = await load(out, 'src/ingestion/tags/bytes.js');
 const text = await load(out, 'src/ingestion/identify/text.js');
-const { catalogIdentifier, hasUsableTags } = await load(out, 'src/ingestion/identify/identifier.js');
+const { catalogIdentifier, hasUsableTags, CONFIDENT_THRESHOLD } = await load(out, 'src/ingestion/identify/identifier.js');
 const { familyForGenre } = await load(out, 'src/grooves/genres.js');
 const grooves = await load(out, 'src/grooves/engine.js');
 const { withinTasteBoundary } = await load(out, 'src/discovery/taste.js');
@@ -49,6 +53,10 @@ const alerts = await load(out, 'supabase/functions/_shared/alerts.js');
 const { settleWithin } = await load(out, 'src/core/http.js');
 const { rotate } = await load(out, 'src/discovery/rotation.js');
 const fresh = await load(out, 'src/news/fresh.js');
+const { buildMix } = await load(out, 'src/discovery/mix.js');
+const avatar = await load(out, 'src/profile/schedule.js');
+const { livePosition } = await load(out, 'src/radio/schedule.js');
+const { mapConcurrent } = await load(out, 'src/core/concurrency.js');
 
 const suites = [];
 const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
@@ -208,26 +216,28 @@ const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
     { filename: 'SZA - Snooze.mp3', tags: { title: 'Snooze', artist: 'SZA' }, durationMs: 201_000 },
     track(),
   );
-  t.above('an exact match with matching duration is confident', exact, 0.8);
+  t.above('an exact match with matching duration is confident', exact, CONFIDENT_THRESHOLD);
 
   const wrongDuration = catalogIdentifier.confidenceScore(
     { filename: 'SZA - Snooze.mp3', tags: { title: 'Snooze', artist: 'SZA' }, durationMs: 95_000 },
     track(),
   );
-  t.below('a wildly different duration drops below the confident bar', wrongDuration, 0.8);
+  t.below('a wildly different duration drops below the confident bar', wrongDuration, CONFIDENT_THRESHOLD);
   t.above('but it is still worth offering as a suggestion', wrongDuration, 0.5);
 
   const wrongArtist = catalogIdentifier.confidenceScore(
     { filename: 'x.mp3', tags: { title: 'Snooze', artist: 'Totally Different Band' }, durationMs: 201_000 },
     track(),
   );
-  t.below('a matching title with the wrong artist is not confident', wrongArtist, 0.8);
+  t.below('a matching title with the wrong artist is not confident', wrongArtist, CONFIDENT_THRESHOLD);
 
   const filenameOnly = catalogIdentifier.confidenceScore(
     { filename: 'SZA - Snooze.mp3', tags: {}, durationMs: 201_000 },
     track(),
   );
   t.above('a clean filename alone can still identify', filenameOnly, 0.6);
+
+  t.ok('a 65% match is applied without asking', CONFIDENT_THRESHOLD <= 0.65);
 
   const unrelated = catalogIdentifier.confidenceScore(
     { filename: 'voice memo 4.m4a', tags: {}, durationMs: 12_000 },
@@ -238,6 +248,31 @@ const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
   t.ok('a file with title and artist has usable tags', hasUsableTags({ title: 'a', artist: 'b' }));
   t.not('a file with only a title does not', hasUsableTags({ title: 'a' }));
 
+  suites.push(t);
+}
+
+/* -------------------------------------------------------------- your mix --- */
+{
+  const t = createSuite('your mix');
+  const song = (id, artist = 'A') => ({ id, title: `Song ${id}`, artistName: artist });
+  const own = Array.from({ length: 40 }, (_, i) => song(`own${i}`, `Mine ${i}`));
+  const shelfA = Array.from({ length: 10 }, (_, i) => song(`a${i}`, 'New A'));
+  const shelfB = Array.from({ length: 10 }, (_, i) => song(`b${i}`, 'New B'));
+
+  const mix = buildMix(own, [shelfA, shelfB], 0, 30);
+  const isOwn = (track) => track.id.startsWith('own');
+  t.is('the mix is the requested length', mix.length, 30);
+  t.is('two of theirs, then one new, from the top', mix.slice(0, 3).map(isOwn).join(), 'true,true,false');
+  t.is('two thirds of it is their own music', mix.filter(isOwn).length, 20);
+  t.is('new songs take turns between shelves', mix[2].artistName !== mix[5].artistName, true);
+  t.is('no song appears twice', new Set(mix.map((track) => track.id)).size, mix.length);
+
+  const withDuplicate = buildMix(own.slice(0, 4), [[own[0], song('x')]], 0, 30);
+  t.is('a suggestion they already own is not counted as new', withDuplicate.filter((x) => x.id === 'own0').length, 1);
+
+  t.is('only new music still makes a mix', buildMix([], [shelfA], 0, 5).length, 5);
+  t.is('only their own music still makes a mix', buildMix(own, [], 0, 5).length, 5);
+  t.is('a later rotation starts somewhere else', buildMix(own, [], 1, 5)[0].id !== buildMix(own, [], 0, 5)[0].id, true);
   suites.push(t);
 }
 
@@ -682,6 +717,115 @@ const read = (buffer) => readTags(bufferByteSource(new Uint8Array(buffer)));
   t.ok('older than that gets a date', poster(20).when.startsWith('Out 2 Sep'));
   t.is('the poster says why it is here', poster(0).why, 'From your library');
   t.is('a charting record says so instead', poster(0, 'charting').why, 'Already charting');
+
+  suites.push(t);
+}
+
+/* ------------------------------------------- picture through the day --- */
+{
+  const t = createSuite('picture schedule');
+
+  const at = (hours, minutes = 0) => new Date(2026, 8, 29, hours, minutes);
+  const happy = { kind: 'feeling', feelingId: 'happy' };
+  const sleepy = { kind: 'feeling', feelingId: 'sleepy' };
+  const photo = { kind: 'photo', uri: 'file:///me.jpg' };
+  const news = { kind: 'news', imageUrl: 'https://x/y.jpg', title: 'A story', link: 'https://x/y' };
+
+  t.is('just after midnight is the first part', avatar.slotIndexAt(4, at(0, 1)), 0);
+  t.is('a boundary belongs to the part it starts', avatar.slotIndexAt(4, at(6)), 1);
+  t.is('the last minute of the day is the last part', avatar.slotIndexAt(4, at(23, 59)), 3);
+  t.is('a day in one piece is always the same part', avatar.slotIndexAt(1, at(17)), 0);
+  t.is('twelve parts are two hours each', avatar.slotIndexAt(12, at(13, 30)), 6);
+
+  t.is('the next change is the end of this part', avatar.nextChangeAt(4, at(7, 15)).getHours(), 12);
+  t.is('the last part hands over at midnight', avatar.nextChangeAt(4, at(20)).getDate(), 30);
+
+  t.is('parts are named by their hours', avatar.slotLabel(1, 4), '6 AM – Noon');
+  t.is('the last part runs to midnight', avatar.slotLabel(3, 4), '6 PM – Midnight');
+  t.is('an unsplit day is all day', avatar.slotLabel(0, 1), 'All day');
+
+  const day = { enabled: true, slots: [sleepy, happy, news, null] };
+  t.is('the morning look shows in the morning', avatar.lookAt(day, at(9)), happy);
+  t.is('the afternoon look shows in the afternoon', avatar.lookAt(day, at(14)), news);
+  t.is('an empty part falls back to the usual picture', avatar.lookAt(day, at(21)), null);
+  t.is('the next day starts over', avatar.lookAt(day, new Date(2026, 8, 30, 2)), sleepy);
+  t.is('switched off, nothing is scheduled', avatar.lookAt({ ...day, enabled: false }, at(9)), null);
+
+  t.is(
+    'splitting finer keeps every look in the hours it covered',
+    avatar.resizeSlots([sleepy, happy], 4),
+    [sleepy, sleepy, happy, happy],
+  );
+  t.is(
+    'splitting coarser keeps the look at the start of each part',
+    avatar.resizeSlots([sleepy, happy, news, photo], 2),
+    [sleepy, news],
+  );
+  t.is('an uneven split still lines up by the clock', avatar.resizeSlots([sleepy, happy, news], 4), [
+    sleepy,
+    sleepy,
+    happy,
+    news,
+  ]);
+
+  t.is('nothing stored means the default', avatar.normaliseSchedule(null), avatar.DEFAULT_SCHEDULE);
+  t.is(
+    'an unknown feeling or a broken entry becomes an empty part',
+    avatar.normaliseSchedule({ enabled: true, slots: [happy, { kind: 'feeling', feelingId: 'nope' }] }).slots,
+    [happy, null],
+  );
+  t.is(
+    'a split Pulse does not offer is fitted to the default',
+    avatar.normaliseSchedule({ enabled: true, slots: [happy, sleepy, photo, news, happy] }).slots.length,
+    4,
+  );
+
+  suites.push(t);
+}
+
+// ------------------------------------------------------------- live radio
+{
+  const t = createSuite('live radio');
+  const rotation = [{ durationMs: 60_000 }, { durationMs: 30_000 }, { durationMs: 90_000 }];
+  const loop = 180_000;
+
+  t.is('nothing on air means no position', livePosition([], 1234), null);
+  t.is('the loop starts at the first freestyle', livePosition(rotation, loop * 1000), { index: 0, offsetMs: 0 });
+  t.is('part-way into the first', livePosition(rotation, loop * 5 + 12_000), { index: 0, offsetMs: 12_000 });
+  t.is('the boundary belongs to the next one', livePosition(rotation, loop * 7 + 60_000), { index: 1, offsetMs: 0 });
+  t.is('deep into the last', livePosition(rotation, loop * 2 + 179_999), { index: 2, offsetMs: 89_999 });
+  t.is(
+    'two phones at the same moment hear the same second',
+    livePosition(rotation, 1_761_480_123_456),
+    livePosition([...rotation], 1_761_480_123_456),
+  );
+  t.is('zero-length entries are skipped', livePosition([{ durationMs: 0 }, { durationMs: 10 }], 5), {
+    index: 1,
+    offsetMs: 5,
+  });
+
+  suites.push(t);
+}
+
+// -------------------------------------------------------- parallel import
+{
+  const t = createSuite('parallel import');
+  const signal = new AbortController().signal;
+  let inFlight = 0;
+  let peak = 0;
+  const results = await mapConcurrent([5, 1, 4, 2, 3, 0], 3, signal, async (n) => {
+    inFlight += 1;
+    peak = Math.max(peak, inFlight);
+    await new Promise((resolve) => setTimeout(resolve, n * 3));
+    inFlight -= 1;
+    return n * 10;
+  });
+  t.is('results keep the input order', results, [50, 10, 40, 20, 30, 0]);
+  t.is('never more than the limit in flight', peak, 3);
+
+  const stop = new AbortController();
+  stop.abort();
+  t.is('an aborted import starts nothing', await mapConcurrent([1, 2, 3], 2, stop.signal, async (n) => n), []);
 
   suites.push(t);
 }

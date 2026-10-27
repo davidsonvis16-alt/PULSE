@@ -1,19 +1,27 @@
 # Pulse backend
 
-Pulse runs without any of this. Catalogue search, playback, the library,
-downloads, listening history and statistics are all on-device. What lives here
-adds two things that genuinely need a server:
+Pulse needs this to run: every listener signs in with an account. The library,
+downloads, listening history and statistics still live on each person's
+device. What lives here is what genuinely needs a server:
 
-1. **Accounts and the social layer** — profiles, follows and the activity feed.
-2. **The events proxy** — so the Ticketmaster key stays off the phone.
-3. **Music news alerts** — a job that watches the music press and the award
+1. **Accounts and the social layer**: profiles, follows and the activity feed.
+2. **Pulse Radio**: the freestyles people upload, their audio in Storage,
+   reports, and the shared clock that keeps every listener on the same second.
+3. **The web relay** (`web-proxy`): lets the browser version reach the
+   catalogue and music press, which send no CORS headers.
+4. **The events proxy**, so the Ticketmaster key stays off the phone.
+5. **Music news alerts**: a job that watches the music press and the award
    pages and pushes to phones, so news arrives while Pulse is closed.
+
+For the full step-by-step, including the web link and phone builds, see
+`docs/LAUNCH.md`.
 
 ## Setting it up
 
 ```bash
 supabase link --project-ref <your-project>
-supabase db push                       # applies migrations/0001_pulse_social.sql
+supabase db push                       # applies every migration, including 0004 (radio)
+supabase functions deploy web-proxy
 supabase secrets set TICKETMASTER_API_KEY=<your-discovery-key>
 supabase functions deploy events
 ```
@@ -28,11 +36,13 @@ supabase functions deploy music-news-push
 ```
 
 Then tell the database where the functions live and what the secret is, so the
-scheduler can call the job:
+scheduler can call the job. They go in Vault, the project's encrypted secret
+store (hosted Supabase no longer allows `alter database … set app.…`). In the
+SQL editor:
 
 ```sql
-alter database postgres set app.pulse_functions_url = 'https://<project>.supabase.co/functions/v1';
-alter database postgres set app.pulse_job_secret    = '<the same PUSH_JOB_SECRET>';
+select vault.create_secret('https://<project>.supabase.co/functions/v1', 'pulse_functions_url');
+select vault.create_secret('<the same PUSH_JOB_SECRET>', 'pulse_job_secret');
 ```
 
 The job runs every fifteen minutes. To watch what it decides without waiting:

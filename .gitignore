@@ -41,3 +41,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Supabase CLI working files
+supabase/.temp/
+
+# Built Android apps
+/release

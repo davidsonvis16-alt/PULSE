@@ -59,6 +59,11 @@ labels it honestly in the player and in the download list. Pointing Pulse at a
 catalogue that licenses full tracks means writing one adapter — see below — and
 changing nothing else.
 
+## Launching it for other people
+
+See **`docs/LAUNCH.md`**: the server, a public web link, an Android install
+link, and the app stores, step by step.
+
 ## Running it
 
 ```bash
@@ -67,9 +72,8 @@ npx expo start
 ```
 
 Then press `i` for the iOS simulator, `a` for Android, `w` for the browser, or
-scan the QR code with **Expo Go** on your phone — the app runs there with no
-build step. That is enough for the whole music experience. To add accounts, friends and
-live events, copy `.env.example` to `.env` and follow `supabase/README.md`.
+scan the QR code with **Expo Go** on your phone. Signing in needs the server, so
+first copy `.env.example` to `.env` and follow `docs/LAUNCH.md` step 1.
 
 ```bash
 npm test            # tag readers, identification, Grooves, taste boundary

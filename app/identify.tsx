@@ -11,7 +11,7 @@ import {
   updateIdentification,
   type LocalTrack,
 } from '@/src/db/repos/local';
-import { upsertTrack } from '@/src/db/repos/catalog';
+import { applyMatch } from '@/src/ingestion/identify/apply';
 import { identify } from '@/src/ingestion/identify/identifier';
 import { cleanFilename } from '@/src/ingestion/identify/text';
 import { rebuildGrooves } from '@/src/grooves/engine';
@@ -56,20 +56,7 @@ export default function IdentifyScreen() {
     async (local: LocalTrack, match: Track) => {
       setBusyId(local.trackId);
       try {
-        // The catalogue entry supplies metadata and artwork; the file stays put
-        // and the local id is kept so playback still points at the same audio.
-        await upsertTrack({
-          ...match,
-          id: local.trackId,
-          provider: local.track.provider,
-          providerTrackId: local.track.providerTrackId,
-          durationMs: local.track.durationMs ?? match.durationMs,
-        });
-        await updateIdentification(local.trackId, {
-          identification: 'identified',
-          confidence: 1,
-          matchedTrackId: match.id,
-        });
+        await applyMatch(local, match);
         invalidateTasteProfile();
         void rebuildGrooves();
         toast(`Matched to ${match.title} by ${match.artistName}`, 'success');

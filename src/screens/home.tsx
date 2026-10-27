@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Album, MusicEvent, Track } from '@/src/core/types';
 import { MOODS } from '@/src/core/moods';
-import { formatListeningTime, greeting, initialsOf, pluralize } from '@/src/core/format';
+import { formatListeningTime, greeting, pluralize } from '@/src/core/format';
 import { eventProvider } from '@/src/providers/events';
 import { musicProvider } from '@/src/providers/music';
 import { config } from '@/src/core/config';
 import {
   buildTasteProfile,
+  getContinueRail,
   getRecommendationShelves,
   getRepeatPlayShelves,
   type RecommendationShelf,
@@ -17,27 +20,19 @@ import {
 import type { TasteProfile } from '@/src/discovery/taste';
 import { getNewReleasesFromFollowed } from '@/src/discovery/releases';
 import { advanceRotation, currentRotation } from '@/src/discovery/rotation';
+import { buildMix, YOUR_MIX_DESCRIPTION, YOUR_MIX_ID, YOUR_MIX_NAME } from '@/src/discovery/mix';
 import { chartsStore, CHART_MARKET_COUNT, type ChartEntry } from '@/src/discovery/charts';
-import {
-  getContinueListening,
-  getStatsSummary,
-  getTopArtists,
-  getTopTracks,
-  type TopArtist,
-  type TopTrack,
-} from '@/src/db/repos/history';
+import { getTopArtists, getTopTracks, type TopArtist } from '@/src/db/repos/history';
 import { unreadNotificationCount } from '@/src/db/repos/notifications';
 import { getCachedEvents } from '@/src/db/repos/events';
 import { listGrooves, type Groove } from '@/src/db/repos/grooves';
 import { getLocalCounts, listLocalTracks } from '@/src/db/repos/local';
-import { getLibraryTracks, getRecentlyAdded } from '@/src/db/repos/library';
-import { GrooveCard } from '@/src/screens/grooves';
-import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
+import { getLibraryTracks } from '@/src/db/repos/library';
+import { listPlaylists, saveSystemPlaylist, type Playlist } from '@/src/db/repos/playlists';
+import { getSetting, setSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { playerStore } from '@/src/audio/player';
-import { downloadManager } from '@/src/downloads/manager';
 import { ingestEngine } from '@/src/ingestion/ingest';
 import { artworkRepair } from '@/src/ingestion/artwork/backfill';
-import { radioStation } from '@/src/radio/station';
 import { useAuth } from '@/src/auth/auth';
 import { useAsync } from '@/src/hooks/use-async';
 import { useFocusReload } from '@/src/hooks/use-focus-reload';
@@ -47,13 +42,11 @@ import { useTrackActions } from '@/src/ui/track-actions';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { AlbumCard, ArtCard, EventCard, MoodCard, TrackCard } from '@/src/ui/cards';
-import { TrackRow } from '@/src/ui/rows';
 import { ChartRow } from '@/src/ui/chart-row';
-import { IconButton } from '@/src/ui/buttons';
 import { Artwork } from '@/src/ui/artwork';
+import { ProfileAvatar } from '@/src/ui/profile-avatar';
 import { Txt } from '@/src/ui/text';
-import { PulseLogo } from '@/src/ui/logo';
-import { EmptyState, ErrorState, SkeletonRows, SkeletonShelf } from '@/src/ui/states';
+import { EmptyState, ErrorState, SkeletonShelf } from '@/src/ui/states';
 import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
@@ -64,18 +57,16 @@ import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
  * in milliseconds and the user sees their own music straight away.
  */
 interface LocalHome {
-  /** The user's own files — the first music on the page. */
-  yourMusic: Track[];
-  yourMusicTotal: number;
-  recentlyAdded: Track[];
+  /** The user's own songs, most played first — what Your Mix is built from. */
+  own: Track[];
   counts: Awaited<ReturnType<typeof getLocalCounts>>;
-  continueTrack: { track: Track; positionMs: number } | null;
+  recentlyPlayed: Track[];
   taste: TasteProfile;
   topArtists: TopArtist[];
-  topTracks: TopTrack[];
   grooves: Groove[];
+  /** Playlists the user made. Pulse's own (Your Mix) are shown separately. */
+  playlists: Playlist[];
   unread: number;
-  stats: { totalMs: number; artistCount: number; trackCount: number };
 }
 
 /** Suggestions, which need the taste profile first and then the catalogue. */
@@ -83,6 +74,7 @@ interface Suggestions {
   shelves: RecommendationShelf[];
   /** Built from songs played more than once — the strongest signal there is. */
   repeatShelves: RecommendationShelf[];
+  mix: Track[];
 }
 
 /** What the catalogue itself says is new and charting. */
@@ -92,26 +84,26 @@ interface Catalogue {
   followedReleases: boolean;
 }
 
-interface HomeData extends LocalHome, Suggestions, Catalogue {
-  /** The worldwide top ten, with real positions and movement. */
-  globalTop: ChartEntry[];
-  events: MusicEvent[];
-}
-
-/** How many of the user's own songs the Home screen shows before "see all". */
-const OWN_SONGS_ON_HOME = 10;
 /** How much of the worldwide board Home shows before "see all". */
-const TOP_ON_HOME = 10;
+const TOP_ON_HOME = 5;
+
+/** One tile in the quick-start grid at the top of the page. */
+interface QuickTile {
+  key: string;
+  title: string;
+  artwork: (string | null)[];
+  icon?: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+}
 
 /**
  * Home.
  *
- * Two halves, deliberately mixed rather than separated: the music the user
- * already owns, and the music they do not. Their own songs come first, then
- * what Pulse thinks they would like, then what is genuinely charting, then more
- * of their own. Every shelf says where it came from — the number of songs a
- * suggestion was drawn from, a real chart position, a real play count — so the
- * page can be read rather than just scrolled.
+ * Laid out the way people expect a music app to open: a grid of the things
+ * they play most, then their playlists, then rows of covers to browse. Their
+ * own music is organised into playlists (Your Mix, and the Grooves Pulse finds
+ * in their collection) instead of a long list of song rows, and new music sits
+ * in shelves of artwork beside it.
  *
  * Nothing here is invented. A section with no data behind it is not rendered.
  */
@@ -120,63 +112,63 @@ export function HomeScreen() {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { profile } = useAuth();
-  const { gutter, shelfCardWidth, isTabletUp } = useResponsive();
+  const { gutter, shelfCardWidth, pageWidth: width, isTabletUp } = useResponsive();
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
-  const downloads = useStore(downloadManager);
   const ingest = useStore(ingestEngine);
   const repair = useStore(artworkRepair);
-  const radio = useStore(radioStation);
-  const player = useStore(playerStore);
 
   // Which slice of this listener's taste today's shelves are drawn from. Pull
   // to refresh moves it on, so asking for more really does bring new songs
   // rather than re-fetching the ones already on screen.
   const [rotation, setRotation] = useState(currentRotation);
+  // The "need identifying" banner stays closed until more songs need it.
+  const [identifyDismissed, setIdentifyDismissed] = useState(0);
+  useEffect(() => {
+    void getSetting(SETTINGS_KEYS.identifyBannerDismissed).then((value) =>
+      setIdentifyDismissed(Number(value) || 0),
+    );
+  }, []);
 
-  // Four loads rather than one, because they do not run at the same speed.
-  // The page used to wait for the slowest thing on it — the worldwide board,
-  // which is twelve public endpoints and only as quick as the worst of them —
-  // before drawing a single row of the user's own music. Now the device's own
-  // database paints the page, and everything off the network fills in behind
-  // it as it lands.
   const local = useAsync<LocalHome>(async () => {
     const counts = await getLocalCounts();
-    const own = counts.tracks > 0 ? (await listLocalTracks({ limit: 200 })).map((e) => e.track) : [];
-    const yourMusic = own.length ? own : await getLibraryTracks({ sort: 'recent', limit: 200 });
+    const [ownFiles, topTracks] = await Promise.all([
+      counts.tracks > 0 ? listLocalTracks({ limit: 1000 }) : Promise.resolve([]),
+      getTopTracks('month', 50),
+    ]);
+    const library = ownFiles.length
+      ? ownFiles.map((entry) => entry.track)
+      : await getLibraryTracks({ sort: 'recent', limit: 1000 });
+    // Most played first, then everything else, so the mix leans on favourites.
+    const plays = new Map(topTracks.map((entry) => [entry.track.id, entry.plays]));
+    const own = [...library].sort((a, b) => (plays.get(b.id) ?? 0) - (plays.get(a.id) ?? 0));
 
-    const [continueTrack, recentlyAdded, taste, topArtists, topTracks, grooves, unread, stats] =
-      await Promise.all([
-        getContinueListening(),
-        getRecentlyAdded(12),
-        buildTasteProfile(),
-        getTopArtists('month', 10),
-        getTopTracks('month', 5),
-        listGrooves(),
-        unreadNotificationCount(),
-        getStatsSummary('month'),
-      ]);
+    const [recentlyPlayed, taste, topArtists, grooves, playlists, unread] = await Promise.all([
+      getContinueRail(12),
+      buildTasteProfile(),
+      getTopArtists('month', 10),
+      listGrooves(),
+      listPlaylists(),
+      unreadNotificationCount(),
+    ]);
 
     return {
-      yourMusic: yourMusic.slice(0, OWN_SONGS_ON_HOME),
-      yourMusicTotal: yourMusic.length,
-      recentlyAdded,
+      own,
       counts,
-      continueTrack,
+      recentlyPlayed,
       taste,
       topArtists,
-      topTracks,
       grooves,
+      playlists: playlists.filter((playlist) => !playlist.isSystem),
       unread,
-      stats: {
-        totalMs: stats.totalMs,
-        artistCount: stats.artistCount,
-        trackCount: stats.trackCount,
-      },
     };
   }, []);
 
   const taste = local.data?.taste;
+  // Read through a ref: coming back to Home re-reads the library, and that is
+  // not a reason to fetch every suggestion again.
+  const ownRef = useRef<Track[]>([]);
+  ownRef.current = local.data?.own ?? ownRef.current;
 
   const suggestions = useAsync<Suggestions>(
     async () => {
@@ -186,7 +178,19 @@ export function HomeScreen() {
         ),
         getRepeatPlayShelves().catch(() => [] as RecommendationShelf[]),
       ]);
-      return { shelves, repeatShelves };
+      const mix = buildMix(
+        ownRef.current,
+        [...repeatShelves, ...shelves].map((shelf) => shelf.tracks),
+        rotation,
+      );
+      // Saved as a real playlist, so it is in the library and can be opened,
+      // downloaded and played like any other.
+      if (mix.length > 0) {
+        await saveSystemPlaylist(YOUR_MIX_ID, YOUR_MIX_NAME, YOUR_MIX_DESCRIPTION, mix).catch(
+          () => {},
+        );
+      }
+      return { shelves, repeatShelves, mix };
     },
     [taste, rotation],
     { enabled: !!taste },
@@ -225,49 +229,70 @@ export function HomeScreen() {
   }, [local, suggestions, catalogue, events]);
 
   // Coming back to Home should show what was just played or imported. That is
-  // all in the local database, so only that part re-reads: returning to a tab
-  // is not a reason to re-download the charts.
+  // all in the local database, so only that part re-reads.
   useFocusReload(local.reload);
-
-  const data: HomeData | undefined = useMemo(
-    () =>
-      local.data && {
-        ...local.data,
-        shelves: suggestions.data?.shelves ?? [],
-        repeatShelves: suggestions.data?.repeatShelves ?? [],
-        charts: catalogue.data?.charts ?? [],
-        newReleases: catalogue.data?.newReleases ?? [],
-        followedReleases: catalogue.data?.followedReleases ?? false,
-        globalTop: chart.board?.entries.slice(0, TOP_ON_HOME) ?? [],
-        events: events.data ?? [],
-      },
-    [local.data, suggestions.data, catalogue.data, chart.board, events.data],
-  );
 
   const refreshing =
     local.refreshing || suggestions.refreshing || catalogue.refreshing || chart.refreshing;
 
-  const playOwn = useCallback(
-    (index: number, shuffle = false) => {
-      const queue = data?.yourMusic ?? [];
-      if (queue.length === 0) return;
-      void playerStore.playQueue(queue, {
+  const play = useCallback(
+    (tracks: Track[], index: number, label: string, fromLibrary = false, shuffle?: boolean) => {
+      if (tracks.length === 0) return;
+      void playerStore.playQueue(tracks, {
         startIndex: index,
-        context: 'library',
-        contextLabel: 'Your music',
+        context: fromLibrary ? 'library' : 'recommendation',
+        contextLabel: label,
         shuffle,
       });
     },
-    [data],
+    [],
   );
 
-  const playShelf = useCallback((tracks: Track[], index: number, label: string) => {
-    void playerStore.playQueue(tracks, {
-      startIndex: index,
-      context: 'recommendation',
-      contextLabel: label,
-    });
-  }, []);
+  const data = local.data;
+  const mix = useMemo(() => suggestions.data?.mix ?? [], [suggestions.data]);
+  const shelves = suggestions.data?.shelves ?? [];
+  const repeatShelves = suggestions.data?.repeatShelves ?? [];
+  const globalTop: ChartEntry[] = chart.board?.entries.slice(0, TOP_ON_HOME) ?? [];
+
+  /** The quick-start grid: the few things someone opens the app to play. */
+  const quickTiles = useMemo<QuickTile[]>(() => {
+    if (!data) return [];
+    const tiles: QuickTile[] = [];
+    if (mix.length) {
+      tiles.push({
+        key: 'mix',
+        title: YOUR_MIX_NAME,
+        artwork: coverOf(mix),
+        onPress: () => play(mix, 0, YOUR_MIX_NAME),
+      });
+    }
+    if (data.own.length) {
+      tiles.push({
+        key: 'all',
+        title: 'All your songs',
+        artwork: [],
+        icon: 'musical-notes',
+        onPress: () => play(data.own, 0, 'Your music', true, true),
+      });
+    }
+    for (const groove of data.grooves.slice(0, 3)) {
+      tiles.push({
+        key: groove.id,
+        title: groove.name,
+        artwork: [groove.coverArtworkUrl],
+        onPress: () => router.push(`/groove/${groove.id}`),
+      });
+    }
+    for (const playlist of data.playlists.slice(0, 2)) {
+      tiles.push({
+        key: playlist.id,
+        title: playlist.name,
+        artwork: [playlist.coverArtworkUrl],
+        onPress: () => router.push(`/playlist/${playlist.id}`),
+      });
+    }
+    return tiles.slice(0, 6);
+  }, [data, mix, play, router]);
 
   if (local.error && !data) {
     return (
@@ -277,16 +302,14 @@ export function HomeScreen() {
     );
   }
 
-  const name = profile?.displayName?.split(' ')[0] ?? 'there';
+  const name = profile?.displayName?.split(' ')[0];
   const importing =
     ingest.phase !== 'idle' &&
     ingest.phase !== 'done' &&
     ingest.phase !== 'error' &&
     ingest.phase !== 'cancelled';
-
-  /** The suggestion shelves, split so the first sits above the charts. */
-  const firstShelf = data?.shelves[0];
-  const restShelves = data?.shelves.slice(1) ?? [];
+  const tileWidth = (Math.min(width, 900) - gutter * 2 - spacing.sm) / 2;
+  const coverWidth = isTabletUp ? 180 : Math.min(160, shelfCardWidth + 8);
 
   return (
     <Screen>
@@ -305,15 +328,41 @@ export function HomeScreen() {
         }
       >
         <View style={[styles.header, { paddingHorizontal: gutter }]}>
-          <PulseLogo size={28} showWordmark />
-          <View style={{ flex: 1 }} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Your profile"
+            onPress={() => router.push('/profile')}
+          >
+            <ProfileAvatar size={34} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Txt variant="micro" tone="accent" uppercase numberOfLines={1}>
+              {dayAndTime()}
+            </Txt>
+            <Txt variant={isTabletUp ? 'display' : 'title1'} numberOfLines={1}>
+              {name ? `${greeting()}, ${name}` : greeting()}
+            </Txt>
+          </View>
+          {/* Pulse Radio: always on, one tap away, in the colour of the mark. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open Pulse Radio, live freestyles"
+            onPress={() => router.push('/radio')}
+            style={({ pressed }) => [styles.radioButton, pressed && { opacity: 0.85 }]}
+          >
+            <View style={styles.liveDot} />
+            <Ionicons name="radio" size={18} color={colors.onAccent} />
+            <Txt variant="callout" tone="onAccent">
+              Radio
+            </Txt>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add music from this device"
             hitSlop={8}
             onPress={() => router.push('/import')}
           >
-            <Ionicons name="add-circle-outline" size={22} color={colors.text} />
+            <Ionicons name="add" size={26} color={colors.text} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -324,31 +373,6 @@ export function HomeScreen() {
             <Ionicons name="notifications-outline" size={22} color={colors.text} />
             {!!data?.unread && <View style={styles.dot} />}
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Your profile"
-            onPress={() => router.push('/profile')}
-            style={styles.avatar}
-          >
-            {profile?.avatarUrl ? (
-              <Artwork uri={profile.avatarUrl} size={32} rounded />
-            ) : (
-              <Txt variant="callout" tone="onAccent">
-                {initialsOf(profile?.displayName)}
-              </Txt>
-            )}
-          </Pressable>
-        </View>
-
-        <View style={{ paddingHorizontal: gutter, marginBottom: spacing.lg }}>
-          <Txt variant="title1">
-            {greeting()}, {name}
-          </Txt>
-          <Txt variant="body" tone="muted">
-            {data
-              ? summaryLine(data)
-              : 'Your music and what Pulse thinks you should hear next.'}
-          </Txt>
         </View>
 
         {importing && (
@@ -362,14 +386,19 @@ export function HomeScreen() {
           />
         )}
 
-        {!!data?.counts.needsIdentification && (
+        {!!data?.counts.needsIdentification && data.counts.needsIdentification > identifyDismissed && (
           <Banner
             gutter={gutter}
             icon="help-circle-outline"
             tint={colors.warning}
             title={`${pluralize(data.counts.needsIdentification, 'song')} need identifying`}
-            detail="Confirm a match and Pulse fills in the details and the cover."
+            detail="Pulse wasn't sure enough to name these. Tap to pick the right match."
             onPress={() => router.push('/identify')}
+            onDismiss={() => {
+              const count = data.counts.needsIdentification;
+              setIdentifyDismissed(count);
+              void setSetting(SETTINGS_KEYS.identifyBannerDismissed, String(count));
+            }}
           />
         )}
 
@@ -385,94 +414,95 @@ export function HomeScreen() {
 
         {local.loading && !data && (
           <View style={{ paddingHorizontal: gutter, gap: spacing.xxl }}>
-            <SkeletonRows count={5} />
+            <SkeletonShelf cardWidth={shelfCardWidth} />
             <SkeletonShelf cardWidth={shelfCardWidth} />
           </View>
         )}
 
-        {/* Where they stopped */}
-        {data?.continueTrack && (
-          <View style={{ paddingHorizontal: gutter, marginBottom: spacing.xxl }}>
-            <SectionHeader title="Pick up where you left off" />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Continue ${data.continueTrack.track.title}`}
-              onPress={() =>
-                void playerStore.playTrack(data.continueTrack!.track, {
-                  startPositionMs: data.continueTrack!.positionMs,
-                  context: 'library',
-                })
-              }
-              style={({ pressed }) => [styles.continueCard, pressed && { opacity: 0.85 }]}
-            >
-              <Artwork uri={data.continueTrack.track.artworkUrl} size={58} radius={radii.sm} />
-              <View style={{ flex: 1 }}>
-                <Txt variant="bodyStrong" numberOfLines={1}>
-                  {data.continueTrack.track.title}
-                </Txt>
-                <Txt variant="caption" tone="muted" numberOfLines={1}>
-                  {data.continueTrack.track.artistName}
-                </Txt>
-              </View>
-              <View style={styles.continuePlay}>
-                <Ionicons name="play" size={19} color={colors.onAccent} style={{ marginLeft: 2 }} />
-              </View>
-            </Pressable>
-          </View>
-        )}
-
-        {/* 1. Their own music, first on the page */}
-        {!!data?.yourMusic.length && (
-          <View style={{ marginBottom: spacing.xxl }}>
-            <SectionHeader
-              title="Your music"
-              subtitle={`${pluralize(data.yourMusicTotal, 'song')} on this device`}
-              actionLabel="See all"
-              onAction={() => router.push('/collection/all')}
-              style={{ paddingHorizontal: gutter }}
-            />
-            <View style={{ paddingHorizontal: gutter }}>
-              <View style={styles.playRow}>
-                <IconButton name="shuffle" label="Shuffle your music" onPress={() => playOwn(0, true)} />
-                <IconButton
-                  name="play-circle"
-                  label="Play your music"
-                  color={colors.accent}
-                  size={26}
-                  onPress={() => playOwn(0)}
-                />
-              </View>
-              {data.yourMusic.map((track, index) => (
-                <TrackRow
-                  key={track.id}
-                  track={track}
-                  isDownloaded={downloads.byTrackId[track.id]?.status === 'completed'}
-                  onPress={() => playOwn(index)}
-                  onMore={() => actions.openTrack(track, { queue: data.yourMusic })}
-                />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* 2. Music they do not have, drawn from what they do */}
-        {firstShelf && (
-          <Section
-            title={firstShelf.title}
-            subtitle={shelfExplanation(firstShelf, data!.taste)}
+        {/* The headline: the mix made from their music, big enough to tap without thinking. */}
+        {mix.length > 0 && (
+          <MixHero
+            tracks={mix}
             gutter={gutter}
+            wide={isTabletUp}
+            onOpen={() => router.push(`/playlist/${YOUR_MIX_ID}`)}
+            onPlay={() => play(mix, 0, YOUR_MIX_NAME)}
+            onShuffle={() => play(mix, 0, YOUR_MIX_NAME, false, true)}
+          />
+        )}
+
+        {/* The quick-start grid */}
+        {quickTiles.length > 1 && (
+          <View style={[styles.grid, { paddingHorizontal: gutter }]}>
+            {quickTiles.map((tile) => (
+              <Pressable
+                key={tile.key}
+                accessibilityRole="button"
+                accessibilityLabel={`Play ${tile.title}`}
+                onPress={tile.onPress}
+                style={({ pressed }) => [
+                  styles.tile,
+                  { width: tileWidth },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                {tile.icon ? (
+                  <View style={styles.tileIcon}>
+                    <Ionicons name={tile.icon} size={22} color={colors.onAccent} />
+                  </View>
+                ) : (
+                  <Cover artwork={tile.artwork} size={56} radius={0} />
+                )}
+                <Txt variant="callout" numberOfLines={2} style={{ flex: 1 }}>
+                  {tile.title}
+                </Txt>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* Their music, organised into playlists */}
+        {!!data && (data.grooves.length > 0 || data.playlists.length > 0) && (
+          <Section
+            title="Your playlists"
+            subtitle="Made from the songs on your phone"
+            gutter={gutter}
+            onSeeAll={() => router.push('/library')}
           >
             <Shelf
-              data={firstShelf.tracks}
+              data={[
+                ...data.grooves.map((groove) => ({
+                  key: groove.id,
+                  title: groove.name,
+                  subtitle: pluralize(groove.trackCount, 'song'),
+                  artwork: [groove.coverArtworkUrl],
+                  href: `/groove/${groove.id}`,
+                })),
+                ...data.playlists.map((playlist) => ({
+                  key: playlist.id,
+                  title: playlist.name,
+                  subtitle: pluralize(playlist.trackCount, 'song'),
+                  artwork: [playlist.coverArtworkUrl],
+                  href: `/playlist/${playlist.id}`,
+                })),
+              ]}
               gutter={gutter}
-              keyExtractor={(item) => item.id}
-              renderItem={(item, index) => (
-                <TrackCard
-                  track={item}
-                  width={shelfCardWidth}
-                  downloadable
-                  onPress={() => playShelf(firstShelf.tracks, index, firstShelf.title)}
-                />
+              keyExtractor={(item) => item.key}
+              renderItem={(item) => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={item.title}
+                  onPress={() => router.push(item.href as never)}
+                  style={({ pressed }) => [{ width: coverWidth }, pressed && { opacity: 0.85 }]}
+                >
+                  <Cover artwork={item.artwork} size={coverWidth} radius={radii.md} />
+                  <Txt variant="callout" numberOfLines={1} style={{ marginTop: spacing.sm }}>
+                    {item.title}
+                  </Txt>
+                  <Txt variant="caption" tone="muted" numberOfLines={1}>
+                    {item.subtitle}
+                  </Txt>
+                </Pressable>
               )}
             />
           </Section>
@@ -484,54 +514,54 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* 3. The station */}
-        <View style={{ paddingHorizontal: gutter, marginBottom: spacing.xxl }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open Pulse Radio"
-            onPress={() => router.push('/radio')}
-            style={({ pressed }) => [styles.radioCard, pressed && { opacity: 0.88 }]}
-          >
-            <View style={styles.radioIcon}>
-              <Ionicons name="radio" size={22} color={colors.onAccent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Txt variant="bodyStrong">Pulse Radio</Txt>
-              <Txt variant="caption" tone="muted">
-                {radio.live && player.current
-                  ? `On air · ${player.current.title}`
-                  : 'One stream that keeps going. No rewinding, nothing played twice.'}
-              </Txt>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
-          </Pressable>
-        </View>
+        {/* Recently played */}
+        {!!data?.recentlyPlayed.length && (
+          <TrackShelf
+            title="Recently played"
+            tracks={data.recentlyPlayed}
+            gutter={gutter}
+            width={shelfCardWidth}
+            onPlay={(index) => play(data.recentlyPlayed, index, 'Recently played', true)}
+          />
+        )}
 
-        {/* 4. The worldwide top ten, with real positions and movement */}
-        {!!data?.globalTop.length && (
+        {/* New music drawn from theirs */}
+        {shelves.slice(0, 2).map((shelf) => (
+          <TrackShelf
+            key={shelf.id}
+            title={shelf.title}
+            tracks={shelf.tracks}
+            gutter={gutter}
+            width={shelfCardWidth}
+            downloadable
+            onPlay={(index) => play(shelf.tracks, index, shelf.title)}
+          />
+        ))}
+
+        {/* The worldwide top five */}
+        {globalTop.length > 0 && (
           <Section
-            title={`Top ${data.globalTop.length} worldwide`}
-            subtitle={`Most played across ${chart.board?.markets ?? CHART_MARKET_COUNT} country charts, updated daily`}
+            title="Top songs worldwide"
+            subtitle={`Across ${chart.board?.markets ?? CHART_MARKET_COUNT} country charts today`}
             gutter={gutter}
             onSeeAll={() => router.push('/charts')}
           >
             <View style={{ paddingHorizontal: gutter }}>
-              {data.globalTop.map((entry, index) => (
+              {globalTop.map((entry, index) => (
                 <ChartRow
                   key={entry.track.id}
                   entry={entry}
                   markets={chart.board?.markets ?? CHART_MARKET_COUNT}
                   compact
                   onPress={() =>
-                    void playerStore.playQueue(
-                      data.globalTop.map((row) => row.track),
-                      { startIndex: index, context: 'recommendation', contextLabel: 'Worldwide chart' },
+                    play(
+                      globalTop.map((row) => row.track),
+                      index,
+                      'Worldwide chart',
                     )
                   }
                   onMore={() =>
-                    actions.openTrack(entry.track, {
-                      queue: data.globalTop.map((row) => row.track),
-                    })
+                    actions.openTrack(entry.track, { queue: globalTop.map((row) => row.track) })
                   }
                 />
               ))}
@@ -539,118 +569,29 @@ export function HomeScreen() {
           </Section>
         )}
 
-        {/* Albums charting, as a shelf of covers */}
-        {!!data?.charts.length && (
-          <Section
-            title="Albums charting now"
-            subtitle="The most-played records today, in chart order"
-            gutter={gutter}
-            onSeeAll={() => router.push('/charts')}
-          >
-            <Shelf
-              data={data.charts}
-              gutter={gutter}
-              keyExtractor={(item) => item.id}
-              renderItem={(item, index) => (
-                <ArtCard
-                  title={item.title}
-                  subtitle={item.artistName}
-                  artworkUrl={item.artworkUrl}
-                  width={shelfCardWidth}
-                  badge={`#${index + 1}`}
-                  onPress={() => router.push(`/album/${encodeURIComponent(item.id)}`)}
-                />
-              )}
-            />
-          </Section>
-        )}
-
-        {/* 5. What repeat plays say they want more of */}
-        {data?.repeatShelves.map((shelf) => (
-          <Section key={shelf.id} title={shelf.title} subtitle={shelf.subtitle} gutter={gutter}>
-            <Shelf
-              data={shelf.tracks}
-              gutter={gutter}
-              keyExtractor={(item) => item.id}
-              renderItem={(item, index) => (
-                <TrackCard
-                  track={item}
-                  width={shelfCardWidth}
-                  downloadable
-                  onPress={() => playShelf(shelf.tracks, index, shelf.title)}
-                />
-              )}
-            />
-          </Section>
-        ))}
-
-        {/* 6. Back to theirs */}
-        {!!data?.recentlyAdded.length && (
-          <Section
-            title="Recently added"
-            subtitle="The newest music in your library"
-            gutter={gutter}
-            onSeeAll={() => router.push('/collection/recent')}
-          >
-            <Shelf
-              data={data.recentlyAdded}
-              gutter={gutter}
-              keyExtractor={(item) => item.id}
-              renderItem={(item, index) => (
-                <TrackCard
-                  track={item}
-                  width={shelfCardWidth}
-                  onPress={() =>
-                    void playerStore.playQueue(data.recentlyAdded, {
-                      startIndex: index,
-                      context: 'library',
-                      contextLabel: 'Recently added',
-                    })
-                  }
-                />
-              )}
-            />
-          </Section>
-        )}
-
-        {/* 7. The rest of the suggestions */}
-        {restShelves.map((shelf) => (
-          <Section
+        {repeatShelves.map((shelf) => (
+          <TrackShelf
             key={shelf.id}
             title={shelf.title}
-            subtitle={shelfExplanation(shelf, data!.taste)}
+            tracks={shelf.tracks}
             gutter={gutter}
-          >
-            <Shelf
-              data={shelf.tracks}
-              gutter={gutter}
-              keyExtractor={(item) => item.id}
-              renderItem={(item, index) => (
-                <TrackCard
-                  track={item}
-                  width={shelfCardWidth}
-                  downloadable
-                  onPress={() => playShelf(shelf.tracks, index, shelf.title)}
-                />
-              )}
-            />
-          </Section>
+            width={shelfCardWidth}
+            downloadable
+            onPlay={(index) => play(shelf.tracks, index, shelf.title)}
+          />
         ))}
 
-        {/* 8. New releases */}
-        {!!data?.newReleases.length && (
+        {!!catalogue.data?.newReleases.length && (
           <Section
             title="New releases"
             subtitle={
-              data.followedReleases
-                ? 'Out recently from the artists you follow'
-                : 'Out recently, newest first'
+              catalogue.data.followedReleases ? 'From artists you follow' : undefined
             }
             gutter={gutter}
             onSeeAll={() => router.push('/discover')}
           >
             <Shelf
-              data={data.newReleases}
+              data={catalogue.data.newReleases}
               gutter={gutter}
               keyExtractor={(item) => item.id}
               renderItem={(item) => (
@@ -664,43 +605,8 @@ export function HomeScreen() {
           </Section>
         )}
 
-        {/* 9. What they themselves played most — their own numbers */}
-        {!!data?.topTracks.length && (
-          <Section
-            title="Your most played"
-            subtitle="Counted from what you actually listened to this month"
-            gutter={gutter}
-            onSeeAll={() => router.push('/stats')}
-          >
-            <View style={{ paddingHorizontal: gutter }}>
-              {data.topTracks.map((entry, index) => (
-                <TrackRow
-                  key={entry.track.id}
-                  track={entry.track}
-                  subtitleOverride={`${entry.track.artistName} · ${pluralize(entry.plays, 'play')}`}
-                  isDownloaded={downloads.byTrackId[entry.track.id]?.status === 'completed'}
-                  onPress={() =>
-                    void playerStore.playQueue(
-                      data.topTracks.map((t) => t.track),
-                      { startIndex: index, context: 'library', contextLabel: 'Your most played' },
-                    )
-                  }
-                  onMore={() =>
-                    actions.openTrack(entry.track, { queue: data.topTracks.map((t) => t.track) })
-                  }
-                />
-              ))}
-            </View>
-          </Section>
-        )}
-
         {!!data?.topArtists.length && (
-          <Section
-            title="Your top artists"
-            subtitle="By time listened this month"
-            gutter={gutter}
-            onSeeAll={() => router.push('/stats')}
-          >
+          <Section title="Your top artists" gutter={gutter} onSeeAll={() => router.push('/stats')}>
             <Shelf
               data={data.topArtists}
               gutter={gutter}
@@ -723,29 +629,39 @@ export function HomeScreen() {
           </Section>
         )}
 
-        {!!data?.grooves.length && (
-          <Section
-            title="Your Grooves"
-            subtitle="Groups Pulse found inside your own collection"
+        {shelves.slice(2).map((shelf) => (
+          <TrackShelf
+            key={shelf.id}
+            title={shelf.title}
+            tracks={shelf.tracks}
             gutter={gutter}
-            onSeeAll={() => router.push('/grooves')}
-          >
+            width={shelfCardWidth}
+            downloadable
+            onPlay={(index) => play(shelf.tracks, index, shelf.title)}
+          />
+        ))}
+
+        {!!catalogue.data?.charts.length && (
+          <Section title="Albums charting now" gutter={gutter} onSeeAll={() => router.push('/charts')}>
             <Shelf
-              data={data.grooves}
+              data={catalogue.data.charts}
               gutter={gutter}
-              keyExtractor={(groove) => groove.id}
-              renderItem={(groove) => (
-                <GrooveCard
-                  groove={groove}
-                  width={isTabletUp ? 220 : 168}
-                  onPress={() => router.push(`/groove/${groove.id}`)}
+              keyExtractor={(item) => item.id}
+              renderItem={(item, index) => (
+                <ArtCard
+                  title={item.title}
+                  subtitle={item.artistName}
+                  artworkUrl={item.artworkUrl}
+                  width={shelfCardWidth}
+                  badge={`#${index + 1}`}
+                  onPress={() => router.push(`/album/${encodeURIComponent(item.id)}`)}
                 />
               )}
             />
           </Section>
         )}
 
-        <Section title="Made for you" subtitle="Music for every moment" gutter={gutter}>
+        <Section title="How do you feel?" gutter={gutter}>
           <Shelf
             data={MOODS}
             gutter={gutter}
@@ -753,22 +669,22 @@ export function HomeScreen() {
             renderItem={(mood) => (
               <MoodCard
                 mood={mood}
-                width={isTabletUp ? 200 : 150}
+                width={isTabletUp ? 176 : 132}
+                height={isTabletUp ? 232 : 172}
                 onPress={() => router.push(`/mood/${mood.id}`)}
               />
             )}
           />
         </Section>
 
-        {!!data?.events.length && (
+        {!!events.data?.length && (
           <Section
-            title="Upcoming events"
-            subtitle="Live near you"
+            title="Live near you"
             gutter={gutter}
             onSeeAll={() => router.push('/events')}
           >
             <View style={{ paddingHorizontal: gutter, gap: spacing.md }}>
-              {data.events.slice(0, 3).map((event) => (
+              {events.data.slice(0, 3).map((event) => (
                 <EventCard
                   key={event.id}
                   event={event}
@@ -779,36 +695,12 @@ export function HomeScreen() {
           </Section>
         )}
 
-        {!!data && data.stats.totalMs > 0 && (
-          <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxl }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open your listening statistics"
-              onPress={() => router.push('/stats')}
-              style={({ pressed }) => [styles.statsCard, pressed && { opacity: 0.85 }]}
-            >
-              <View style={{ flex: 1 }}>
-                <Txt variant="micro" tone="muted" uppercase>
-                  This month
-                </Txt>
-                <Txt variant="title2" style={{ marginTop: 4 }}>
-                  {formatListeningTime(data.stats.totalMs)}
-                </Txt>
-                <Txt variant="caption" tone="muted">
-                  {data.stats.artistCount} artists · {data.stats.trackCount} songs
-                </Txt>
-              </View>
-              <Ionicons name="stats-chart" size={22} color={colors.accent} />
-            </Pressable>
-          </View>
-        )}
-
         {/* Nothing of their own and nothing played yet */}
-        {!local.loading && data && data.yourMusic.length === 0 && (
+        {!local.loading && data && data.own.length === 0 && (
           <EmptyState
             icon="phone-portrait-outline"
             title="Bring your music in first"
-            message="Pulse works best from the songs you already own: it gives them real covers, groups them into Grooves, and everything it recommends is drawn from them."
+            message="Pulse turns the songs on your phone into playlists, gives them real covers, and mixes in new music that fits."
             actionLabel="Add my music"
             onAction={() => router.push('/import')}
           />
@@ -818,42 +710,187 @@ export function HomeScreen() {
   );
 }
 
-/** One line under the greeting saying what this page is built from. */
-function summaryLine(data: HomeData): string {
-  const parts: string[] = [];
-  if (data.yourMusicTotal > 0) parts.push(`${pluralize(data.yourMusicTotal, 'song')} of yours`);
-  if (data.taste.artists.length > 0) {
-    parts.push(`suggestions from ${pluralize(data.taste.artists.length, 'artist')} you play`);
+/** Up to four covers, for a playlist made of many songs. */
+function coverOf(tracks: Track[]): (string | null)[] {
+  const seen = new Set<string>();
+  const covers: string[] = [];
+  for (const track of tracks) {
+    if (track.artworkUrl && !seen.has(track.artworkUrl)) {
+      seen.add(track.artworkUrl);
+      covers.push(track.artworkUrl);
+    }
+    if (covers.length === 4) break;
   }
-  if (data.charts.length > 0) parts.push("today's charts");
-  if (parts.length === 0) return 'Your music and what Pulse thinks you should hear next.';
-  return `${parts.join(', ')}.`;
+  return covers;
+}
+
+/** One cover, or a two-by-two collage when a playlist has four to show. */
+/** "Tuesday evening" — the line over the greeting. */
+function dayAndTime(date = new Date()): string {
+  const day = date.toLocaleDateString(undefined, { weekday: 'long' });
+  const hour = date.getHours();
+  const part = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : hour < 22 ? 'evening' : 'night';
+  return `${day} ${part}`;
 }
 
 /**
- * Says why a shelf is on the page. The engine knows the reason and the seed; a
- * listener should not have to guess whether a suggestion came from their own
- * collection or from a chart.
+ * Your Mix as the page's headline: its cover blurred behind it, the artists in
+ * it named, and play a tap away.
  */
-function shelfExplanation(shelf: RecommendationShelf, taste: TasteProfile): string {
-  if (shelf.subtitle) return shelf.subtitle;
-  switch (shelf.reason) {
-    case 'in_your_library':
-    case 'from_imported':
-      return shelf.seed ? `Because ${shelf.seed} is in your library` : 'Drawn from your own music';
-    case 'sounds_like_collection':
-      return `Close to the ${pluralize(taste.genres.length, 'genre')} you play most`;
-    case 'related_artists':
-      return shelf.seed ? `Artists close to ${shelf.seed}` : 'Artists close to the ones you play';
-    case 'similar_to_favorites':
-      return 'Similar to the songs you liked';
-    case 'trending':
-      return 'Popular right now';
-    case 'mood':
-      return shelf.seed ? `For a ${shelf.seed} mood` : 'Picked for the moment';
-    default:
-      return 'New to you, based on what you play';
+function MixHero({
+  tracks,
+  gutter,
+  wide,
+  onOpen,
+  onPlay,
+  onShuffle,
+}: {
+  tracks: Track[];
+  gutter: number;
+  wide: boolean;
+  onOpen: () => void;
+  onPlay: () => void;
+  onShuffle: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const artwork = coverOf(tracks);
+  const artists = [...new Set(tracks.map((track) => track.artistName))];
+  const named = artists.slice(0, 3).join(', ') + (artists.length > 3 ? ' and more' : '');
+  const coverSize = wide ? 196 : 112;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${YOUR_MIX_NAME}`}
+      onPress={onOpen}
+      style={({ pressed }) => [styles.hero, { marginHorizontal: gutter }, pressed && { opacity: 0.92 }]}
+    >
+      {artwork[0] ? (
+        <Image
+          source={{ uri: artwork[0] }}
+          blurRadius={50}
+          contentFit="cover"
+          style={StyleSheet.absoluteFill}
+          accessibilityIgnoresInvertColors
+        />
+      ) : null}
+      <LinearGradient
+        colors={['rgba(12, 11, 16, 0.25)', 'rgba(12, 11, 16, 0.78)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={[styles.heroRow, { padding: wide ? spacing.xxl : spacing.lg }]}>
+        <View style={styles.heroCover}>
+          <Cover artwork={artwork} size={coverSize} radius={radii.md} />
+        </View>
+        <View style={{ flex: 1, gap: wide ? 6 : 2 }}>
+          <Txt variant="micro" uppercase style={{ color: 'rgba(245, 243, 247, 0.78)' }}>
+            Made for you
+          </Txt>
+          <Txt variant={wide ? 'hero' : 'title1'} numberOfLines={1} style={{ color: '#F5F3F7' }}>
+            {YOUR_MIX_NAME}
+          </Txt>
+          <Txt variant={wide ? 'body' : 'caption'} numberOfLines={2} style={{ color: 'rgba(245, 243, 247, 0.78)' }}>
+            {named} · {pluralize(tracks.length, 'song')}
+          </Txt>
+          <View style={styles.heroActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Play ${YOUR_MIX_NAME}`}
+              onPress={(event) => {
+                event.stopPropagation();
+                onPlay();
+              }}
+              style={({ pressed }) => [styles.heroPlay, pressed && { transform: [{ scale: 0.95 }] }]}
+            >
+              <Ionicons name="play" size={18} color={colors.onAccent} style={{ marginLeft: 2 }} />
+              <Txt variant="callout" tone="onAccent">
+                Play
+              </Txt>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Shuffle ${YOUR_MIX_NAME}`}
+              onPress={(event) => {
+                event.stopPropagation();
+                onShuffle();
+              }}
+              style={({ pressed }) => [styles.heroRound, pressed && { opacity: 0.7 }]}
+            >
+              <Ionicons name="shuffle" size={20} color="#F5F3F7" />
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function Cover({
+  artwork,
+  size,
+  radius,
+}: {
+  artwork: (string | null)[];
+  size: number;
+  radius: number;
+}) {
+  if (artwork.length >= 4) {
+    const half = size / 2;
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius,
+          overflow: 'hidden',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+        }}
+      >
+        {artwork.slice(0, 4).map((uri, index) => (
+          <Artwork key={`${uri}-${index}`} uri={uri} size={half} radius={0} />
+        ))}
+      </View>
+    );
   }
+  return <Artwork uri={artwork[0] ?? null} size={size} radius={radius} />;
+}
+
+function TrackShelf({
+  title,
+  tracks,
+  gutter,
+  width,
+  downloadable,
+  onPlay,
+}: {
+  title: string;
+  tracks: Track[];
+  gutter: number;
+  width: number;
+  downloadable?: boolean;
+  onPlay: (index: number) => void;
+}) {
+  return (
+    <Section title={title} gutter={gutter}>
+      <Shelf
+        data={tracks}
+        gutter={gutter}
+        keyExtractor={(item) => item.id}
+        renderItem={(item, index) => (
+          <TrackCard
+            track={item}
+            width={width}
+            downloadable={downloadable}
+            onPress={() => onPlay(index)}
+          />
+        )}
+      />
+    </Section>
+  );
 }
 
 function Banner({
@@ -863,6 +900,7 @@ function Banner({
   title,
   detail,
   onPress,
+  onDismiss,
 }: {
   gutter: number;
   icon: keyof typeof Ionicons.glyphMap;
@@ -870,6 +908,8 @@ function Banner({
   title: string;
   detail: string;
   onPress?: () => void;
+  /** Shows a close button. */
+  onDismiss?: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -882,7 +922,21 @@ function Banner({
           {detail}
         </Txt>
       </View>
-      {onPress && <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+      {onPress && !onDismiss && <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+      {onDismiss && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Remove: ${title}`}
+          hitSlop={10}
+          onPress={(event) => {
+            event.stopPropagation();
+            onDismiss();
+          }}
+          style={({ pressed }) => [styles.bannerClose, pressed && { opacity: 0.6 }]}
+        >
+          <Ionicons name="close" size={18} color={colors.textMuted} />
+        </Pressable>
+      )}
     </>
   );
 
@@ -953,8 +1007,24 @@ const makeStyles = (colors: ThemeColors) =>
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.lg,
+      gap: spacing.md,
       paddingVertical: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    radioButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 38,
+      paddingHorizontal: 14,
+      borderRadius: 19,
+      backgroundColor: colors.accent,
+    },
+    liveDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: colors.danger,
     },
     dot: {
       position: 'absolute',
@@ -965,49 +1035,66 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: 4,
       backgroundColor: colors.accent,
     },
-    avatar: {
+    hero: {
+      borderRadius: radii.lg,
+      overflow: 'hidden',
+      backgroundColor: colors.cardRaised,
+      marginBottom: spacing.xxl,
+    },
+    heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
+    heroCover: {
+      shadowColor: '#000',
+      shadowOpacity: 0.45,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 12,
+    },
+    heroActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+    heroPlay: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 44,
+      paddingHorizontal: spacing.xl,
+      borderRadius: radii.pill,
+      backgroundColor: colors.accent,
+    },
+    heroRound: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(245, 243, 247, 0.35)',
+    },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      marginBottom: spacing.xxl,
+    },
+    tile: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      height: 56,
+      paddingRight: spacing.sm,
+      borderRadius: radii.sm,
+      overflow: 'hidden',
+      backgroundColor: colors.card,
+    },
+    tileIcon: {
+      width: 56,
+      height: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accent,
+    },
+    bannerClose: {
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: colors.accent,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-    },
-    playRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.xs },
-    radioCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: spacing.lg,
-      borderRadius: radii.lg,
-      backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
-    },
-    radioIcon: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.accent,
-    },
-    continueCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: spacing.md,
-      borderRadius: radii.lg,
-      backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
-    },
-    continuePlay: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: colors.accent,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1018,16 +1105,6 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       marginBottom: spacing.lg,
       borderRadius: radii.md,
-      backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
-    },
-    statsCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.lg,
-      padding: spacing.xl,
-      borderRadius: radii.lg,
       backgroundColor: colors.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderSoft,

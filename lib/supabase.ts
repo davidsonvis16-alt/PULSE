@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { config } from '@/src/core/config';
@@ -21,7 +22,9 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        // Password-reset emails land on the web app with the session in the
+        // address; phones never receive sessions that way.
+        detectSessionInUrl: Platform.OS === 'web',
       },
     })
   : null;

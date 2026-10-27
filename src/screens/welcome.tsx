@@ -18,21 +18,20 @@ import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { useResponsive } from '@/src/hooks/use-responsive';
 
-type Mode = 'intro' | 'signin' | 'signup' | 'local';
+type Mode = 'intro' | 'signin' | 'signup' | 'forgot' | 'newPassword';
 
 /**
  * The first thing anyone sees: the Pulse mark on black, the lime wave, and one
- * decision. With no backend configured the sign-in paths are replaced by a
- * single "use Pulse on this device" step, so nobody is asked for an account
- * that does not exist.
+ * decision — make an account or sign in. Everyone on Pulse is a real account;
+ * there is no anonymous on-device profile.
  */
-export function WelcomeScreen() {
+export function WelcomeScreen({ initial = 'intro' }: { initial?: Mode } = {}) {
   const styles = useThemedStyles(makeStyles);
-  const { mode: authMode, signIn, signUp, continueOnDevice } = useAuth();
+  const { configured, signIn, signUp, resetPassword, updatePassword } = useAuth();
   const insets = useSafeAreaInsets();
   const { isTabletUp } = useResponsive();
 
-  const [screen, setScreen] = useState<Mode>('intro');
+  const [screen, setScreen] = useState<Mode>(initial);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -85,15 +84,14 @@ export function WelcomeScreen() {
             {screen === 'intro' && (
               <View style={styles.actions}>
                 <Txt variant="title3" align="center" style={{ marginBottom: spacing.sm }}>
-                  {authMode === 'connected'
-                    ? 'Your whole music life, in one place'
-                    : 'Set up Pulse on this device'}
+                  Your music, your people, one place
                 </Txt>
                 <Txt variant="body" tone="muted" align="center" style={{ marginBottom: spacing.lg }}>
-                  Search, listen, download, and watch Pulse learn what you actually play.
+                  Bring in your songs, get new ones picked for you, and tune in to freestyles from
+                  everyone on Pulse Radio.
                 </Txt>
 
-                {authMode === 'connected' ? (
+                {configured ? (
                   <>
                     <Button label="Create an account" full onPress={() => setScreen('signup')} />
                     <Button
@@ -104,14 +102,11 @@ export function WelcomeScreen() {
                     />
                   </>
                 ) : (
-                  <>
-                    <Button label="Get started" full onPress={() => setScreen('local')} />
-                    <Txt variant="caption" tone="faint" align="center" style={{ marginTop: spacing.md }}>
-                      No account server is configured for this build, so your library, downloads and
-                      statistics stay on this device. Friends and the activity feed switch on once a
-                      Pulse backend is connected.
-                    </Txt>
-                  </>
+                  <Txt variant="caption" tone="danger" align="center">
+                    This copy of Pulse was built without its account server, so nobody can sign
+                    in. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY and build
+                    again (see docs/LAUNCH.md).
+                  </Txt>
                 )}
               </View>
             )}
@@ -167,15 +162,29 @@ export function WelcomeScreen() {
                   onPress={() =>
                     run(async () => {
                       if (screen === 'signup') {
-                        await signUp(email, password, name);
-                        setNotice('Check your email to confirm your account, then sign in.');
-                        setScreen('signin');
+                        const live = await signUp(email, password, name);
+                        if (!live) {
+                          setNotice('Check your email to confirm your account, then sign in.');
+                          setScreen('signin');
+                        }
                       } else {
                         await signIn(email, password);
                       }
                     })
                   }
                 />
+                {screen === 'signin' && (
+                  <Pressable
+                    onPress={() => {
+                      setError(null);
+                      setScreen('forgot');
+                    }}
+                  >
+                    <Txt variant="callout" tone="muted" align="center">
+                      Forgot your password?
+                    </Txt>
+                  </Pressable>
+                )}
                 <Pressable
                   onPress={() => {
                     setError(null);
@@ -189,17 +198,18 @@ export function WelcomeScreen() {
               </View>
             )}
 
-            {screen === 'local' && (
+            {screen === 'newPassword' && (
               <View style={styles.actions}>
                 <Txt variant="title2" align="center">
-                  What should Pulse call you?
+                  Choose a new password
                 </Txt>
                 <Field
-                  label="Display name"
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Your name"
-                  autoCapitalize="words"
+                  label="New password"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="At least 8 characters"
+                  secureTextEntry
+                  autoCapitalize="none"
                 />
                 {error && (
                   <Txt variant="caption" tone="danger">
@@ -207,11 +217,50 @@ export function WelcomeScreen() {
                   </Txt>
                 )}
                 <Button
-                  label="Start listening"
+                  label="Save password"
                   full
                   loading={busy}
-                  onPress={() => run(() => continueOnDevice(name))}
+                  onPress={() => run(() => updatePassword(password))}
                 />
+              </View>
+            )}
+
+            {screen === 'forgot' && (
+              <View style={styles.actions}>
+                <Txt variant="title2" align="center">
+                  Reset your password
+                </Txt>
+                <Field
+                  label="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                />
+                {error && (
+                  <Txt variant="caption" tone="danger">
+                    {error}
+                  </Txt>
+                )}
+                <Button
+                  label="Email me a reset link"
+                  full
+                  loading={busy}
+                  onPress={() =>
+                    run(async () => {
+                      await resetPassword(email);
+                      setNotice('If that email has an account, a reset link is on its way.');
+                      setScreen('signin');
+                    })
+                  }
+                />
+                <Pressable onPress={() => setScreen('signin')}>
+                  <Txt variant="callout" tone="secondary" align="center">
+                    Back to sign in
+                  </Txt>
+                </Pressable>
               </View>
             )}
           </View>

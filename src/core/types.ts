@@ -86,6 +86,11 @@ export interface PlayableSource {
   isExcerpt: boolean;
   /** Shown verbatim in the UI so the user always knows what they are hearing. */
   label: string;
+  /**
+   * Other addresses for the same audio, tried in order when `uri` will not
+   * play. A file on a phone can be reachable one way and not another.
+   */
+  alternates?: string[];
 }
 
 export interface DownloadableSource extends PlayableSource {

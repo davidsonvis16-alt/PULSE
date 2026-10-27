@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { Album, Artist } from '@/src/core/types';
 import { config } from '@/src/core/config';
@@ -112,6 +113,8 @@ export async function cacheEmbeddedArtwork(
   trackId: string,
   picture: EmbeddedPicture,
 ): Promise<string | null> {
+  // A browser has nowhere to write a file; the cover travels inline instead.
+  if (Platform.OS === 'web') return `data:${picture.mimeType || 'image/jpeg'};base64,${picture.base64}`;
   try {
     await ensureDir();
     const extension = picture.mimeType.includes('png') ? 'png' : 'jpg';

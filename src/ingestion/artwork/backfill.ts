@@ -1,4 +1,5 @@
 import { Store } from '@/src/core/store';
+import { mapConcurrent } from '@/src/core/concurrency';
 import { setTrackArtwork } from '@/src/db/repos/catalog';
 import { listLocalTracksMissingArtwork } from '@/src/db/repos/local';
 import { artworkProvider, cacheEmbeddedArtwork } from '@/src/ingestion/artwork/provider';
@@ -11,8 +12,12 @@ import { readFileTags } from '@/src/ingestion/tags';
  * offline at the time, or was imported before Pulse could read its tags, keeps
  * an empty cover forever. This pass goes back over exactly those tracks: it
  * re-reads the file for embedded art first, then asks the catalogue, and asks
- * once per album rather than once per track.
+ * once per album rather than once per track — several tracks at a time, with
+ * tracks from the same album sharing one lookup.
  */
+
+/** Tracks worked on at once. The HTTP layer rate-limits the catalogue itself. */
+const CONCURRENCY = 6;
 
 export interface ArtworkRepairState {
   running: boolean;
@@ -55,12 +60,11 @@ class ArtworkRepair extends Store<ArtworkRepairState> {
 
     this.controller = new AbortController();
     const { signal } = this.controller;
-    const byAlbum = new Map<string, string | null>();
+    const byAlbum = new Map<string, Promise<string | null>>();
+    let checked = 0;
 
     try {
-      for (let i = 0; i < pending.length; i += 1) {
-        if (signal.aborted) break;
-        const entry = pending[i];
+      await mapConcurrent(pending, CONCURRENCY, signal, async (entry) => {
         const { track } = entry;
         const album = track.albumTitle ?? '';
         const key = `${track.artistName.toLowerCase()}|${album.toLowerCase()}`;
@@ -71,21 +75,24 @@ class ArtworkRepair extends Store<ArtworkRepairState> {
         const tags = await readFileTags(entry.fileUri, entry.fileSize ?? undefined).catch(() => null);
         if (tags?.picture) found = await cacheEmbeddedArtwork(track.id, tags.picture);
 
-        if (!found && album && byAlbum.has(key)) {
-          found = byAlbum.get(key) ?? null;
-        } else if (!found) {
-          found = await artworkProvider()
-            .getArtwork({ title: track.title, artist: track.artistName, album })
-            .catch(() => null);
-          if (album) byAlbum.set(key, found);
+        if (!found) {
+          let lookup = album ? byAlbum.get(key) : undefined;
+          if (!lookup) {
+            lookup = artworkProvider()
+              .getArtwork({ title: track.title, artist: track.artistName, album })
+              .catch(() => null);
+            if (album) byAlbum.set(key, lookup);
+          }
+          found = await lookup;
         }
 
         if (found) {
           await setTrackArtwork(track.id, found);
           this.set({ found: this.getSnapshot().found + 1 });
         }
-        this.set({ checked: i + 1, missing: Math.max(0, pending.length - this.getSnapshot().found) });
-      }
+        checked += 1;
+        this.set({ checked, missing: Math.max(0, pending.length - this.getSnapshot().found) });
+      });
     } finally {
       this.controller = null;
       this.set({ running: false });

@@ -224,3 +224,37 @@ export async function playlistProfile(playlistId: string): Promise<{
     trackIds: rows.map((r) => r.id),
   };
 }
+
+/**
+ * Writes a playlist Pulse keeps up to date itself, replacing what it held.
+ *
+ * Kept by a fixed id, so it is the same playlist every time — in the library,
+ * in history, on the lock screen — with new songs rather than a new copy.
+ */
+export async function saveSystemPlaylist(
+  id: string,
+  name: string,
+  description: string,
+  tracks: Track[],
+): Promise<void> {
+  const instance = await db();
+  for (const track of tracks) await upsertTrack(track);
+  const ts = now();
+  await instance.withTransactionAsync(async () => {
+    await instance.runAsync(
+      `INSERT INTO playlists (id, name, description, is_system, visibility, created_at, updated_at)
+       VALUES (?, ?, ?, 1, 'private', ?, ?)
+       ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description,
+         updated_at = excluded.updated_at;`,
+      [id, name, description, ts, ts],
+    );
+    await instance.runAsync('DELETE FROM playlist_tracks WHERE playlist_id = ?;', [id]);
+    for (let i = 0; i < tracks.length; i += 1) {
+      await instance.runAsync(
+        `INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position, added_at)
+         VALUES (?, ?, ?, ?);`,
+        [id, tracks[i].id, i, ts],
+      );
+    }
+  });
+}

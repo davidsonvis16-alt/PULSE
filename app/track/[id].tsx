@@ -47,7 +47,7 @@ export default function TrackScreen() {
   const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { gutter, width, isTabletUp, shelfCardWidth } = useResponsive();
+  const { gutter, pageWidth: width, isTabletUp, shelfCardWidth } = useResponsive();
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
   const songInfo = useSongInfo();

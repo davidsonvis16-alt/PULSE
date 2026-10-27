@@ -8,6 +8,7 @@ import { beginPlay, updatePlay, type PlayContext } from '@/src/db/repos/history'
 import { getPlaybackPrefs, setPlaybackPrefs } from '@/src/db/repos/settings';
 import { publishListening } from '@/src/social/sync';
 import { ownedMatchOf } from '@/src/library/owned';
+import { FREESTYLE_PROVIDER_ID } from '@/src/radio/freestyle-provider';
 
 /**
  * The global player.
@@ -112,6 +113,13 @@ async function applyAudioMode(mixWithOtherApps: boolean) {
   }).catch(() => {});
 }
 
+/** How long a song may take to make a sound before Pulse calls it a failure. */
+const START_TIMEOUT_MS = 15_000;
+/** After this many songs fail back to back, Pulse stops skipping and says so. */
+const MAX_FAILED_IN_A_ROW = 3;
+/** The same, for a file already on the phone, which should start at once. */
+const LOCAL_START_TIMEOUT_MS = 4_000;
+
 class PlayerStore extends Store<PlayerState> {
   private player: AudioPlayer | null = null;
   private subscription: { remove: () => void } | null = null;
@@ -121,6 +129,12 @@ class PlayerStore extends Store<PlayerState> {
   private lastReportedMs = 0;
   private historyTimer: ReturnType<typeof setInterval> | null = null;
   private loadToken = 0;
+  /** Set while a song has been asked to play and has not made a sound yet. */
+  private startWatch: { token: number; track: Track; since: number; timer: ReturnType<typeof setTimeout> } | null = null;
+  /** Other addresses for the song loading now, tried if the first stays silent. */
+  private alternates: string[] = [];
+  /** Songs that failed back to back, so a broken queue cannot skip forever. */
+  private failedInARow = 0;
 
   constructor() {
     super(EMPTY);
@@ -155,6 +169,20 @@ class PlayerStore extends Store<PlayerState> {
     }
     if (status.isLoaded && state.isLoading) this.set({ isLoading: false });
 
+    if (this.startWatch) {
+      if (status.playing) {
+        this.clearStartWatch();
+        this.failedInARow = 0;
+      } else if (
+        status.playbackState === 'idle' &&
+        Date.now() - this.startWatch.since > 1500
+      ) {
+        // The native player drops back to idle when it cannot open the audio,
+        // and says nothing else. Treat that as the failure it is.
+        void this.failedToStart(this.startWatch.token, this.startWatch.track);
+      }
+    }
+
     if (status.didJustFinish) void this.onTrackFinished();
   }
 
@@ -162,6 +190,9 @@ class PlayerStore extends Store<PlayerState> {
 
   private startHistory(track: Track, offline: boolean) {
     this.stopHistory(false);
+    // Freestyles are people's own takes, not music from the listener's taste:
+    // they stay out of listening history, statistics and recommendations.
+    if (track.provider === FREESTYLE_PROVIDER_ID) return;
     const state = this.getSnapshot();
     void beginPlay(track, {
       context: state.context,
@@ -209,7 +240,9 @@ class PlayerStore extends Store<PlayerState> {
       queue.findIndex((t) => t.id === track.id),
     );
     this.unshuffled = queue;
-    const ordered = this.getSnapshot().shuffle ? shuffleAround(queue, index) : queue;
+    // The radio runs to a schedule everyone shares, so shuffle never applies to it.
+    const shuffle = this.getSnapshot().shuffle && options.context !== 'radio';
+    const ordered = shuffle ? shuffleAround(queue, index) : queue;
     const orderedIndex = ordered.findIndex((t) => t.id === track.id);
 
     this.set({
@@ -247,7 +280,10 @@ class PlayerStore extends Store<PlayerState> {
     try {
       // A suggestion the listener already owns is played from their own file:
       // the whole song instead of a preview, and no network at all.
-      const track = (await ownedMatchOf(requested).catch(() => null)) ?? requested;
+      const track =
+        requested.provider === FREESTYLE_PROVIDER_ID
+          ? requested
+          : ((await ownedMatchOf(requested).catch(() => null)) ?? requested);
       if (track.id !== requested.id) {
         if (token !== this.loadToken) return;
         this.set({ current: track });
@@ -287,13 +323,26 @@ class PlayerStore extends Store<PlayerState> {
         return;
       }
 
+      this.alternates = [...(source.alternates ?? [])];
       this.player!.replace({ uri: source.uri });
       this.player!.volume = this.getSnapshot().volume;
       this.player!.loop = this.getSnapshot().repeat === 'one';
-      if (options.startPositionMs) {
-        await this.player!.seekTo(options.startPositionMs / 1000).catch(() => {});
-      }
+      // Silent until positioned, so joining part-way does not open with a blip
+      // of the first second.
+      if (options.startPositionMs) this.player!.volume = 0;
       this.player!.play();
+      if (options.startPositionMs) {
+        // A stream cannot be positioned until it has loaded; seeking straight
+        // after `replace` is silently dropped on some platforms.
+        const player = this.player!;
+        for (let waited = 0; !player.isLoaded && waited < 8000; waited += 100) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          if (token !== this.loadToken) return;
+        }
+        await player.seekTo(options.startPositionMs / 1000).catch(() => {});
+        player.volume = this.getSnapshot().volume;
+      }
+      this.watchStart(token, track, source.uri);
 
       this.set({ source, isOffline: offline, isLoading: false, isPlaying: true });
       this.startHistory(track, offline);
@@ -307,6 +356,61 @@ class PlayerStore extends Store<PlayerState> {
         isPlaying: false,
         error: error instanceof Error ? error.message : 'Could not start playback.',
       });
+    }
+  }
+
+  /**
+   * Notices a song that never starts.
+   *
+   * The native player reports nothing when a file cannot be opened or a stream
+   * cannot be reached: it simply stays silent while the screen says it is
+   * playing. So every load is watched until the first moment of real playback.
+   */
+  private watchStart(token: number, track: Track, uri: string) {
+    this.clearStartWatch();
+    // A file on the phone opens at once; only the network deserves patience.
+    const wait = /^https?:/.test(uri) ? START_TIMEOUT_MS : LOCAL_START_TIMEOUT_MS;
+    const timer = setTimeout(() => void this.failedToStart(token, track), wait);
+    this.startWatch = { token, track, since: Date.now(), timer };
+  }
+
+  private clearStartWatch() {
+    if (this.startWatch) clearTimeout(this.startWatch.timer);
+    this.startWatch = null;
+  }
+
+  private async failedToStart(token: number, track: Track) {
+    if (!this.startWatch || this.startWatch.token !== token || token !== this.loadToken) return;
+    this.clearStartWatch();
+
+    // Same song, another way in.
+    const next = this.alternates.shift();
+    if (next && this.player) {
+      this.player.replace({ uri: next });
+      this.player.play();
+      this.watchStart(token, track, next);
+      return;
+    }
+
+    this.player?.pause();
+    this.stopHistory(false);
+    this.failedInARow += 1;
+    this.set({
+      isPlaying: false,
+      isLoading: false,
+      isBuffering: false,
+      error:
+        track.provider === LOCAL_PROVIDER_ID
+          ? `Couldn't open "${track.title}" on this phone.`
+          : `Couldn't play "${track.title}". Check your connection.`,
+    });
+
+    // Move on rather than leave the listener in silence, but only a few times:
+    // a whole queue that will not play needs a person, not an endless skip.
+    const { queue, index } = this.getSnapshot();
+    if (this.failedInARow < MAX_FAILED_IN_A_ROW && index + 1 < queue.length) {
+      this.set({ index: index + 1 });
+      await this.load(queue[index + 1]);
     }
   }
 
@@ -369,6 +473,7 @@ class PlayerStore extends Store<PlayerState> {
   }
 
   pause() {
+    this.clearStartWatch();
     this.player?.pause();
     this.set({ isPlaying: false });
     const { positionMs } = progressStore.getSnapshot();
@@ -457,6 +562,14 @@ class PlayerStore extends Store<PlayerState> {
    * up exactly where it was. `retuning` is true for that moment so the control
    * can show what it is doing instead of looking broken.
    */
+  /**
+   * Puts the playback audio session back after something else (the freestyle
+   * recorder) changed it.
+   */
+  async restoreAudioMode() {
+    await applyAudioMode(this.getSnapshot().mixWithOtherApps);
+  }
+
   async setMixWithOtherApps(mix: boolean) {
     if (this.getSnapshot().mixWithOtherApps === mix) return;
 
@@ -565,6 +678,7 @@ class PlayerStore extends Store<PlayerState> {
   }
 
   dispose() {
+    this.clearStartWatch();
     this.stopHistory(false);
     this.hideNotification();
     this.subscription?.remove();

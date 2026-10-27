@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { Album, Track } from '@/src/core/types';
 import { providerFor } from '@/src/providers/music';
-import { downloadManager } from '@/src/downloads/manager';
+import { downloadManager, downloadsSupported } from '@/src/downloads/manager';
 import { playerStore } from '@/src/audio/player';
 import {
   addAlbumToLibrary,
@@ -136,13 +136,14 @@ export function TrackActionsProvider({ children }: { children: ReactNode }) {
 
   const closeMenu = () => setMenuTrack(null);
   const record = menuTrack ? downloads.byTrackId[menuTrack.id] : undefined;
-  const canDownload = menuTrack ? providerFor(menuTrack.provider).capabilities.download : false;
+  const canDownload =
+    downloadsSupported && menuTrack ? providerFor(menuTrack.provider).capabilities.download : false;
 
   return (
     <TrackActionsContext.Provider value={api}>
       {children}
 
-      <Sheet visible={!!menuTrack} onClose={closeMenu}>
+      <Sheet visible={!!menuTrack} onClose={closeMenu} menu>
         {menuTrack && (
           <>
             <View style={styles.head}>
@@ -416,6 +417,7 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
+      padding: 6,
       paddingBottom: spacing.md,
       marginBottom: spacing.xs,
       borderBottomWidth: StyleSheet.hairlineWidth,

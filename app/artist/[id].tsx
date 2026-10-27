@@ -48,7 +48,7 @@ export default function ArtistScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { gutter, width, shelfCardWidth, isTabletUp } = useResponsive();
+  const { gutter, pageWidth: width, shelfCardWidth, isTabletUp } = useResponsive();
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
   const share = useShareSheet();

@@ -4,8 +4,11 @@ import { breakpoints, layout } from '@/src/theme/tokens';
 export type Device = 'phone' | 'tablet' | 'laptop' | 'desktop';
 
 export interface Responsive {
+  /** The whole window. */
   width: number;
   height: number;
+  /** What a page has to work with: the window, minus the sidebar on a laptop. */
+  pageWidth: number;
   device: Device;
   isPhone: boolean;
   isTabletUp: boolean;
@@ -32,6 +35,11 @@ export function useResponsive(): Responsive {
           ? 'tablet'
           : 'phone';
 
+  // On a laptop the sidebar takes the left of the window and pages sit in a
+  // panel beside it, so page layout works from the panel's width.
+  const pageWidth =
+    device === 'laptop' || device === 'desktop' ? width - layout.sidebarWidth - 16 : width;
+
   // On wide screens the gutter absorbs the extra width instead of letting a
   // phone layout stretch across a monitor, so content stays centred and
   // readable while horizontal shelves still run to the edge of the column.
@@ -40,8 +48,8 @@ export function useResponsive(): Responsive {
       ? 18
       : device === 'tablet'
         ? 28
-        : Math.max(40, (width - layout.maxContentWidth) / 2);
-  const contentWidth = Math.min(width - gutter * 2, layout.maxContentWidth);
+        : Math.max(32, (pageWidth - layout.maxContentWidth) / 2);
+  const contentWidth = Math.min(pageWidth - gutter * 2, layout.maxContentWidth);
   const gridColumns = device === 'phone' ? (width >= breakpoints.phoneLarge ? 3 : 2) : device === 'tablet' ? 4 : device === 'laptop' ? 5 : 6;
   const shelfCardWidth =
     device === 'phone' ? Math.min(158, (width - gutter * 2 - 24) / 2.2) : device === 'tablet' ? 180 : 196;
@@ -49,6 +57,7 @@ export function useResponsive(): Responsive {
   return {
     width,
     height,
+    pageWidth,
     device,
     isPhone: device === 'phone',
     isTabletUp: device !== 'phone',
