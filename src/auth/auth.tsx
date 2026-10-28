@@ -10,7 +10,7 @@ import {
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import type { Session } from '@supabase/supabase-js';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { arrivedForPasswordReset, isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { config } from '@/src/core/config';
 import { getProfile, saveProfile, type PulseProfile } from '@/src/db/repos/social';
 import { resetUserData } from '@/src/db/client';
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<PulseProfile | null>(null);
   const [ready, setReady] = useState(false);
-  const [recovering, setRecovering] = useState(false);
+  const [recovering, setRecovering] = useState(arrivedForPasswordReset);
 
   const refreshProfile = useCallback(async () => {
     setProfile(await getProfile());

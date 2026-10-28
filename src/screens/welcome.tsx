@@ -17,6 +17,7 @@ import { useAuth } from '@/src/auth/auth';
 import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { useResponsive } from '@/src/hooks/use-responsive';
+import { emailLinkError } from '@/lib/supabase';
 
 type Mode = 'intro' | 'signin' | 'signup' | 'forgot' | 'newPassword';
 
@@ -31,11 +32,19 @@ export function WelcomeScreen({ initial = 'intro' }: { initial?: Mode } = {}) {
   const insets = useSafeAreaInsets();
   const { isTabletUp } = useResponsive();
 
-  const [screen, setScreen] = useState<Mode>(initial);
+  // A reset or confirmation link that no longer works lands here: say so,
+  // rather than showing the plain sign-in as if nothing had happened.
+  const [screen, setScreen] = useState<Mode>(
+    emailLinkError && initial === 'intro' ? 'signin' : initial,
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    emailLinkError
+      ? 'That email link has expired or was already used. Tap "Forgot your password?" for a new one.'
+      : null,
+  );
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 

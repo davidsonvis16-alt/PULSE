@@ -16,6 +16,20 @@ import { config } from '@/src/core/config';
  */
 export const isSupabaseConfigured = config.supabase.isConfigured;
 
+// Read the address an email link opened before the client below consumes it.
+// The client announces a password reset a moment after starting, usually
+// before any screen is listening, so the app checks the address itself.
+const landing =
+  Platform.OS === 'web' && typeof window !== 'undefined'
+    ? new URLSearchParams(`${window.location.hash.slice(1)}&${window.location.search.slice(1)}`)
+    : null;
+
+/** The page was opened from a password-reset email. */
+export const arrivedForPasswordReset = landing?.get('type') === 'recovery';
+
+/** Why an email link failed, usually because it expired or was already used. */
+export const emailLinkError = landing?.get('error_description') ?? null;
+
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(config.supabase.url!, config.supabase.anonKey!, {
       auth: {
