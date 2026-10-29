@@ -637,22 +637,39 @@ function Count({ value, label }: { value: number; label: string }) {
 function Field({
   label,
   multiline,
+  secureTextEntry,
   ...props
 }: React.ComponentProps<typeof TextInput> & { label: string }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // Passwords start hidden; the eye shows what was typed, to catch a typo.
+  const [shown, setShown] = useState(false);
   return (
     <View style={{ gap: 6 }}>
       <Txt variant="caption" tone="muted">
         {label}
       </Txt>
-      <TextInput
-        {...props}
-        multiline={multiline}
-        placeholderTextColor={colors.textFaint}
-        style={[styles.input, multiline && { height: 88, textAlignVertical: 'top' }]}
-        accessibilityLabel={label}
-      />
+      <View>
+        <TextInput
+          {...props}
+          multiline={multiline}
+          secureTextEntry={secureTextEntry && !shown}
+          placeholderTextColor={colors.textFaint}
+          style={[styles.input, multiline && { height: 88, textAlignVertical: 'top' }, secureTextEntry && { paddingRight: 52 }]}
+          accessibilityLabel={label}
+        />
+        {secureTextEntry && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={shown ? 'Hide password' : 'Show password'}
+            onPress={() => setShown((value) => !value)}
+            hitSlop={6}
+            style={styles.eye}
+          >
+            <Ionicons name={shown ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -709,6 +726,15 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       gap: spacing.md,
       paddingVertical: 8,
+    },
+    eye: {
+      position: 'absolute',
+      right: 4,
+      top: 0,
+      bottom: 0,
+      width: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     input: {
       backgroundColor: colors.card,

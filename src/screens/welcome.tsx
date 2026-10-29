@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PulseLogo } from '@/src/ui/logo';
@@ -283,21 +284,38 @@ export function WelcomeScreen({ initial = 'intro' }: { initial?: Mode } = {}) {
 
 function Field({
   label,
+  secureTextEntry,
   ...props
 }: React.ComponentProps<typeof TextInput> & { label: string }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // Passwords start hidden; the eye shows what was typed, to catch a typo.
+  const [shown, setShown] = useState(false);
   return (
     <View style={{ gap: 6 }}>
       <Txt variant="caption" tone="muted">
         {label}
       </Txt>
-      <TextInput
-        {...props}
-        placeholderTextColor={colors.textFaint}
-        style={styles.input}
-        accessibilityLabel={label}
-      />
+      <View>
+        <TextInput
+          {...props}
+          secureTextEntry={secureTextEntry && !shown}
+          placeholderTextColor={colors.textFaint}
+          style={[styles.input, secureTextEntry && { paddingRight: 52 }]}
+          accessibilityLabel={label}
+        />
+        {secureTextEntry && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={shown ? 'Hide password' : 'Show password'}
+            onPress={() => setShown((value) => !value)}
+            hitSlop={6}
+            style={styles.eye}
+          >
+            <Ionicons name={shown ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -331,6 +349,15 @@ const makeStyles = (colors: ThemeColors) =>
     inner: { width: '100%', alignSelf: 'center', gap: spacing.huge },
     brand: { alignItems: 'center' },
     actions: { gap: spacing.md },
+    eye: {
+      position: 'absolute',
+      right: 4,
+      top: 0,
+      bottom: 0,
+      width: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     input: {
       backgroundColor: colors.card,
       borderRadius: radii.md,
