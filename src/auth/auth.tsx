@@ -48,6 +48,8 @@ interface AuthApi {
   /** True after arriving from a password-reset email, until a new one is set. */
   recovering: boolean;
   updatePassword: (password: string) => Promise<void>;
+  /** Changes the password of the signed-in account, after checking the current one. */
+  changePassword: (current: string, next: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -188,6 +190,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRecovering(false);
   }, []);
 
+  const changePassword = useCallback(
+    async (current: string, next: string) => {
+      const client = supabase;
+      const email = session?.user.email;
+      if (!client || !email) throw new Error('Sign in first.');
+      if (current.length === 0) throw new Error('Enter your current password.');
+      const problem = validatePassword(next);
+      if (problem) throw new Error(problem);
+      if (next === current) throw new Error('Choose a password different from the current one.');
+      // Asking for the current password means a phone left signed in is not
+      // enough to take the account over.
+      const check = await client.auth.signInWithPassword({ email, password: current });
+      if (check.error) throw new Error('Your current password is not right.');
+      const { error } = await client.auth.updateUser({ password: next });
+      if (error) throw new Error(friendlyAuthError(error.message));
+    },
+    [session?.user.email],
+  );
+
   const signOut = useCallback(async () => {
     await supabase?.auth.signOut();
     setSession(null);
@@ -205,9 +226,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       recovering,
       updatePassword,
+      changePassword,
       refreshProfile,
     }),
-    [ready, session, profile, signIn, signUp, signOut, resetPassword, recovering, updatePassword, refreshProfile],
+    [ready, session, profile, signIn, signUp, signOut, resetPassword, recovering, updatePassword, changePassword, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

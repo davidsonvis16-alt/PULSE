@@ -49,7 +49,7 @@ export function ProfileScreen() {
   const { colors, preference, setPreference } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
-  const { profile, refreshProfile, signOut, session } = useAuth();
+  const { profile, refreshProfile, signOut, session, changePassword } = useAuth();
   const { gutter, shelfCardWidth } = useResponsive();
   const bottomInset = useBottomInset();
   const share = useShareSheet();
@@ -58,6 +58,38 @@ export function ProfileScreen() {
   const [tab, setTab] = useState<Tab>('activity');
   const [editing, setEditing] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  const closePassword = () => {
+    setPasswordOpen(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setRepeatPassword('');
+    setPasswordError(null);
+  };
+
+  const savePassword = async () => {
+    if (newPassword !== repeatPassword) {
+      setPasswordError('The two new passwords do not match.');
+      return;
+    }
+    setSavingPassword(true);
+    setPasswordError(null);
+    try {
+      await changePassword(currentPassword, newPassword);
+      closePassword();
+      toast('Password changed', 'success');
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : 'Could not change your password.');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
   const [findOpen, setFindOpen] = useState(false);
   const [name, setName] = useState(profile?.displayName ?? '');
   const [handle, setHandle] = useState(profile?.handle ?? '');
@@ -453,6 +485,15 @@ export function ProfileScreen() {
                 full
                 onPress={() => router.push('/settings/playback')}
               />
+              {!!session && (
+                <Button
+                  label="Change password"
+                  variant="secondary"
+                  icon="key-outline"
+                  full
+                  onPress={() => setPasswordOpen(true)}
+                />
+              )}
               {Platform.OS === 'android' && (
                 <Button
                   label={checkingUpdate ? 'Checking…' : `Check for updates · version ${installedVersion()}`}
@@ -496,6 +537,43 @@ export function ProfileScreen() {
             multiline
           />
           <Button label="Save" full onPress={saveEdits} />
+        </View>
+      </Sheet>
+
+      {/* Change password */}
+      <Sheet visible={passwordOpen} onClose={closePassword} title="Change password">
+        <View style={{ gap: spacing.md, paddingTop: spacing.sm }}>
+          <Field
+            label="Current password"
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoComplete="current-password"
+          />
+          <Field
+            label="New password"
+            value={newPassword}
+            onChangeText={setNewPassword}
+            placeholder="At least 8 characters, letters and numbers"
+            secureTextEntry
+            autoCapitalize="none"
+            autoComplete="new-password"
+          />
+          <Field
+            label="New password again"
+            value={repeatPassword}
+            onChangeText={setRepeatPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoComplete="new-password"
+          />
+          {passwordError && (
+            <Txt variant="caption" tone="danger">
+              {passwordError}
+            </Txt>
+          )}
+          <Button label="Change password" full loading={savingPassword} onPress={() => void savePassword()} />
         </View>
       </Sheet>
 
