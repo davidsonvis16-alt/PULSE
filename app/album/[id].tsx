@@ -161,7 +161,7 @@ export default function AlbumScreen() {
                 <IconButton
                   name={fullyDownloaded ? 'checkmark-circle' : 'arrow-down-circle-outline'}
                   label={fullyDownloaded ? 'Album downloaded' : 'Download this album'}
-                  color={fullyDownloaded ? colors.accent : colors.text}
+                  color={fullyDownloaded ? colors.accentInk : colors.text}
                   onPress={() => {
                     if (fullyDownloaded) {
                       toast('The whole album is already downloaded');
@@ -174,7 +174,7 @@ export default function AlbumScreen() {
               <IconButton
                 name={saved ? 'checkmark-circle' : 'add-circle-outline'}
                 label={saved ? 'Remove from library' : 'Add to library'}
-                color={saved ? colors.accent : colors.text}
+                color={saved ? colors.accentInk : colors.text}
                 onPress={async () => {
                   if (saved) {
                     await removeFromLibrary('album', album.id);

@@ -234,7 +234,7 @@ export default function IdentifyScreen() {
                   {[candidate.artistName, candidate.albumTitle].filter(Boolean).join(' · ')}
                 </Txt>
               </View>
-              <Ionicons name="checkmark-circle-outline" size={20} color={colors.accent} />
+              <Ionicons name="checkmark-circle-outline" size={20} color={colors.accentInk} />
             </Pressable>
           ))
         )}

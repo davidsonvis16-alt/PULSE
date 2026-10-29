@@ -12,24 +12,25 @@
 export interface Feeling {
   id: string;
   name: string;
-  emoji: string;
+  /** An Ionicons name, drawn in white on the feeling's own colours. */
+  icon: string;
   /** Two colours for the badge's wash, light to deep. */
   colors: [string, string];
 }
 
 export const FEELINGS: Feeling[] = [
-  { id: 'happy', name: 'Happy', emoji: '😊', colors: ['#FFD66B', '#F2A93B'] },
-  { id: 'loved', name: 'In love', emoji: '😍', colors: ['#FF8FB1', '#E0447A'] },
-  { id: 'hyped', name: 'Hyped', emoji: '🔥', colors: ['#FFA24C', '#E5532B'] },
-  { id: 'celebrating', name: 'Celebrating', emoji: '🎉', colors: ['#D8FF52', '#8FC21F'] },
-  { id: 'chill', name: 'Chill', emoji: '😎', colors: ['#5FE0C6', '#1F9C84'] },
-  { id: 'calm', name: 'Calm', emoji: '😌', colors: ['#8EA6FF', '#4A66E0'] },
-  { id: 'focused', name: 'Focused', emoji: '🎧', colors: ['#B3A5FF', '#6B55E0'] },
-  { id: 'nostalgic', name: 'Nostalgic', emoji: '📼', colors: ['#E0B084', '#9C6B3F'] },
-  { id: 'sleepy', name: 'Sleepy', emoji: '😴', colors: ['#6F7DB8', '#2E3766'] },
-  { id: 'sad', name: 'Sad', emoji: '😢', colors: ['#8CC8F2', '#3C7FB8'] },
-  { id: 'moody', name: 'Moody', emoji: '🌧️', colors: ['#9AA1AD', '#555B66'] },
-  { id: 'angry', name: 'Fired up', emoji: '😤', colors: ['#FF8A8A', '#D63C3C'] },
+  { id: 'happy', name: 'Happy', icon: 'happy', colors: ['#FFD66B', '#F2A93B'] },
+  { id: 'loved', name: 'In love', icon: 'heart', colors: ['#FF8FB1', '#E0447A'] },
+  { id: 'hyped', name: 'Hyped', icon: 'flame', colors: ['#FFA24C', '#E5532B'] },
+  { id: 'celebrating', name: 'Celebrating', icon: 'sparkles', colors: ['#D8FF52', '#8FC21F'] },
+  { id: 'chill', name: 'Chill', icon: 'cafe', colors: ['#5FE0C6', '#1F9C84'] },
+  { id: 'calm', name: 'Calm', icon: 'leaf', colors: ['#8EA6FF', '#4A66E0'] },
+  { id: 'focused', name: 'Focused', icon: 'headset', colors: ['#B3A5FF', '#6B55E0'] },
+  { id: 'nostalgic', name: 'Nostalgic', icon: 'time', colors: ['#E0B084', '#9C6B3F'] },
+  { id: 'sleepy', name: 'Sleepy', icon: 'moon', colors: ['#6F7DB8', '#2E3766'] },
+  { id: 'sad', name: 'Sad', icon: 'rainy', colors: ['#8CC8F2', '#3C7FB8'] },
+  { id: 'moody', name: 'Moody', icon: 'cloudy', colors: ['#9AA1AD', '#555B66'] },
+  { id: 'angry', name: 'Fired up', icon: 'flash', colors: ['#FF8A8A', '#D63C3C'] },
 ];
 
 export function getFeeling(id: string | null | undefined): Feeling | undefined {

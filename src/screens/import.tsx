@@ -235,7 +235,7 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
                             : 'ellipse-outline'
                       }
                       size={16}
-                      color={status === 'pending' ? colors.textFaint : colors.accent}
+                      color={status === 'pending' ? colors.textFaint : colors.accentInk}
                     />
                     <Txt variant="callout" tone={status === 'pending' ? 'faint' : 'default'}>
                       {step.label}
@@ -489,7 +489,7 @@ function Assurance({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text:
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.assurance}>
-      <Ionicons name={icon} size={17} color={colors.accent} />
+      <Ionicons name={icon} size={17} color={colors.accentInk} />
       <Txt variant="callout" tone="secondary" style={{ flex: 1 }}>
         {text}
       </Txt>

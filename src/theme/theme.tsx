@@ -16,11 +16,9 @@ export type { ThemeColors };
 /**
  * Light and dark.
  *
- * Pulse follows the phone. Someone who has set their device to switch at
- * sunset expects every app to switch with it, so the default preference is
- * "system" and the colours change underneath the app without a restart. The
- * override exists for the people who want one app to differ from the rest, and
- * it is remembered on the device.
+ * Pulse opens in light — white with the lime of the mark — until someone
+ * chooses otherwise. "Follow the phone" and dark are one tap away in
+ * settings, and the choice is remembered on the device.
  *
  * Components read colours through `useTheme`, and their StyleSheets are built
  * per scheme through `useThemedStyles`, because a StyleSheet created at module
@@ -40,11 +38,11 @@ interface ThemeValue {
 }
 
 const ThemeContext = createContext<ThemeValue>({
-  colors: darkColors,
-  scheme: 'dark',
-  preference: 'system',
+  colors: lightColors,
+  scheme: 'light',
+  preference: 'light',
   setPreference: () => {},
-  isDark: true,
+  isDark: false,
 });
 
 export function useTheme(): ThemeValue {
@@ -59,7 +57,7 @@ export function useThemedStyles<T>(factory: (colors: ThemeColors) => T): T {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();
-  const [preference, setLocalPreference] = useState<ThemePreference>('system');
+  const [preference, setLocalPreference] = useState<ThemePreference>('light');
 
   useEffect(() => {
     void (async () => {
@@ -74,7 +72,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<ThemeValue>(() => {
-    const scheme: Scheme = preference === 'system' ? (system ?? 'dark') : preference;
+    const scheme: Scheme = preference === 'system' ? (system ?? 'light') : preference;
     return {
       scheme,
       colors: scheme === 'light' ? lightColors : darkColors,

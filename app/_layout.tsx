@@ -16,6 +16,7 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
+import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
 import { AuthProvider, useAuth } from '@/src/auth/auth';
 import { PulseProviders } from '@/src/ui/providers';
 import { PulseLogo } from '@/src/ui/logo';
@@ -50,6 +51,7 @@ function PulseRoot() {
   const [fontsLoaded, fontError] = useFonts({
     BricolageGrotesque_700Bold,
     BricolageGrotesque_800ExtraBold,
+    PermanentMarker_400Regular,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

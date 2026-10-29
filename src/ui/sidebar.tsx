@@ -2,6 +2,9 @@ import { Pressable, ScrollView, StyleSheet, View, type PressableStateCallbackTyp
 import { usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { listPlaylists } from '@/src/db/repos/playlists';
+import { getStatsSummary } from '@/src/db/repos/history';
+import { MOODS } from '@/src/core/moods';
+import { moodMixId } from '@/src/discovery/mood-mix';
 import { useAsync } from '@/src/hooks/use-async';
 import { Artwork } from '@/src/ui/artwork';
 import { PulseLogo } from '@/src/ui/logo';
@@ -47,6 +50,10 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
 
   // Re-read on every move, which is when a new playlist could have appeared.
   const playlists = useAsync(() => listPlaylists(), [pathname]);
+  const week = useAsync(() => getStatsSummary('week'), [pathname]);
+  const minutes = Math.round((week.data?.totalMs ?? 0) / 60_000);
+  // Mood mixes have their own list above; the playlists list is everything else.
+  const moodMixes = new Set(MOODS.map((mood) => moodMixId(mood.id)));
 
   const shortcuts: { label: string; detail: string; icon: IconName; href: string }[] = [
     { label: 'Liked songs', detail: 'Everything you hearted', icon: 'heart', href: '/collection/favorites' },
@@ -78,7 +85,7 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
               <Ionicons
                 name={focused ? tab.active : tab.icon}
                 size={21}
-                color={focused ? colors.accent : colors.textMuted}
+                color={focused ? colors.accentInk : colors.textMuted}
               />
               <Txt variant="callout" style={{ color: focused ? colors.text : colors.textMuted }}>
                 {tab.title}
@@ -112,7 +119,7 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
               style={(s: PressState) => [styles.libraryRow, s.hovered && { backgroundColor: colors.card }]}
             >
               <View style={[styles.shortcutArt, { backgroundColor: colors.accentGlow }]}>
-                <Ionicons name={item.icon} size={20} color={colors.accent} />
+                <Ionicons name={item.icon} size={20} color={colors.accentInk} />
               </View>
               <View style={{ flex: 1 }}>
                 <Txt variant="callout" numberOfLines={1}>
@@ -124,7 +131,30 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
               </View>
             </Pressable>
           ))}
-          {(playlists.data ?? []).map((playlist) => (
+          <Txt variant="micro" tone="faint" uppercase style={styles.groupTitle}>
+            How do you feel?
+          </Txt>
+          {MOODS.map((mood) => (
+            <Pressable
+              key={mood.id}
+              accessibilityRole="link"
+              onPress={() => router.push(`/mood/${mood.id}`)}
+              style={(s: PressState) => [
+                styles.moodRow,
+                pathname === `/mood/${mood.id}` && { backgroundColor: colors.cardRaised },
+                s.hovered && { backgroundColor: colors.card },
+              ]}
+            >
+              <View style={[styles.moodDot, { backgroundColor: mood.accent }]} />
+              <Txt variant="callout" tone="secondary" numberOfLines={1}>
+                {mood.name}
+              </Txt>
+            </Pressable>
+          ))}
+          <Txt variant="micro" tone="faint" uppercase style={styles.groupTitle}>
+            Playlists
+          </Txt>
+          {(playlists.data ?? []).filter((playlist) => !moodMixes.has(playlist.id)).map((playlist) => (
             <Pressable
               key={playlist.id}
               accessibilityRole="link"
@@ -144,6 +174,20 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
           ))}
         </ScrollView>
       </View>
+
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`You listened for ${minutes} minutes this week. Open your stats.`}
+        onPress={() => router.push('/stats')}
+        style={(s: PressState) => [styles.week, s.hovered && { opacity: 0.92 }]}
+      >
+        <Txt variant="caption" tone="onAccent">
+          You listened this week
+        </Txt>
+        <Txt variant="title1" tone="onAccent">
+          {minutes.toLocaleString()} <Txt variant="callout" tone="onAccent">min</Txt>
+        </Txt>
+      </Pressable>
     </View>
   );
 }
@@ -192,6 +236,22 @@ const makeStyles = (colors: ThemeColors) =>
       gap: spacing.md,
       padding: 6,
       borderRadius: radii.sm,
+    },
+    groupTitle: { paddingHorizontal: spacing.sm, paddingTop: spacing.lg, paddingBottom: spacing.sm },
+    moodRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.md,
+      height: 36,
+      borderRadius: radii.sm,
+    },
+    moodDot: { width: 9, height: 9, borderRadius: 5 },
+    week: {
+      backgroundColor: colors.accent,
+      borderRadius: radii.md,
+      padding: spacing.lg,
+      marginBottom: spacing.xs,
     },
     shortcutArt: {
       width: 44,

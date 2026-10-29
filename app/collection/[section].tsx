@@ -129,7 +129,7 @@ export default function CollectionScreen() {
               <IconButton
                 name="play-circle"
                 label="Play all"
-                color={colors.accent}
+                color={colors.accentInk}
                 size={24}
                 onPress={() => playAll(false)}
               />

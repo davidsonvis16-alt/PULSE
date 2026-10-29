@@ -1,37 +1,41 @@
 /**
- * Pulse design tokens — "Afterglow".
+ * Pulse design tokens.
  *
- * A deep ink with a breath of violet in it, and one hot ember accent that is
- * nobody else's: not Spotify's green, Apple's red or Deezer's purple. Surfaces
- * stay quiet so artwork carries the rest of the colour; the player goes further
- * and takes its whole background from the cover that is playing.
+ * The mark's own colours: its lime plate, the ink of the P and the white it
+ * sits on. Light is the default. In the dark the lime would glow like neon, so
+ * dark mode takes a deeper, calmer green. Surfaces stay neutral so artwork
+ * carries every other colour in the app.
  */
 
 export const palette = {
-  /** Canvas — ink with a breath of violet, so artwork glows against it. */
-  black: '#0C0B10',
-  ink: '#141319',
-  surface: '#1C1B23',
-  surfaceRaised: '#22212A',
-  surfaceHigh: '#2A2932',
-  hairline: '#2E2D36',
-  hairlineSoft: '#222129',
+  /** Canvas — the mark's ink, darkened to let artwork glow. */
+  black: '#0B0C0B',
+  ink: '#111211',
+  surface: '#181A18',
+  surfaceRaised: '#1E201E',
+  surfaceHigh: '#252825',
+  hairline: '#2C2F2C',
+  hairlineSoft: '#202320',
 
-  /** Ember. Primary actions and active state only. */
-  ember: '#FF6A3D',
-  emberBright: '#FF8A5B',
-  emberDim: '#C9502C',
-  emberGlow: 'rgba(255, 106, 61, 0.16)',
+  /** The lime of the Pulse plate: the accent on white. */
+  lime: '#C9F62B',
+  limeBright: '#D8FF52',
+  limeDim: '#9CC61F',
+
+  /** The accent in the dark, where full lime glares. */
+  green: '#25D366',
+  greenBright: '#3EE07B',
+  greenDim: '#1DA851',
 
   /** The cream of the flag on the mark. */
   cream: '#F6F1DF',
 
   white: '#FFFFFF',
-  text: '#F5F3F7',
-  textSecondary: '#C9C6D2',
-  textMuted: '#A09DAB',
+  text: '#F4F5F3',
+  textSecondary: '#B7BAB6',
+  textMuted: '#959994',
   /** Still readable: 4.6:1 on the canvas, so small print never disappears. */
-  textFaint: '#7C7987',
+  textFaint: '#7B7F7A',
 
   danger: '#FF6B6B',
   warning: '#FFC24B',
@@ -47,8 +51,8 @@ export const palette = {
 
 /** The mark's own colours, for the logo and the launch screen. */
 export const brand = {
-  plate: palette.ember,
-  ink: '#1A0A04',
+  plate: palette.lime,
+  ink: '#0A0B0A',
   flag: palette.cream,
   wordmark: palette.textSecondary,
   /**
@@ -74,12 +78,15 @@ export const darkColors = {
   border: palette.hairline,
   borderSoft: palette.hairlineSoft,
 
-  accent: palette.ember,
-  accentBright: palette.emberBright,
-  accentDim: palette.emberDim,
-  accentGlow: palette.emberGlow,
-  /** Text/icon colour to use *on top of* the accent. */
-  onAccent: '#1A0A04',
+  /** Fills: buttons, switches, progress, the active tab. */
+  accent: palette.green,
+  accentBright: palette.greenBright,
+  accentDim: palette.greenDim,
+  accentGlow: 'rgba(37, 211, 102, 0.14)',
+  /** The accent as text or an icon on the background — readable in both schemes. */
+  accentInk: palette.green,
+  /** Text/icon colour to use *on top of* the accent — the mark's ink. */
+  onAccent: '#0A0B0A',
 
   text: palette.text,
   textSecondary: palette.textSecondary,
@@ -91,53 +98,51 @@ export const darkColors = {
   success: palette.success,
   info: palette.info,
 
-  skeleton: '#1C1B23',
-  skeletonHighlight: '#26252E',
-  scrim: 'rgba(12, 11, 16, 0.72)',
+  skeleton: '#1A1C1A',
+  skeletonHighlight: '#242724',
+  scrim: 'rgba(11, 12, 11, 0.72)',
 } as const;
 
 /** Widened so both schemes satisfy the same shape. */
 export type ThemeColors = { [K in keyof typeof darkColors]: string };
 
 /**
- * Light.
+ * Light — the default.
  *
- * The mark sits on white, so light mode is the mark's own background. The one
- * colour that cannot carry over is the lime: at full brightness it is
- * unreadable on white, so text and icons use a deepened lime of the same hue
- * and anything filled with it carries white rather than ink. The plate on the
- * logo itself never changes — see `brand`.
+ * The mark sits on white, so light mode is the mark's own background, with
+ * the lime plate's colour on everything filled: buttons, switches, the active
+ * tab, always carrying ink. Lime is too light to read as text on white, so
+ * text and icons in the accent use a deep green of the same family instead.
  */
 export const lightColors: ThemeColors = {
   background: palette.white,
-  backgroundElevated: '#FAF9FB',
-  card: '#F3F2F6',
-  cardRaised: '#ECEBF0',
-  cardHigh: '#E3E1E8',
-  border: '#D8D6DE',
-  borderSoft: '#E8E6EC',
+  backgroundElevated: '#FAFAF8',
+  card: '#F3F4F0',
+  cardRaised: '#ECEDE8',
+  cardHigh: '#E3E5DF',
+  border: '#D9DBD5',
+  borderSoft: '#E7E9E3',
 
-  // Full-strength ember is too light for text on white; this is the same hue
-  // deepened to pass 4.5:1.
-  accent: '#C73E14',
-  accentBright: '#E0552A',
-  accentDim: '#E89A80',
-  accentGlow: 'rgba(199, 62, 20, 0.12)',
-  onAccent: palette.white,
+  accent: palette.lime,
+  accentBright: palette.limeBright,
+  accentDim: palette.limeDim,
+  accentGlow: 'rgba(201, 246, 43, 0.22)',
+  accentInk: '#3E7A00',
+  onAccent: '#0A0B0A',
 
-  text: '#121117',
-  textSecondary: '#4D4A57',
-  textMuted: '#6D6A78',
-  textFaint: '#8E8B99',
+  text: '#0C0D0C',
+  textSecondary: '#4E524D',
+  textMuted: '#696E68',
+  textFaint: '#8A8F88',
 
   danger: '#C62F2F',
   warning: '#9A6A00',
   success: '#3F7D1F',
   info: '#1C6FB8',
 
-  skeleton: '#ECEBF0',
-  skeletonHighlight: '#F5F4F8',
-  scrim: 'rgba(18, 17, 23, 0.55)',
+  skeleton: '#ECEDE9',
+  skeletonHighlight: '#F5F6F2',
+  scrim: 'rgba(12, 13, 12, 0.55)',
 };
 
 /**
@@ -181,6 +186,8 @@ export const fonts = {
   medium: 'Inter_500Medium',
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
+  /** Handwriting, for the big editorial card titles only. */
+  marker: 'PermanentMarker_400Regular',
 } as const;
 
 export const typography = {
@@ -232,11 +239,12 @@ export const shadow = {
     shadowOffset: { width: 0, height: 14 },
     elevation: 16,
   },
+  /** A plain soft shadow: accent-coloured glows read as neon. */
   accent: {
-    shadowColor: palette.ember,
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
 } as const;

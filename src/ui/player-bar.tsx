@@ -70,7 +70,7 @@ export function PlayerBar() {
           name={liked ? 'heart' : 'heart-outline'}
           label={liked ? 'Unlike' : 'Like'}
           size={19}
-          color={liked ? colors.accent : colors.textMuted}
+          color={liked ? colors.accentInk : colors.textMuted}
           onPress={async () => {
             const next = await toggleFavorite('track', track.id);
             if (next) await addTrackToLibrary(track);
@@ -86,7 +86,7 @@ export function PlayerBar() {
             name="shuffle"
             label={player.shuffle ? 'Shuffle on' : 'Shuffle off'}
             size={18}
-            color={player.shuffle ? colors.accent : colors.textMuted}
+            color={player.shuffle ? colors.accentInk : colors.textMuted}
             onPress={() => playerStore.toggleShuffle()}
           />
           {!onRadio && (
@@ -120,7 +120,7 @@ export function PlayerBar() {
             name="repeat"
             label={`Repeat ${player.repeat}`}
             size={18}
-            color={player.repeat === 'off' ? colors.textMuted : colors.accent}
+            color={player.repeat === 'off' ? colors.textMuted : colors.accentInk}
             onPress={() => playerStore.cycleRepeat()}
           />
         </View>

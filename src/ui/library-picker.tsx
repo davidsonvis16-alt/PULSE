@@ -122,7 +122,7 @@ export function LibraryPicker({
                     already ? 'checkmark-circle' : selected ? 'checkmark-circle' : 'ellipse-outline'
                   }
                   size={22}
-                  color={already ? colors.textFaint : selected ? colors.accent : colors.textMuted}
+                  color={already ? colors.textFaint : selected ? colors.accentInk : colors.textMuted}
                 />
               </Pressable>
             );

@@ -162,7 +162,7 @@ export function LibraryScreen() {
                     pressed && { opacity: 0.8 },
                   ]}
                 >
-                  <Ionicons name="sync-outline" size={18} color={colors.accent} />
+                  <Ionicons name="sync-outline" size={18} color={colors.accentInk} />
                   <View style={{ flex: 1 }}>
                     <Txt variant="callout">Importing your music…</Txt>
                     <Txt variant="caption" tone="muted">
@@ -184,7 +184,7 @@ export function LibraryScreen() {
                     pressed && { opacity: 0.8 },
                   ]}
                 >
-                  <Ionicons name="image-outline" size={18} color={colors.accent} />
+                  <Ionicons name="image-outline" size={18} color={colors.accentInk} />
                   <View style={{ flex: 1 }}>
                     <Txt variant="callout">
                       {repair.running
@@ -236,7 +236,7 @@ export function LibraryScreen() {
                     style={({ pressed }) => [styles.sectionRow, pressed && { opacity: 0.65 }]}
                   >
                     <View style={styles.sectionIcon}>
-                      <Ionicons name={section.icon} size={18} color={colors.accent} />
+                      <Ionicons name={section.icon} size={18} color={colors.accentInk} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Txt variant="bodyStrong">{section.title}</Txt>

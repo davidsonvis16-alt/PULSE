@@ -2,12 +2,12 @@
   "expo": {
     "name": "Pulse",
     "slug": "Pulse",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "pulse",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#070708",
+    "backgroundColor": "#FFFFFF",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
@@ -22,6 +22,7 @@
     },
     "android": {
       "package": "app.pulse.music",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

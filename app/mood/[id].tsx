@@ -1,11 +1,11 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SketchArt } from '@/src/ui/sketch-art';
 import type { Track } from '@/src/core/types';
 import { getMood, MOODS } from '@/src/core/moods';
 import { pluralize } from '@/src/core/format';
-import { musicProvider } from '@/src/providers/music';
-import { upsertTracks } from '@/src/db/repos/catalog';
+import { loadMoodCovers, refreshMoodMix, savedMoodMix } from '@/src/discovery/mood-mix';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
 import { useAsync } from '@/src/hooks/use-async';
@@ -25,8 +25,9 @@ import { useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 /**
  * A mood page.
  *
- * The mood is a query, not a hand-made playlist: Pulse asks the provider for
- * music in that mood's genres and ranks it against the mood's energy.
+ * Each mood is a playlist kept for this listener (see discovery/mood-mix):
+ * songs they have played are swapped for new ones, and a third is renewed
+ * every day. The saved mix shows at once, then the refreshed one replaces it.
  */
 export default function MoodScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -39,12 +40,9 @@ export default function MoodScreen() {
 
   const mood = getMood(id);
 
-  const state = useAsync<Track[]>(async () => {
-    if (!mood) return [];
-    const tracks = await musicProvider().getMoodTracks(mood, 40);
-    void upsertTracks(tracks);
-    return tracks;
-  }, [id]);
+  const saved = useAsync<Track[]>(async () => (mood ? savedMoodMix(mood) : []), [id]);
+  const state = useAsync(async () => (mood ? refreshMoodMix(mood) : null), [id]);
+  const covers = useAsync(() => loadMoodCovers(), []);
 
   if (!mood) {
     return (
@@ -55,7 +53,9 @@ export default function MoodScreen() {
     );
   }
 
-  const tracks = state.data ?? [];
+  const tracks = state.data?.tracks ?? saved.data ?? [];
+  const fresh = state.data?.fresh ?? 0;
+  const cover = covers.data?.find((c) => c.moodId === mood.id);
 
   return (
     <Screen>
@@ -65,20 +65,26 @@ export default function MoodScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: gutter }}>
-          <LinearGradient
-            colors={[mood.accent, 'transparent']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.hero}
-          >
-            <Txt variant="display">{mood.name}</Txt>
+          <View style={[styles.hero, { backgroundColor: mood.accent }]}>
+            {!!cover?.imageUrl && <SketchArt uri={cover.imageUrl} />}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.72)']}
+              start={{ x: 0, y: 0.2 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Txt variant="display" style={{ color: '#fff' }}>
+              {mood.name} mix
+            </Txt>
             <Txt variant="body" style={{ color: 'rgba(255,255,255,0.86)' }}>
               {mood.tagline}
             </Txt>
-            <Txt variant="caption" style={{ color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>
-              {mood.seeds.join(' · ')}
+            <Txt variant="caption" style={{ color: 'rgba(255,255,255,0.75)', marginTop: 6 }}>
+              {fresh > 0
+                ? `${pluralize(fresh, 'new song')} since you last looked. Songs you play make way for new ones.`
+                : 'Made for you. Songs you play make way for new ones.'}
             </Txt>
-          </LinearGradient>
+          </View>
 
           <View style={styles.actions}>
             <Button
@@ -112,9 +118,9 @@ export default function MoodScreen() {
         </View>
 
         <View style={{ paddingHorizontal: gutter, marginTop: spacing.lg }}>
-          {state.loading ? (
+          {state.loading && tracks.length === 0 ? (
             <SkeletonRows count={8} />
-          ) : state.error ? (
+          ) : state.error && tracks.length === 0 ? (
             <ErrorState error={state.error} onRetry={state.reload} />
           ) : tracks.length === 0 ? (
             <EmptyState
@@ -152,6 +158,7 @@ export default function MoodScreen() {
               <MoodCard
                 mood={item}
                 width={isTabletUp ? 200 : 150}
+                imageUrl={covers.data?.find((c) => c.moodId === item.id)?.imageUrl}
                 onPress={() => router.replace(`/mood/${item.id}`)}
               />
             )}
@@ -167,8 +174,9 @@ const makeStyles = (colors: ThemeColors) =>
     hero: {
       borderRadius: radii.xl,
       padding: spacing.xxl,
-      minHeight: 160,
+      minHeight: 240,
       justifyContent: 'flex-end',
+      overflow: 'hidden',
       backgroundColor: colors.card,
     },
     actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },

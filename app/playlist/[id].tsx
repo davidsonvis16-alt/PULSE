@@ -174,7 +174,7 @@ export default function PlaylistScreen() {
                     downloadedCount === tracks.length ? 'checkmark-circle' : 'arrow-down-circle-outline'
                   }
                   label="Download this playlist"
-                  color={downloadedCount === tracks.length ? colors.accent : colors.text}
+                  color={downloadedCount === tracks.length ? colors.accentInk : colors.text}
                   onPress={async () => {
                     const { queued } = await downloadManager.enqueueMany(tracks);
                     toast(

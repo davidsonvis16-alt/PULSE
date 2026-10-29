@@ -47,6 +47,8 @@ export const SETTINGS_KEYS = {
   avatarSchedule: 'profile.avatarSchedule',
   /** How many unidentified songs there were when the Home banner was closed. */
   identifyBannerDismissed: 'home.identifyBannerDismissed',
+  /** The app version whose "Update available" banner was closed. */
+  updateDismissed: 'home.updateDismissed',
 } as const;
 
 export interface NotificationPrefs {

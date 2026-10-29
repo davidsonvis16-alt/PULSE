@@ -26,7 +26,7 @@ export default function TabLayout() {
         screenOptions={{
           headerShown: false,
           sceneStyle: { backgroundColor: isLaptopUp ? 'transparent' : colors.background },
-          tabBarActiveTintColor: colors.accent,
+          tabBarActiveTintColor: colors.accentInk,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle: [styles.bar, { height: barHeight, paddingBottom: insets.bottom }],
           tabBarLabelStyle: typography.micro,

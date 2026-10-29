@@ -86,7 +86,7 @@ export default function PlayerScreen() {
   }
 
   const artSize = isLaptopUp
-    ? Math.min(460, height * 0.56, (width - 380 - 56 * 2 - 48 * 2) * 0.5)
+    ? Math.min(400, height * 0.42, (width - 380 - 56 * 2 - 48) * 0.42)
     : Math.min(width - spacing.xxl * 2, height * 0.42);
   const position = scrubbing ?? progress.positionMs;
   const duration = progress.durationMs || player.source?.durationMs || track.durationMs || 0;
@@ -353,10 +353,40 @@ export default function PlayerScreen() {
         {isLaptopUp ? (
           <View style={styles.wide}>
             <View style={styles.wideSong}>
-              <View style={styles.artShadow}>
-                <Artwork uri={track.artworkUrl} size={artSize} radius={radii.lg} />
+              {/* The queue as a row of records: what played and what is next lean away on either side. */}
+              <View style={[styles.flow, { height: artSize + 24 }]}>
+                {([-2, -1, 1, 2] as const).map((offset) => {
+                  const index = player.index + offset;
+                  const item = player.queue[index];
+                  if (!item) return null;
+                  const near = Math.abs(offset) === 1;
+                  const size = artSize * (near ? 0.7 : 0.52);
+                  const shift = artSize * (near ? 0.62 : 1.02) * Math.sign(offset);
+                  return (
+                    <Pressable
+                      key={`${item.id}-${index}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Play ${item.title} by ${item.artistName}`}
+                      onPress={() => void playerStore.jumpTo(index)}
+                      style={{
+                        position: 'absolute',
+                        opacity: near ? 0.7 : 0.35,
+                        transform: [
+                          { translateX: shift },
+                          { perspective: 900 },
+                          { rotateY: `${offset < 0 ? 28 : -28}deg` },
+                        ],
+                      }}
+                    >
+                      <Artwork uri={item.artworkUrl} size={size} radius={radii.md} />
+                    </Pressable>
+                  );
+                })}
+                <View style={styles.artShadow}>
+                  <Artwork uri={track.artworkUrl} size={artSize} radius={radii.xl} />
+                </View>
               </View>
-              <View style={{ flex: 1, maxWidth: 480 }}>{details}</View>
+              <View style={{ width: '100%', maxWidth: 560 }}>{details}</View>
             </View>
 
             {/* What plays next */}
@@ -443,7 +473,8 @@ const makeStyles = (colors: ThemeColors) =>
     },
     bottom: { flexDirection: 'row', alignItems: 'center' },
     wide: { flex: 1, flexDirection: 'row', gap: 48, paddingVertical: spacing.xxl },
-    wideSong: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 48 },
+    wideSong: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xxl },
+    flow: { width: '100%', alignItems: 'center', justifyContent: 'center' },
     upNext: {
       width: 380,
       borderRadius: radii.lg,

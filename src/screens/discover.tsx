@@ -662,7 +662,7 @@ function QuickAction({
       onPress={onPress}
       style={({ pressed }) => [styles.quick, pressed && { opacity: 0.6 }]}
     >
-      <Ionicons name={icon} size={18} color={active ? colors.accent : colors.textMuted} />
+      <Ionicons name={icon} size={18} color={active ? colors.accentInk : colors.textMuted} />
     </Pressable>
   );
 }

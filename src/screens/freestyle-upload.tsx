@@ -218,7 +218,7 @@ export function FreestyleUploadScreen() {
               name={previewing ? 'pause-circle' : 'play-circle'}
               label={previewing ? 'Pause preview' : 'Hear it back'}
               size={40}
-              color={colors.accent}
+              color={colors.accentInk}
               onPress={() => {
                 if (previewing) preview.pause();
                 else {
@@ -238,7 +238,7 @@ export function FreestyleUploadScreen() {
                 {take.durationMs ? formatDuration(take.durationMs) : 'Length unknown'}
               </Txt>
             </View>
-            <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+            <Ionicons name="checkmark-circle" size={20} color={colors.accentInk} />
           </View>
         )}
 

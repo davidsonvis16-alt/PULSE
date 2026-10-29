@@ -175,7 +175,7 @@ export function EventsScreen() {
           onPress={() => setPlaceOpen(true)}
           style={({ pressed }) => [styles.place, pressed && { opacity: 0.7 }]}
         >
-          <Ionicons name="location-outline" size={14} color={colors.accent} />
+          <Ionicons name="location-outline" size={14} color={colors.accentInk} />
           <Txt variant="caption" numberOfLines={1} style={{ maxWidth: 140 }}>
             {place?.label ?? 'Set location'}
           </Txt>

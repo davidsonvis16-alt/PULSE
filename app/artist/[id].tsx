@@ -162,7 +162,7 @@ export default function ArtistScreen() {
                 name="play-circle"
                 label="Play top songs"
                 size={26}
-                color={colors.accent}
+                color={colors.accentInk}
                 onPress={() =>
                   state.data?.topTracks.length &&
                   void playerStore.playQueue(state.data.topTracks, {

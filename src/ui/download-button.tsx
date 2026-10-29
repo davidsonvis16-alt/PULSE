@@ -61,7 +61,7 @@ export function DownloadButton({
         style={[styles.button, onSurface && styles.onSurface, { width: size, height: size, borderRadius: size / 2 }]}
         accessibilityLabel={`${track.title} is saved on this device`}
       >
-        <Ionicons name="checkmark" size={iconSize} color={colors.accent} />
+        <Ionicons name="checkmark" size={iconSize} color={colors.accentInk} />
       </View>
     );
   }
@@ -84,7 +84,7 @@ export function DownloadButton({
         {status === 'downloading' && percent > 0 ? (
           <Txt style={[styles.percent, { fontSize: size * 0.3 }]}>{percent}</Txt>
         ) : (
-          <ActivityIndicator size="small" color={colors.accent} />
+          <ActivityIndicator size="small" color={colors.accentInk} />
         )}
       </Pressable>
     );
@@ -106,7 +106,7 @@ export function DownloadButton({
       <Ionicons
         name={status === 'failed' ? 'refresh' : 'arrow-down'}
         size={iconSize}
-        color={status === 'failed' ? colors.warning : colors.accent}
+        color={status === 'failed' ? colors.warning : colors.accentInk}
       />
     </Pressable>
   );
@@ -124,7 +124,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
-    percent: { fontWeight: '800', color: colors.accent },
+    percent: { fontWeight: '800', color: colors.accentInk },
   });
 
 export const DOWNLOAD_BUTTON_RADIUS = radii.pill;

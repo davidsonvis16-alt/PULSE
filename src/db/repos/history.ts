@@ -410,3 +410,24 @@ export async function getTasteSignals(limit = 60): Promise<{
     recentTrackIds: recent.map((r) => r.track_id),
   };
 }
+
+/**
+ * Which of these songs the listener has really played — through to the end,
+ * or for at least half a minute — rather than skipped past.
+ */
+export async function getPlayedTrackIds(trackIds: string[]): Promise<Set<string>> {
+  if (trackIds.length === 0) return new Set();
+  const instance = await db();
+  const played = new Set<string>();
+  for (let i = 0; i < trackIds.length; i += 400) {
+    const chunk = trackIds.slice(i, i + 400);
+    const rows = await instance.getAllAsync<{ track_id: string }>(
+      `SELECT DISTINCT track_id FROM listening_history
+       WHERE track_id IN (${chunk.map(() => '?').join(',')})
+         AND (completed = 1 OR ms_played >= 30000);`,
+      chunk,
+    );
+    for (const row of rows) played.add(row.track_id);
+  }
+  return played;
+}

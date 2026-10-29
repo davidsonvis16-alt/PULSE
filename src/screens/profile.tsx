@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { checkForUpdate, installedVersion } from '@/src/core/updates';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { formatListeningTime, formatRelativeTime, pluralize } from '@/src/core/format';
@@ -56,6 +57,7 @@ export function ProfileScreen() {
 
   const [tab, setTab] = useState<Tab>('activity');
   const [editing, setEditing] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [name, setName] = useState(profile?.displayName ?? '');
   const [handle, setHandle] = useState(profile?.handle ?? '');
@@ -415,7 +417,7 @@ export function ProfileScreen() {
             <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxxl }}>
               <SectionHeader
                 title="Appearance"
-                subtitle="Pulse follows your phone unless you tell it otherwise"
+                subtitle="Light unless you choose otherwise"
               />
               <SegmentedControl<ThemePreference>
                 value={preference}
@@ -451,6 +453,22 @@ export function ProfileScreen() {
                 full
                 onPress={() => router.push('/settings/playback')}
               />
+              {Platform.OS === 'android' && (
+                <Button
+                  label={checkingUpdate ? 'Checking…' : `Check for updates · version ${installedVersion()}`}
+                  variant="secondary"
+                  icon="arrow-down-circle-outline"
+                  full
+                  loading={checkingUpdate}
+                  onPress={async () => {
+                    setCheckingUpdate(true);
+                    const found = await checkForUpdate().catch(() => null);
+                    setCheckingUpdate(false);
+                    if (found) void Linking.openURL(found.url);
+                    else toast("You're on the newest version", 'success');
+                  }}
+                />
+              )}
               {!!session && (
                 <Button label="Sign out" variant="danger" full onPress={() => void signOut()} />
               )}

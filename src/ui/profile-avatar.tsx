@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/src/auth/auth';
 import { initialsOf } from '@/src/core/format';
@@ -22,9 +23,12 @@ export function LookBadge({ look, size }: { look: AvatarLook; size: number }) {
         end={{ x: 1, y: 1 }}
         style={[styles.center, { width: size, height: size, borderRadius: size / 2 }]}
       >
-        <Text style={{ fontSize: size * 0.5 }} accessibilityLabel={feeling.name}>
-          {feeling.emoji}
-        </Text>
+        <Ionicons
+          name={feeling.icon as keyof typeof Ionicons.glyphMap}
+          size={size * 0.48}
+          color="#FFFFFF"
+          accessibilityLabel={feeling.name}
+        />
       </LinearGradient>
     );
   }

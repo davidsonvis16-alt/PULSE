@@ -145,7 +145,7 @@ export function SheetAction({
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const compact = useContext(CompactContext);
-  const color = tone === 'danger' ? colors.danger : tone === 'accent' ? colors.accent : colors.text;
+  const color = tone === 'danger' ? colors.danger : tone === 'accent' ? colors.accentInk : colors.text;
   return (
     <Pressable
       accessibilityRole="button"

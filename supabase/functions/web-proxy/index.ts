@@ -19,6 +19,7 @@ const ALLOWED_HOSTS = new Set([
   'rss.applemarketingtools.com',
   'en.wikipedia.org',
   'api.deezer.com',
+  'www.theaudiodb.com',
   'www.rollingstone.com',
   'www.stereogum.com',
   'www.nme.com',

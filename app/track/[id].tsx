@@ -201,7 +201,7 @@ export default function TrackScreen() {
                       : 'cloud-outline'
                 }
                 size={14}
-                color={state.data?.local || downloaded ? colors.accent : colors.textMuted}
+                color={state.data?.local || downloaded ? colors.accentInk : colors.textMuted}
               />
               <Txt variant="caption" tone={state.data?.local || downloaded ? 'accent' : 'muted'}>
                 {state.data?.local
@@ -345,7 +345,7 @@ function Action({
         name={icon}
         label={label}
         size={21}
-        color={active ? colors.accent : colors.text}
+        color={active ? colors.accentInk : colors.text}
         onPress={onPress}
       />
       <Txt variant="caption" tone={active ? 'accent' : 'muted'}>

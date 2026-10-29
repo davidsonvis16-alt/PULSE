@@ -272,7 +272,7 @@ function DownloadRow({
         <ProgressBar
           progress={item.progress}
           style={{ marginTop: 8, marginLeft: 60 }}
-          color={item.status === 'failed' ? colors.danger : colors.accent}
+          color={item.status === 'failed' ? colors.danger : colors.accentInk}
         />
       )}
     </View>

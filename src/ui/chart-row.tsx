@@ -44,7 +44,7 @@ export function ChartRow({
 
   const isLiked = likes.ids.has(track.id);
   const movementColor =
-    movement === 'up' ? colors.accent : movement === 'down' ? colors.danger : colors.textFaint;
+    movement === 'up' ? colors.accentInk : movement === 'down' ? colors.danger : colors.textFaint;
 
   return (
     <Pressable
@@ -59,7 +59,7 @@ export function ChartRow({
       <View style={styles.rank}>
         <Txt style={[styles.position, position >= 100 && { fontSize: 17 }]}>{position}</Txt>
         {movement === 'new' ? (
-          <Txt variant="micro" style={{ color: colors.accent }}>
+          <Txt variant="micro" style={{ color: colors.accentInk }}>
             NEW
           </Txt>
         ) : movement === 'same' ? (
@@ -107,7 +107,7 @@ export function ChartRow({
         )}
       </View>
 
-      {isLiked && <Ionicons name="heart" size={15} color={colors.accent} />}
+      {isLiked && <Ionicons name="heart" size={15} color={colors.accentInk} />}
       {!compact && <DownloadButton track={track} size={30} />}
       {onMore && (
         <Pressable

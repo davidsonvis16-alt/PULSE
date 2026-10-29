@@ -68,7 +68,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <Ionicons
                 name={message.tone === 'success' ? 'checkmark-circle' : 'alert-circle'}
                 size={16}
-                color={message.tone === 'success' ? colors.accent : colors.danger}
+                color={message.tone === 'success' ? colors.accentInk : colors.danger}
               />
             )}
             <Txt variant="callout" numberOfLines={2} style={{ flexShrink: 1 }}>

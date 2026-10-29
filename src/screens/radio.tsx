@@ -252,7 +252,7 @@ export function RadioScreen() {
               name={onAir && player.isPlaying ? 'pause-circle' : 'play-circle'}
               label={onAir && player.isPlaying ? 'Pause the radio' : 'Tune in live'}
               size={64}
-              color={colors.accent}
+              color={colors.accentInk}
               disabled={station.tuning}
               onPress={() => void playPause()}
             />
@@ -272,6 +272,25 @@ export function RadioScreen() {
             style={{ marginTop: spacing.xl }}
             onPress={() => router.push('/freestyle' as never)}
           />
+
+          {/* The weekly vote: this week's uploads, ranked by the listeners. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Songs of the Week. Vote for your top 5."
+            onPress={() => router.push('/radio-vote')}
+            style={({ pressed }) => [styles.voteCard, pressed && { opacity: 0.88 }]}
+          >
+            <View style={styles.voteIcon}>
+              <Ionicons name="trophy" size={22} color={colors.onAccent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Txt variant="bodyStrong">Songs of the Week</Txt>
+              <Txt variant="caption" tone="muted">
+                {"Vote for your top 5 of this week's uploads"}
+              </Txt>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </Pressable>
 
           {!!station.error && (
             <Txt variant="caption" tone="danger" align="center" style={{ marginTop: spacing.md }}>
@@ -324,6 +343,25 @@ function StationRow({
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    voteCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.lg,
+      padding: spacing.md,
+      borderRadius: radii.lg,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    voteIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',

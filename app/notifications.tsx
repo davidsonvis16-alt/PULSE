@@ -149,7 +149,7 @@ export default function NotificationsScreen() {
                     <Ionicons
                       name={ICONS[notification.type] ?? 'notifications-outline'}
                       size={18}
-                      color={colors.accent}
+                      color={colors.accentInk}
                     />
                   </View>
                 )}

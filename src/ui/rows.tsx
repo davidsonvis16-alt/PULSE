@@ -61,7 +61,7 @@ export const TrackRow = memo(function TrackRow({
       ) : (
         <View style={styles.indexBox}>
           {isPlaying ? (
-            <Ionicons name="volume-medium" size={15} color={colors.accent} />
+            <Ionicons name="volume-medium" size={15} color={colors.accentInk} />
           ) : (
             <Txt variant="callout" tone="muted">
               {(index ?? 0) + 1}
@@ -75,7 +75,7 @@ export const TrackRow = memo(function TrackRow({
           <Txt
             variant="bodyStrong"
             numberOfLines={1}
-            style={[{ flexShrink: 1 }, isPlaying && { color: colors.accent }]}
+            style={[{ flexShrink: 1 }, isPlaying && { color: colors.accentInk }]}
           >
             {track.title}
           </Txt>
@@ -107,10 +107,10 @@ export const TrackRow = memo(function TrackRow({
       </View>
 
       {isLiked && (
-        <Ionicons name="heart" size={15} color={colors.accent} style={styles.badge} />
+        <Ionicons name="heart" size={15} color={colors.accentInk} style={styles.badge} />
       )}
       {isDownloaded && (
-        <Ionicons name="arrow-down-circle" size={15} color={colors.accent} style={styles.badge} />
+        <Ionicons name="arrow-down-circle" size={15} color={colors.accentInk} style={styles.badge} />
       )}
       {trailing ?? (
         <Txt variant="caption" tone="faint">

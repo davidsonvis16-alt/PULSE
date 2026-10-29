@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { checkForUpdate } from '@/src/core/updates';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import type { Album, MusicEvent, Track } from '@/src/core/types';
 import { MOODS } from '@/src/core/moods';
 import { formatListeningTime, greeting, pluralize } from '@/src/core/format';
@@ -42,6 +41,15 @@ import { useTrackActions } from '@/src/ui/track-actions';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { AlbumCard, ArtCard, EventCard, MoodCard, TrackCard } from '@/src/ui/cards';
+import { DiscoveryCard, EditorialCard } from '@/src/ui/editorial';
+import { loadMoodCovers } from '@/src/discovery/mood-mix';
+import {
+  findHiddenGems,
+  HIDDEN_GEMS_DESCRIPTION,
+  HIDDEN_GEMS_ID,
+  HIDDEN_GEMS_NAME,
+} from '@/src/discovery/hidden-gems';
+import { searchDeezerTracks } from '@/src/providers/music/adapters/deezer';
 import { ChartRow } from '@/src/ui/chart-row';
 import { Artwork } from '@/src/ui/artwork';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
@@ -75,6 +83,8 @@ interface Suggestions {
   /** Built from songs played more than once — the strongest signal there is. */
   repeatShelves: RecommendationShelf[];
   mix: Track[];
+  /** New music from across today's shelves, saved as its own playlist. */
+  nextWave: Track[];
 }
 
 /** What the catalogue itself says is new and charting. */
@@ -86,6 +96,10 @@ interface Catalogue {
 
 /** How much of the worldwide board Home shows before "see all". */
 const TOP_ON_HOME = 5;
+const NEXT_WAVE_ID = 'pl_next_wave';
+const NEXT_WAVE_NAME = 'The Next Wave';
+const NEXT_WAVE_DESCRIPTION = 'New music picked from your taste, renewed every day.';
+const NEXT_WAVE_SIZE = 30;
 
 /** One tile in the quick-start grid at the top of the page. */
 interface QuickTile {
@@ -190,7 +204,14 @@ export function HomeScreen() {
           () => {},
         );
       }
-      return { shelves, repeatShelves, mix };
+      // New music for them, gathered across today's shelves into one playlist.
+      const nextWave = interleaveShelves(shelves, NEXT_WAVE_SIZE);
+      if (nextWave.length > 0) {
+        await saveSystemPlaylist(NEXT_WAVE_ID, NEXT_WAVE_NAME, NEXT_WAVE_DESCRIPTION, nextWave).catch(
+          () => {},
+        );
+      }
+      return { shelves, repeatShelves, mix, nextWave };
     },
     [taste, rotation],
     { enabled: !!taste },
@@ -212,6 +233,31 @@ export function HomeScreen() {
   }, []);
 
   const events = useAsync<MusicEvent[]>(() => loadNearbyEvents().catch(() => []), []);
+
+  // Hidden gems are looked for among today's suggestions and in Deezer's
+  // catalogue for the same artists and genres, where smaller artists turn up.
+  const gems = useAsync<Track[]>(
+    async () => {
+      const shelvesNow = suggestions.data?.shelves ?? [];
+      const seeds = shelvesNow.map((shelf) => shelf.seed).filter((seed): seed is string => !!seed);
+      const extra = await Promise.all(
+        seeds.slice(0, 4).map((seed) => searchDeezerTracks(seed, 25, null).catch(() => [] as Track[])),
+      );
+      return findHiddenGems([...shelvesNow.flatMap((shelf) => shelf.tracks), ...extra.flat()]);
+    },
+    [suggestions.data],
+    { enabled: !!suggestions.data },
+  );
+
+  const moodCovers = useAsync(() => loadMoodCovers().catch(() => []), []);
+
+  // A newer Android app on GitHub, unless this version's banner was closed.
+  const update = useAsync(async () => {
+    const found = await checkForUpdate();
+    if (!found) return null;
+    const dismissed = await getSetting(SETTINGS_KEYS.updateDismissed).catch(() => null);
+    return dismissed === found.version ? null : found;
+  }, []);
 
   // The worldwide board is shared with the charts page and cached on disk, so
   // this is usually a read rather than a fetch.
@@ -251,6 +297,9 @@ export function HomeScreen() {
   const data = local.data;
   const mix = useMemo(() => suggestions.data?.mix ?? [], [suggestions.data]);
   const shelves = suggestions.data?.shelves ?? [];
+  const nextWave = suggestions.data?.nextWave ?? [];
+  const discoveries = nextWave.slice(0, isTabletUp ? 12 : 10);
+  const hidden = gems.data ?? [];
   const repeatShelves = suggestions.data?.repeatShelves ?? [];
   const globalTop: ChartEntry[] = chart.board?.entries.slice(0, TOP_ON_HOME) ?? [];
 
@@ -375,11 +424,26 @@ export function HomeScreen() {
           </Pressable>
         </View>
 
+        {!!update.data && (
+          <Banner
+            gutter={gutter}
+            icon="arrow-down-circle"
+            tint={colors.accentInk}
+            title={`Update available: Pulse ${update.data.version}`}
+            detail="Tap to download it, then open the file to install. Your music and settings stay."
+            onPress={() => void Linking.openURL(update.data!.url)}
+            onDismiss={() => {
+              void setSetting(SETTINGS_KEYS.updateDismissed, update.data!.version);
+              update.reload();
+            }}
+          />
+        )}
+
         {importing && (
           <Banner
             gutter={gutter}
             icon="sync-outline"
-            tint={colors.accent}
+            tint={colors.accentInk}
             title="Importing your music…"
             detail={`${ingest.found} found · ${Math.round(ingest.progress * 100)}%`}
             onPress={() => router.push('/import')}
@@ -406,7 +470,7 @@ export function HomeScreen() {
           <Banner
             gutter={gutter}
             icon="image-outline"
-            tint={colors.accent}
+            tint={colors.accentInk}
             title="Finding missing covers…"
             detail={`${repair.checked} of ${repair.total} checked · ${repair.found} found`}
           />
@@ -419,16 +483,86 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* The headline: the mix made from their music, big enough to tap without thinking. */}
-        {mix.length > 0 && (
-          <MixHero
-            tracks={mix}
-            gutter={gutter}
-            wide={isTabletUp}
-            onOpen={() => router.push(`/playlist/${YOUR_MIX_ID}`)}
-            onPlay={() => play(mix, 0, YOUR_MIX_NAME)}
-            onShuffle={() => play(mix, 0, YOUR_MIX_NAME, false, true)}
-          />
+        {/* The headlines: big pencil-drawn cards for the three ways into new music. */}
+        {(mix.length > 0 || nextWave.length > 0) && (
+          <EditorialRow gutter={gutter} width={width} wide={isTabletUp}>
+            {(cardWidth, featureWidth, height) => [
+              mix.length > 0 && (
+                <EditorialCard
+                  key="mix"
+                  kicker="Made for you"
+                  title={YOUR_MIX_NAME}
+                  subtitle={`${pluralize(mix.length, 'song')} · your music and new finds`}
+                  artworkUrl={mix[0]?.artworkUrl ?? null}
+                  width={featureWidth}
+                  height={height}
+                  onOpen={() => router.push(`/playlist/${YOUR_MIX_ID}`)}
+                  onPlay={() => play(mix, 0, YOUR_MIX_NAME)}
+                />
+              ),
+              nextWave.length > 0 && (
+                <EditorialCard
+                  key="wave"
+                  kicker="New for you"
+                  title={NEXT_WAVE_NAME}
+                  subtitle={NEXT_WAVE_DESCRIPTION}
+                  artworkUrl={nextWave[1]?.artworkUrl ?? nextWave[0]?.artworkUrl ?? null}
+                  width={cardWidth}
+                  height={height}
+                  tilt={-5}
+                  onOpen={() => router.push(`/playlist/${NEXT_WAVE_ID}`)}
+                  onPlay={() => play(nextWave, 0, NEXT_WAVE_NAME)}
+                />
+              ),
+              hidden.length > 0 && (
+                <EditorialCard
+                  key="gems"
+                  kicker="Under 10K listeners"
+                  title={HIDDEN_GEMS_NAME}
+                  subtitle={HIDDEN_GEMS_DESCRIPTION}
+                  artworkUrl={hidden[0]?.artworkUrl ?? null}
+                  width={cardWidth}
+                  height={height}
+                  tilt={3}
+                  onOpen={() => router.push(`/playlist/${HIDDEN_GEMS_ID}`)}
+                  onPlay={() => play(hidden, 0, HIDDEN_GEMS_NAME)}
+                />
+              ),
+            ]}
+          </EditorialRow>
+        )}
+
+        {/* Today's discoveries */}
+        {discoveries.length > 0 && (
+          <Section title="Today's discoveries" subtitle="Fresh every morning, picked from your taste" gutter={gutter}>
+            {isTabletUp ? (
+              <View style={[styles.discoveryGrid, { paddingHorizontal: gutter }]}>
+                {discoveries.map((track, index) => (
+                  <DiscoveryCard
+                    key={track.id}
+                    track={track}
+                    width={discoveryWidth(width, gutter)}
+                    onPlay={() => play(discoveries, index, "Today's discoveries")}
+                    onMore={() => actions.openTrack(track, { queue: discoveries })}
+                  />
+                ))}
+              </View>
+            ) : (
+              <Shelf
+                data={discoveries}
+                gutter={gutter}
+                keyExtractor={(track) => track.id}
+                renderItem={(track, index) => (
+                  <DiscoveryCard
+                    track={track}
+                    width={148}
+                    onPlay={() => play(discoveries, index, "Today's discoveries")}
+                    onMore={() => actions.openTrack(track, { queue: discoveries })}
+                  />
+                )}
+              />
+            )}
+          </Section>
         )}
 
         {/* The quick-start grid */}
@@ -669,8 +803,9 @@ export function HomeScreen() {
             renderItem={(mood) => (
               <MoodCard
                 mood={mood}
-                width={isTabletUp ? 176 : 132}
-                height={isTabletUp ? 232 : 172}
+                width={isTabletUp ? 200 : 150}
+                height={isTabletUp ? 200 : 150}
+                imageUrl={moodCovers.data?.find((cover) => cover.moodId === mood.id)?.imageUrl}
                 onPress={() => router.push(`/mood/${mood.id}`)}
               />
             )}
@@ -737,95 +872,71 @@ function dayAndTime(date = new Date()): string {
  * Your Mix as the page's headline: its cover blurred behind it, the artists in
  * it named, and play a tap away.
  */
-function MixHero({
-  tracks,
+/**
+ * The row of editorial cards. On a wide screen the first card takes twice the
+ * room of the others; on a phone the cards sit side by side and swipe.
+ */
+function EditorialRow({
   gutter,
+  width,
   wide,
-  onOpen,
-  onPlay,
-  onShuffle,
+  children,
 }: {
-  tracks: Track[];
   gutter: number;
+  width: number;
   wide: boolean;
-  onOpen: () => void;
-  onPlay: () => void;
-  onShuffle: () => void;
+  children: (cardWidth: number, featureWidth: number, height: number) => (ReactNode | false)[];
 }) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  const artwork = coverOf(tracks);
-  const artists = [...new Set(tracks.map((track) => track.artistName))];
-  const named = artists.slice(0, 3).join(', ') + (artists.length > 3 ? ' and more' : '');
-  const coverSize = wide ? 196 : 112;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Open ${YOUR_MIX_NAME}`}
-      onPress={onOpen}
-      style={({ pressed }) => [styles.hero, { marginHorizontal: gutter }, pressed && { opacity: 0.92 }]}
-    >
-      {artwork[0] ? (
-        <Image
-          source={{ uri: artwork[0] }}
-          blurRadius={50}
-          contentFit="cover"
-          style={StyleSheet.absoluteFill}
-          accessibilityIgnoresInvertColors
-        />
-      ) : null}
-      <LinearGradient
-        colors={['rgba(12, 11, 16, 0.25)', 'rgba(12, 11, 16, 0.78)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={[styles.heroRow, { padding: wide ? spacing.xxl : spacing.lg }]}>
-        <View style={styles.heroCover}>
-          <Cover artwork={artwork} size={coverSize} radius={radii.md} />
-        </View>
-        <View style={{ flex: 1, gap: wide ? 6 : 2 }}>
-          <Txt variant="micro" uppercase style={{ color: 'rgba(245, 243, 247, 0.78)' }}>
-            Made for you
-          </Txt>
-          <Txt variant={wide ? 'hero' : 'title1'} numberOfLines={1} style={{ color: '#F5F3F7' }}>
-            {YOUR_MIX_NAME}
-          </Txt>
-          <Txt variant={wide ? 'body' : 'caption'} numberOfLines={2} style={{ color: 'rgba(245, 243, 247, 0.78)' }}>
-            {named} · {pluralize(tracks.length, 'song')}
-          </Txt>
-          <View style={styles.heroActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Play ${YOUR_MIX_NAME}`}
-              onPress={(event) => {
-                event.stopPropagation();
-                onPlay();
-              }}
-              style={({ pressed }) => [styles.heroPlay, pressed && { transform: [{ scale: 0.95 }] }]}
-            >
-              <Ionicons name="play" size={18} color={colors.onAccent} style={{ marginLeft: 2 }} />
-              <Txt variant="callout" tone="onAccent">
-                Play
-              </Txt>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Shuffle ${YOUR_MIX_NAME}`}
-              onPress={(event) => {
-                event.stopPropagation();
-                onShuffle();
-              }}
-              style={({ pressed }) => [styles.heroRound, pressed && { opacity: 0.7 }]}
-            >
-              <Ionicons name="shuffle" size={20} color="#F5F3F7" />
-            </Pressable>
-          </View>
-        </View>
+  const inner = width - gutter * 2;
+  if (wide) {
+    const unit = (inner - spacing.xl * 3) / 4;
+    const cards = children(unit, unit * 2 + spacing.xl, 400).filter(Boolean);
+    return (
+      <View style={{ flexDirection: 'row', gap: spacing.xl, paddingHorizontal: gutter, marginBottom: spacing.xxxl }}>
+        {cards}
       </View>
-    </Pressable>
+    );
+  }
+  const card = Math.min(inner - 28, 360);
+  const cards = children(card, card, 340).filter(Boolean);
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={card + spacing.md}
+      decelerationRate="fast"
+      contentContainerStyle={{ gap: spacing.md, paddingHorizontal: gutter }}
+      style={{ marginBottom: spacing.xxl }}
+    >
+      {cards}
+    </ScrollView>
   );
+}
+
+/** Up to two songs from each shelf in turn, so the mix of reasons stays wide. */
+function interleaveShelves(shelves: RecommendationShelf[], size: number): Track[] {
+  const out: Track[] = [];
+  const seen = new Set<string>();
+  for (let round = 0; out.length < size && round < 12; round += 1) {
+    let added = false;
+    for (const shelf of shelves) {
+      for (const track of shelf.tracks.slice(round * 2, round * 2 + 2)) {
+        if (seen.has(track.id) || out.length >= size) continue;
+        seen.add(track.id);
+        out.push(track);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return out;
+}
+
+/** Cards across the page on a tablet or laptop: as many 170-220pt cards as fit. */
+function discoveryWidth(width: number, gutter: number): number {
+  const inner = width - gutter * 2;
+  const columns = Math.max(2, Math.floor((inner + spacing.xl) / (190 + spacing.xl)));
+  return Math.floor((inner - spacing.xl * (columns - 1)) / columns);
 }
 
 function Cover({
@@ -1035,39 +1146,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: 4,
       backgroundColor: colors.accent,
     },
-    hero: {
-      borderRadius: radii.lg,
-      overflow: 'hidden',
-      backgroundColor: colors.cardRaised,
-      marginBottom: spacing.xxl,
-    },
-    heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
-    heroCover: {
-      shadowColor: '#000',
-      shadowOpacity: 0.45,
-      shadowRadius: 24,
-      shadowOffset: { width: 0, height: 12 },
-      elevation: 12,
-    },
-    heroActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
-    heroPlay: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      height: 44,
-      paddingHorizontal: spacing.xl,
-      borderRadius: radii.pill,
-      backgroundColor: colors.accent,
-    },
-    heroRound: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(245, 243, 247, 0.35)',
-    },
+    discoveryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xl },
     grid: {
       flexDirection: 'row',
       flexWrap: 'wrap',

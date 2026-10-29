@@ -11,7 +11,7 @@ const toneColor = (colors: ThemeColors, tone: Tone): string =>
     secondary: colors.textSecondary,
     muted: colors.textMuted,
     faint: colors.textFaint,
-    accent: colors.accent,
+    accent: colors.accentInk,
     danger: colors.danger,
     onAccent: colors.onAccent,
   })[tone];
