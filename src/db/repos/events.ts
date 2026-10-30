@@ -1,4 +1,4 @@
-import { db, now } from '@/src/db/client';
+import { db, now, transaction } from '@/src/db/client';
 import type { MusicEvent } from '@/src/core/types';
 
 /**
@@ -10,10 +10,9 @@ import type { MusicEvent } from '@/src/core/types';
 
 export async function cacheEvents(events: MusicEvent[]) {
   if (events.length === 0) return;
-  const instance = await db();
-  await instance.withTransactionAsync(async () => {
+  await transaction(async (tx) => {
     for (const event of events) {
-      await instance.runAsync(
+      await tx.runAsync(
         `INSERT OR REPLACE INTO events_cache
            (id, provider, name, artist_names, venue_name, city, country, starts_at, image_url,
             genre, latitude, longitude, payload, cached_at)
@@ -36,7 +35,7 @@ export async function cacheEvents(events: MusicEvent[]) {
         ],
       );
       if (event.ticket) {
-        await instance.runAsync(
+        await tx.runAsync(
           `INSERT OR REPLACE INTO ticket_sources
              (event_id, seller_name, url, status, price_min, price_max, currency, on_sale_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,

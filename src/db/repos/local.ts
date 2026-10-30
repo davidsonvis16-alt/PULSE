@@ -1,4 +1,4 @@
-import { db, now } from '@/src/db/client';
+import { db, now, transaction } from '@/src/db/client';
 import { rowToTrack, upsertTrack } from '@/src/db/repos/catalog';
 import { addTrackToLibrary, removeFromLibrary } from '@/src/db/repos/library';
 import type { Track } from '@/src/core/types';
@@ -296,16 +296,16 @@ export async function removeLocalTrack(trackId: string) {
 export async function clearLocalLibrary() {
   const instance = await db();
   const rows = await instance.getAllAsync<{ track_id: string }>('SELECT track_id FROM local_tracks;');
-  await instance.withTransactionAsync(async () => {
+  await transaction(async (tx) => {
     for (const row of rows) {
-      await instance.runAsync(
+      await tx.runAsync(
         "DELETE FROM library_items WHERE item_type = 'track' AND item_id = ?;",
         [row.track_id],
       );
-      await instance.runAsync('DELETE FROM tracks WHERE id = ?;', [row.track_id]);
+      await tx.runAsync('DELETE FROM tracks WHERE id = ?;', [row.track_id]);
     }
-    await instance.runAsync('DELETE FROM local_tracks;');
-    await instance.runAsync('DELETE FROM groove_tracks;');
-    await instance.runAsync('DELETE FROM grooves;');
+    await tx.runAsync('DELETE FROM local_tracks;');
+    await tx.runAsync('DELETE FROM groove_tracks;');
+    await tx.runAsync('DELETE FROM grooves;');
   });
 }

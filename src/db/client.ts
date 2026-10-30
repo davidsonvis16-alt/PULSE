@@ -18,12 +18,10 @@ let opening: Promise<SQLite.SQLiteDatabase> | null = null;
  * whole class of failure.
  */
 let queue: Promise<unknown> = Promise.resolve();
-/** Greater than zero while a transaction body is running, so its own
- *  statements run straight through instead of deadlocking behind it. */
-let insideTransaction = 0;
+/** The connection itself, used only by a transaction that holds the queue. */
+let raw: SQLite.SQLiteDatabase | null = null;
 
 function serialize<T>(work: () => Promise<T>): Promise<T> {
-  if (insideTransaction > 0) return work();
   const run = queue.then(work, work);
   // A failed call must not poison the queue for everyone behind it.
   queue = run.then(
@@ -41,8 +39,6 @@ const SERIALIZED = [
   'prepareAsync',
 ] as const;
 
-const TRANSACTIONAL = ['withTransactionAsync', 'withExclusiveTransactionAsync'] as const;
-
 /** Wraps the connection so every async call goes through the queue. */
 function guard(instance: SQLite.SQLiteDatabase): SQLite.SQLiteDatabase {
   const cache = new Map<string, unknown>();
@@ -57,22 +53,36 @@ function guard(instance: SQLite.SQLiteDatabase): SQLite.SQLiteDatabase {
       let wrapped: unknown;
       if ((SERIALIZED as readonly string[]).includes(key)) {
         wrapped = (...args: unknown[]) => serialize(() => value.apply(target, args));
-      } else if ((TRANSACTIONAL as readonly string[]).includes(key)) {
-        wrapped = (...args: unknown[]) =>
-          serialize(async () => {
-            insideTransaction += 1;
-            try {
-              return await value.apply(target, args);
-            } finally {
-              insideTransaction -= 1;
-            }
-          });
+      } else if (key === 'withTransactionAsync' || key === 'withExclusiveTransactionAsync') {
+        // Its statements would queue behind the transaction itself and never run.
+        wrapped = () => {
+          throw new Error(`Use transaction() from db/client instead of ${key}.`);
+        };
       } else {
         wrapped = value.bind(target);
       }
       cache.set(key, wrapped);
       return wrapped;
     },
+  });
+}
+
+/**
+ * Runs several writes as one, with the database to itself.
+ *
+ * The transaction takes its turn in the queue and keeps it until it is done:
+ * its own statements go straight to the connection (`tx`), and everything else
+ * Pulse wants to read or write waits behind it. Letting other callers through
+ * while a transaction was open is what made two of them collide.
+ */
+export async function transaction<T>(body: (tx: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
+  await db();
+  return serialize(async () => {
+    let result!: T;
+    await raw!.withTransactionAsync(async () => {
+      result = await body(raw!);
+    });
+    return result;
   });
 }
 
@@ -91,6 +101,7 @@ export function db(): Promise<SQLite.SQLiteDatabase> {
     await instance.execAsync('PRAGMA foreign_keys = ON;');
     await instance.execAsync('PRAGMA busy_timeout = 5000;');
     await migrate(instance);
+    raw = instance;
     database = guard(instance);
     return database;
   })();
@@ -117,7 +128,6 @@ async function migrate(instance: SQLite.SQLiteDatabase) {
 
 /** Test/debug helper: wipes the user's data but keeps the schema. */
 export async function resetUserData() {
-  const instance = await db();
   const tables = [
     'activity_feed',
     'friends',
@@ -134,8 +144,8 @@ export async function resetUserData() {
     'downloads',
     'library_items',
   ];
-  await instance.withTransactionAsync(async () => {
-    for (const table of tables) await instance.execAsync(`DELETE FROM ${table};`);
+  await transaction(async (tx) => {
+    for (const table of tables) await tx.execAsync(`DELETE FROM ${table};`);
   });
 }
 

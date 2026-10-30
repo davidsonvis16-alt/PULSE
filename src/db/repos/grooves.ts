@@ -1,4 +1,4 @@
-import { db, now } from '@/src/db/client';
+import { db, now, transaction } from '@/src/db/client';
 import { rowToTrack } from '@/src/db/repos/catalog';
 import type { Track } from '@/src/core/types';
 
@@ -98,39 +98,38 @@ export async function groovesForTrack(trackId: string): Promise<Groove[]> {
 
 /** Replaces every Groove in one transaction, so the UI never sees a half state. */
 export async function replaceGrooves(drafts: GrooveDraft[]): Promise<void> {
-  const instance = await db();
   const timestamp = now();
 
-  await instance.withTransactionAsync(async () => {
-    await instance.runAsync('DELETE FROM groove_tracks;');
-    await instance.runAsync('DELETE FROM grooves;');
+  await transaction(async (tx) => {
+    await tx.runAsync('DELETE FROM groove_tracks;');
+    await tx.runAsync('DELETE FROM grooves;');
 
     for (const draft of drafts) {
       if (draft.members.length === 0) continue;
 
       for (const member of draft.members) {
-        await instance.runAsync(
+        await tx.runAsync(
           `INSERT OR REPLACE INTO groove_tracks (groove_id, track_id, score, is_primary)
            VALUES (?, ?, ?, ?);`,
           [draft.id, member.trackId, member.score, member.isPrimary ? 1 : 0],
         );
       }
 
-      const totals = await instance.getFirstAsync<{ count: number; duration: number }>(
+      const totals = await tx.getFirstAsync<{ count: number; duration: number }>(
         `SELECT COUNT(*) AS count, COALESCE(SUM(t.duration_ms), 0) AS duration
          FROM groove_tracks gt JOIN tracks t ON t.id = gt.track_id
          WHERE gt.groove_id = ?;`,
         [draft.id],
       );
 
-      const cover = await instance.getFirstAsync<{ track_id: string }>(
+      const cover = await tx.getFirstAsync<{ track_id: string }>(
         `SELECT gt.track_id FROM groove_tracks gt JOIN tracks t ON t.id = gt.track_id
          WHERE gt.groove_id = ? AND t.artwork_url IS NOT NULL
          ORDER BY gt.score DESC LIMIT 1;`,
         [draft.id],
       );
 
-      await instance.runAsync(
+      await tx.runAsync(
         `INSERT INTO grooves
            (id, name, description, energy, era, genre_family, accent, cover_track_id,
             track_count, duration_ms, generated_at)

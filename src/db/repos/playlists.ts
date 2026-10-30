@@ -1,4 +1,4 @@
-import { db, newId, now } from '@/src/db/client';
+import { db, newId, now, transaction } from '@/src/db/client';
 import { rowToTrack, upsertTrack } from '@/src/db/repos/catalog';
 import type { Track } from '@/src/core/types';
 
@@ -123,9 +123,9 @@ export async function addTracksToPlaylist(playlistId: string, tracks: Track[]): 
   let position = row?.next ?? 0;
   let added = 0;
 
-  await instance.withTransactionAsync(async () => {
+  await transaction(async (tx) => {
     for (const track of tracks) {
-      const result = await instance.runAsync(
+      const result = await tx.runAsync(
         `INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position, added_at)
          VALUES (?, ?, ?, ?);`,
         [playlistId, track.id, position, now()],
@@ -135,20 +135,19 @@ export async function addTracksToPlaylist(playlistId: string, tracks: Track[]): 
         added += 1;
       }
     }
-    await instance.runAsync('UPDATE playlists SET updated_at = ? WHERE id = ?;', [now(), playlistId]);
+    await tx.runAsync('UPDATE playlists SET updated_at = ? WHERE id = ?;', [now(), playlistId]);
   });
   return added;
 }
 
 export async function removeTrackFromPlaylist(playlistId: string, trackId: string) {
-  const instance = await db();
-  await instance.withTransactionAsync(async () => {
-    await instance.runAsync('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?;', [
+  await transaction(async (tx) => {
+    await tx.runAsync('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?;', [
       playlistId,
       trackId,
     ]);
-    await renumber(instance, playlistId);
-    await instance.runAsync('UPDATE playlists SET updated_at = ? WHERE id = ?;', [now(), playlistId]);
+    await renumber(tx, playlistId);
+    await tx.runAsync('UPDATE playlists SET updated_at = ? WHERE id = ?;', [now(), playlistId]);
   });
 }
 
@@ -165,14 +164,14 @@ export async function reorderPlaylist(playlistId: string, trackId: string, toInd
   const target = Math.max(0, Math.min(ids.length - 1, toIndex));
   ids.splice(target, 0, ids.splice(from, 1)[0]);
 
-  await instance.withTransactionAsync(async () => {
+  await transaction(async (tx) => {
     for (let i = 0; i < ids.length; i += 1) {
-      await instance.runAsync(
+      await tx.runAsync(
         'UPDATE playlist_tracks SET position = ? WHERE playlist_id = ? AND track_id = ?;',
         [i, playlistId, ids[i]],
       );
     }
-    await instance.runAsync('UPDATE playlists SET updated_at = ? WHERE id = ?;', [now(), playlistId]);
+    await tx.runAsync('UPDATE playlists SET updated_at = ? WHERE id = ?;', [now(), playlistId]);
   });
 }
 
@@ -237,20 +236,19 @@ export async function saveSystemPlaylist(
   description: string,
   tracks: Track[],
 ): Promise<void> {
-  const instance = await db();
   for (const track of tracks) await upsertTrack(track);
   const ts = now();
-  await instance.withTransactionAsync(async () => {
-    await instance.runAsync(
+  await transaction(async (tx) => {
+    await tx.runAsync(
       `INSERT INTO playlists (id, name, description, is_system, visibility, created_at, updated_at)
        VALUES (?, ?, ?, 1, 'private', ?, ?)
        ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description,
          updated_at = excluded.updated_at;`,
       [id, name, description, ts, ts],
     );
-    await instance.runAsync('DELETE FROM playlist_tracks WHERE playlist_id = ?;', [id]);
+    await tx.runAsync('DELETE FROM playlist_tracks WHERE playlist_id = ?;', [id]);
     for (let i = 0; i < tracks.length; i += 1) {
-      await instance.runAsync(
+      await tx.runAsync(
         `INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position, added_at)
          VALUES (?, ?, ?, ?);`,
         [id, tracks[i].id, i, ts],

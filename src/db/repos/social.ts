@@ -1,4 +1,4 @@
-import { db, newId, now } from '@/src/db/client';
+import { db, newId, now, transaction } from '@/src/db/client';
 
 export interface PulseProfile {
   id: string;
@@ -132,11 +132,10 @@ export async function listFriends(relation?: Friend['relation']): Promise<Friend
 }
 
 export async function replaceActivityFeed(items: Omit<ActivityItem, 'id'>[] & { id?: string }[]) {
-  const instance = await db();
-  await instance.withTransactionAsync(async () => {
-    await instance.runAsync('DELETE FROM activity_feed;');
+  await transaction(async (tx) => {
+    await tx.runAsync('DELETE FROM activity_feed;');
     for (const item of items) {
-      await instance.runAsync(
+      await tx.runAsync(
         `INSERT OR REPLACE INTO activity_feed
            (id, actor_user_id, actor_handle, actor_name, actor_avatar, verb, entity_type,
             entity_id, entity_title, entity_subtitle, artwork_url, created_at)
