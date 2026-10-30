@@ -9,7 +9,7 @@ import { useStore } from '@/src/hooks/use-store';
 import { useSongInfo } from '@/src/ui/song-info';
 import { releaseYear } from '@/src/core/format';
 import { Txt } from '@/src/ui/text';
-import { radii, spacing } from '@/src/theme/tokens';
+import { palette, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
@@ -59,7 +59,7 @@ export function ChartRow({
       <View style={styles.rank}>
         <Txt style={[styles.position, position >= 100 && { fontSize: 17 }]}>{position}</Txt>
         {movement === 'new' ? (
-          <Txt variant="micro" style={{ color: colors.accentInk }}>
+          <Txt variant="micro" style={{ color: palette.terracotta }}>
             NEW
           </Txt>
         ) : movement === 'same' ? (

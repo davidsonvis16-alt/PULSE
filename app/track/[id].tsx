@@ -8,6 +8,8 @@ import { providerFor, musicProvider } from '@/src/providers/music';
 import { getSimilarTracks } from '@/src/discovery/engine';
 import { getCachedTrack, upsertTrack } from '@/src/db/repos/catalog';
 import { getLocalTrack, type LocalTrackRecord } from '@/src/db/repos/local';
+import { setTrackArtwork } from '@/src/db/repos/catalog';
+import { COVER_DIR, pickPhoto } from '@/src/profile/avatar';
 import { groovesForTrack, type Groove } from '@/src/db/repos/grooves';
 import { GrooveChip } from '@/src/screens/grooves';
 import { playerStore } from '@/src/audio/player';
@@ -188,6 +190,22 @@ export default function TrackScreen() {
                 onPress={() => actions.addToPlaylist([track])}
               />
               <Action icon="share-outline" label="Share" onPress={() => share(trackShare(track))} />
+              {/* Their own files can wear any picture they like. */}
+              {!!state.data?.local && (
+                <Action
+                  icon="image-outline"
+                  label="Cover"
+                  onPress={() =>
+                    void (async () => {
+                      const picture = await pickPhoto(COVER_DIR, 'cover').catch(() => null);
+                      if (!picture) return;
+                      await setTrackArtwork(track.id, picture);
+                      toast('Cover changed', 'success');
+                      state.reload();
+                    })()
+                  }
+                />
+              )}
             </View>
 
             {/* Where this audio actually is */}

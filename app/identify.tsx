@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { Track } from '@/src/core/types';
@@ -8,6 +8,7 @@ import { musicProvider } from '@/src/providers/music';
 import { config } from '@/src/core/config';
 import {
   listTracksNeedingIdentification,
+  keepAllUnidentifiedAsTheyAre,
   updateIdentification,
   type LocalTrack,
 } from '@/src/db/repos/local';
@@ -19,6 +20,7 @@ import { invalidateTasteProfile } from '@/src/discovery/taste';
 import { useAsync } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { useToast } from '@/src/ui/toast';
+import { noteSongsNeedIdentifying } from '@/src/db/repos/notifications';
 import { PageHeader, Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
@@ -131,11 +133,33 @@ export default function IdentifyScreen() {
     [state, toast],
   );
 
+  /** Empties the list: every waiting song keeps the details it already has. */
+  const clearAll = useCallback(() => {
+    const go = async () => {
+      const cleared = await keepAllUnidentifiedAsTheyAre();
+      await noteSongsNeedIdentifying(0).catch(() => {});
+      toast(`${pluralize(cleared, 'song')} kept as they are`, 'success');
+      state.reload();
+    };
+    const message = 'Every song here keeps the name and details it already has. You can still fix any song later from its page.';
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Clear the list?\n\n${message}`)) void go();
+      return;
+    }
+    Alert.alert('Clear the list?', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: () => void go() },
+    ]);
+  }, [state, toast]);
+
   return (
     <Screen>
       <PageHeader
         title="Needs identification"
         subtitle={tracks.length > 0 ? pluralize(tracks.length, 'track') : 'Nothing waiting'}
+        right={
+          tracks.length > 0 ? <Button label="Clear list" variant="secondary" size="sm" onPress={clearAll} /> : undefined
+        }
       />
 
       <ScrollView

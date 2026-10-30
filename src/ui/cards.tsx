@@ -9,7 +9,7 @@ import { likesStore } from '@/src/ui/likes';
 import { useDoubleTapLike } from '@/src/ui/use-double-tap-like';
 import { useStore } from '@/src/hooks/use-store';
 import { Txt } from '@/src/ui/text';
-import { radii, spacing } from '@/src/theme/tokens';
+import { palette, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { formatEventDate, formatPriceRange } from '@/src/core/format';
 import type { Album, Artist, Mood, MusicEvent, Track } from '@/src/core/types';
@@ -52,7 +52,7 @@ export const ArtCard = memo(function ArtCard({
         <Artwork uri={artworkUrl} size={width} rounded={rounded} radius={radii.md} />
         {badge && (
           <View style={styles.badge}>
-            <Txt variant="micro" tone="onAccent">
+            <Txt variant="micro" style={{ color: '#FFFFFF' }}>
               {badge}
             </Txt>
           </View>
@@ -359,10 +359,10 @@ const makeStyles = (colors: ThemeColors) =>
       position: 'absolute',
       top: 8,
       left: 8,
-      paddingHorizontal: 8,
+      paddingHorizontal: 7,
       paddingVertical: 3,
-      borderRadius: radii.pill,
-      backgroundColor: colors.accent,
+      borderRadius: radii.xs,
+      backgroundColor: palette.terracotta,
     },
     mood: {
       borderRadius: radii.md,

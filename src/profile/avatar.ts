@@ -50,6 +50,15 @@ export const avatarSchedule = new AvatarScheduleStore();
  * since the picker's URI does not survive a restart. Null if they backed out.
  */
 export async function pickAvatarPhoto(): Promise<string | null> {
+  return pickPhoto(PHOTO_DIR, 'avatar');
+}
+
+/**
+ * Lets the person choose a picture from their phone and keeps a copy in the
+ * app's own storage, so it survives the original being moved or deleted. In
+ * a browser there is no file system, so the picture is kept inline instead.
+ */
+export async function pickPhoto(folder: string, prefix: string): Promise<string | null> {
   const result = await DocumentPicker.getDocumentAsync({
     type: 'image/*',
     copyToCacheDirectory: true,
@@ -58,7 +67,6 @@ export async function pickAvatarPhoto(): Promise<string | null> {
 
   const asset = result.assets[0];
   if (Platform.OS === 'web') {
-    // No file system in a browser: keep the photo inline.
     const blob = asset.file ?? (await (await fetch(asset.uri)).blob());
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -68,11 +76,14 @@ export async function pickAvatarPhoto(): Promise<string | null> {
     });
   }
   const extension = (asset.name.match(/\.(\w{2,5})$/)?.[1] ?? 'jpg').toLowerCase();
-  await FileSystem.makeDirectoryAsync(PHOTO_DIR, { intermediates: true }).catch(() => {});
-  const target = `${PHOTO_DIR}${newId('avatar')}.${extension}`;
+  await FileSystem.makeDirectoryAsync(folder, { intermediates: true }).catch(() => {});
+  const target = `${folder}${newId(prefix)}.${extension}`;
   await FileSystem.copyAsync({ from: asset.uri, to: target });
   return target;
 }
+
+/** Where covers people choose for their own songs are kept. */
+export const COVER_DIR = `${FileSystem.documentDirectory ?? ''}pulse/covers/`;
 
 /** Deletes copied photos no part of the day uses any more. */
 async function prunePhotos(schedule: AvatarSchedule) {

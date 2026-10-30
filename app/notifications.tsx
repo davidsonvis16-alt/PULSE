@@ -48,7 +48,11 @@ export default function NotificationsScreen() {
   const state = useAsync(async () => {
     // Opening this screen is a good moment to look for releases we owe them.
     await checkForNewReleases().catch(() => []);
-    return listNotifications(80);
+    const list = await listNotifications(80);
+    // Seeing them is reading them: the count on the bell clears as soon as the
+    // list is open, while this visit still shows which ones are new.
+    if (list.some((n) => !n.readAt)) await markAllNotificationsRead().catch(() => {});
+    return list;
   }, []);
 
   const notifications = state.data ?? [];

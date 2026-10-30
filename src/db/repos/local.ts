@@ -223,6 +223,20 @@ export async function updateIdentification(
   );
 }
 
+/**
+ * Leaves every song waiting on a match exactly as it is: the listener has
+ * decided they are fine, so they stop being offered for identifying.
+ */
+export async function keepAllUnidentifiedAsTheyAre(): Promise<number> {
+  const instance = await db();
+  const result = await instance.runAsync(
+    `UPDATE local_tracks SET identification = 'tagged', confidence = NULL, scanned_at = ?
+      WHERE identification IN ('needs_identification', 'unidentified');`,
+    [now()],
+  );
+  return result.changes;
+}
+
 export async function getLocalCounts(): Promise<{
   tracks: number;
   artists: number;

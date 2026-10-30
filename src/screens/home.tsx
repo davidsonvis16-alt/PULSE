@@ -20,7 +20,8 @@ import type { TasteProfile } from '@/src/discovery/taste';
 import { getNewReleasesFromFollowed } from '@/src/discovery/releases';
 import { advanceRotation, currentRotation } from '@/src/discovery/rotation';
 import { buildMix, YOUR_MIX_DESCRIPTION, YOUR_MIX_ID, YOUR_MIX_NAME } from '@/src/discovery/mix';
-import { chartsStore, CHART_MARKET_COUNT, type ChartEntry } from '@/src/discovery/charts';
+import { chartsStore, CHART_MARKET_COUNT, getCountryChart, type ChartEntry } from '@/src/discovery/charts';
+import { chartCountry, chartCountryName } from '@/src/discovery/chart-countries';
 import { getTopArtists, getTopTracks, type TopArtist } from '@/src/db/repos/history';
 import { noteSongsNeedIdentifying, unreadNotificationCount } from '@/src/db/repos/notifications';
 import { getCachedEvents } from '@/src/db/repos/events';
@@ -48,6 +49,7 @@ import {
   HIDDEN_GEMS_NAME,
 } from '@/src/discovery/hidden-gems';
 import { searchDeezerTracks } from '@/src/providers/music/adapters/deezer';
+import { oneCoverEach } from '@/src/discovery/variety';
 import { ChartRow } from '@/src/ui/chart-row';
 import { Artwork } from '@/src/ui/artwork';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
@@ -257,7 +259,14 @@ export function HomeScreen() {
   const chart = useStore(chartsStore);
   useEffect(() => {
     void chartsStore.open();
+    void chartCountry.load();
   }, []);
+  const followed = useStore(chartCountry);
+  const countryTop = useAsync<ChartEntry[]>(
+    () => getCountryChart(followed.code, TOP_ON_HOME),
+    [followed.code],
+    { enabled: followed.loaded && followed.code !== 'global' },
+  );
 
   const reload = useCallback(() => {
     local.reload();
@@ -291,10 +300,14 @@ export function HomeScreen() {
   const mix = useMemo(() => suggestions.data?.mix ?? [], [suggestions.data]);
   const shelves = suggestions.data?.shelves ?? [];
   const nextWave = useMemo(() => suggestions.data?.nextWave ?? [], [suggestions.data]);
-  const discoveries = nextWave.slice(0, isTabletUp ? 12 : 10);
+  const discoveries = oneCoverEach(nextWave).slice(0, isTabletUp ? 12 : 10);
   const hidden = useMemo(() => gems.data ?? [], [gems.data]);
   const repeatShelves = suggestions.data?.repeatShelves ?? [];
-  const globalTop: ChartEntry[] = chart.board?.entries.slice(0, TOP_ON_HOME) ?? [];
+  // The chart of the country they picked on the charts page, else worldwide.
+  const worldwide = followed.code === 'global';
+  const globalTop: ChartEntry[] = worldwide
+    ? (chart.board?.entries.slice(0, TOP_ON_HOME) ?? [])
+    : (countryTop.data ?? []);
 
   /** The quick-start grid: the few things someone opens the app to play. */
   const quickTiles = useMemo<QuickTile[]>(() => {
@@ -329,7 +342,7 @@ export function HomeScreen() {
   }, [data, play, router]);
 
   /** The playlists Pulse makes for them, as medium cards. */
-  const madeForYou = [
+  const madeForYouCards = [
     mix.length > 0 && {
       key: 'mix',
       kicker: 'Made for you',
@@ -354,7 +367,15 @@ export function HomeScreen() {
       tracks: hidden,
       href: `/playlist/${HIDDEN_GEMS_ID}`,
     },
-  ].filter((card) => !!card);
+  ];
+  const madeForYou = madeForYouCards
+    .filter((card) => !!card)
+    // Each card shows a cover none of the cards before it already uses.
+    .reduce<(Exclude<(typeof madeForYouCards)[number], false> & { cover: string | null })[]>((done, card) => {
+      const taken = new Set(done.map((c) => c.cover));
+      const cover = card.tracks.find((t) => t.artworkUrl && !taken.has(t.artworkUrl))?.artworkUrl ?? null;
+      return [...done, { ...card, cover }];
+    }, []);
 
   if (local.error && !data) {
     return (
@@ -512,9 +533,9 @@ export function HomeScreen() {
                   kicker={card.kicker}
                   title={card.title}
                   subtitle={card.subtitle}
-                  artworkUrl={card.tracks.find((track) => !!track.artworkUrl)?.artworkUrl ?? null}
-                  width={isTabletUp ? 260 : 210}
-                  height={isTabletUp ? 310 : 260}
+                  artworkUrl={card.cover}
+                  width={isTabletUp ? 236 : 186}
+                  height={isTabletUp ? 284 : 232}
                   onOpen={() => router.push(card.href as never)}
                   onPlay={() => play(card.tracks, 0, card.title)}
                 />
@@ -636,8 +657,12 @@ export function HomeScreen() {
         {/* The worldwide top five */}
         {globalTop.length > 0 && (
           <Section
-            title="Top songs worldwide"
-            subtitle={`Across ${chart.board?.markets ?? CHART_MARKET_COUNT} country charts today`}
+            title={worldwide ? 'Top songs worldwide' : `Top songs in ${chartCountryName(followed.code)}`}
+            subtitle={
+              worldwide
+                ? `Across ${chart.board?.markets ?? CHART_MARKET_COUNT} country charts · See all to pick your country`
+                : 'Most played today · See all to change country'
+            }
             gutter={gutter}
             onSeeAll={() => router.push('/charts')}
           >
@@ -652,7 +677,7 @@ export function HomeScreen() {
                     play(
                       globalTop.map((row) => row.track),
                       index,
-                      'Worldwide chart',
+                      worldwide ? 'Worldwide chart' : `${chartCountryName(followed.code)} chart`,
                     )
                   }
                   onMore={() =>
@@ -887,15 +912,16 @@ function TrackShelf({
   return (
     <Section title={title} gutter={gutter}>
       <Shelf
-        data={tracks}
+        data={oneCoverEach(tracks)}
         gutter={gutter}
         keyExtractor={(item) => item.id}
-        renderItem={(item, index) => (
+        renderItem={(item) => (
           <TrackCard
             track={item}
             width={width}
             downloadable={downloadable}
-            onPress={() => onPlay(index)}
+            // The row skips repeat covers; play from this song's place in the full list.
+            onPress={() => onPlay(Math.max(0, tracks.indexOf(item)))}
           />
         )}
       />

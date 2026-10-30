@@ -11,7 +11,7 @@ import type { Story } from '@/src/news/headlines';
 import type { NewsTopic } from '@/src/news/rss';
 import { daysUntil, statusOf, type AwardEdition, type AwardStatus } from '@/src/news/awards';
 import { Txt } from '@/src/ui/text';
-import { radii, spacing } from '@/src/theme/tokens';
+import { palette, radii, spacing } from '@/src/theme/tokens';
 import { useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
@@ -50,13 +50,13 @@ function Kicker({ label, color, dark }: { label: string; color: string; dark?: b
   return (
     <View style={[posterStyles.kicker, { backgroundColor: color }]}>
       <Txt variant="micro" style={{ color: dark ? '#0A0B0A' : INK }}>
-        {label.toUpperCase()}
+        {label}
       </Txt>
     </View>
   );
 }
 
-/** A tall poster for a new release: cover, "NEW SINGLE", title, and why it is here. */
+/** A tall poster for a new release: cover, "New single", title, and why it is here. */
 export function ReleasePoster({
   release,
   width,
@@ -84,7 +84,7 @@ export function ReleasePoster({
       />
       <LinearGradient colors={FADE} locations={[0.3, 0.55, 1]} style={StyleSheet.absoluteFill} />
       <View style={posterStyles.top}>
-        <Kicker label={words.kicker} color="#C9F62B" dark />
+        <Kicker label={words.kicker} color={palette.terracotta} />
         {/* New music has a shelf life. This says when a record is near the end
             of its run on the rail rather than letting it vanish unannounced. */}
         {release.leavingSoon && <Kicker label="Last days" color="rgba(10,11,10,0.66)" />}
@@ -314,9 +314,9 @@ const posterStyles = StyleSheet.create({
   },
   bottom: { padding: spacing.lg, gap: 4 },
   kicker: {
-    paddingHorizontal: 9,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: radii.pill,
+    borderRadius: radii.xs,
   },
   glass: {
     flexDirection: 'row',

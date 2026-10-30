@@ -30,6 +30,9 @@ export const palette = {
   /** The cream of the flag on the mark. */
   cream: '#F6F1DF',
 
+  /** Labels on artwork ("New single", "Made for you"): warm, earthy, not a UI default. */
+  terracotta: '#C2603D',
+
   white: '#FFFFFF',
   text: '#F4F5F3',
   textSecondary: '#B7BAB6',
@@ -164,14 +167,14 @@ export const spacing = {
   huge: 44,
 } as const;
 
-/** Square-ish on purpose: cards, covers and buttons have small, crisp corners. */
+/** Square on purpose: cards, covers and buttons keep only a hint of a corner. */
 export const radii = {
-  xs: 2,
-  sm: 4,
-  md: 4,
-  lg: 6,
-  xl: 8,
-  xxl: 10,
+  xs: 1,
+  sm: 2,
+  md: 2,
+  lg: 3,
+  xl: 3,
+  xxl: 4,
   pill: 999,
 } as const;
 

@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Track } from '@/src/core/types';
 import { SketchArt } from '@/src/ui/sketch-art';
 import { Txt } from '@/src/ui/text';
-import { fonts, radii, spacing } from '@/src/theme/tokens';
+import { fonts, palette, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
@@ -156,7 +156,7 @@ const makeStyles = (colors: ThemeColors) =>
     kicker: {
       alignSelf: 'flex-start',
       // Terracotta: warm, earthy, and nothing like a default UI badge.
-      backgroundColor: '#C2603D',
+      backgroundColor: palette.terracotta,
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: radii.xs,

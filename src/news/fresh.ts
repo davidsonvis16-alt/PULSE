@@ -32,7 +32,7 @@ export interface FreshRelease {
 }
 
 export interface PosterWords {
-  /** "NEW SINGLE" */
+  /** "New single" */
   kicker: string;
   /** "Out today", "Out Friday", "Out 12 Sep" */
   when: string;
@@ -66,7 +66,7 @@ export function daysSinceRelease(releaseDate: string | null | undefined, now = D
 
 export function posterWords(release: FreshRelease, now = Date.now()): PosterWords {
   const { album } = release;
-  const kicker = album.albumType === 'single' ? 'NEW SINGLE' : album.albumType === 'ep' ? 'NEW EP' : 'NEW ALBUM';
+  const kicker = album.albumType === 'single' ? 'New single' : album.albumType === 'ep' ? 'New EP' : 'New album';
 
   let when = 'Out now';
   const days = daysSinceRelease(album.releaseDate, now);
