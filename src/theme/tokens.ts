@@ -67,9 +67,9 @@ export const brand = {
    * colour in between — which is the whole reason these are tokens and not
    * three separate hex codes in three files.
    */
-  launchBackground: palette.black,
-  launchInk: palette.white,
-  launchInkSoft: 'rgba(255,255,255,0.66)',
+  launchBackground: palette.white,
+  launchInk: '#0A0B0A',
+  launchInkSoft: 'rgba(10,11,10,0.66)',
 } as const;
 
 export const darkColors = {
@@ -191,6 +191,8 @@ export const fonts = {
   medium: 'Inter_500Medium',
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
+  /** Thick marker handwriting, for the opening screen only. */
+  marker: 'PermanentMarker_400Regular',
 } as const;
 
 export const typography = {

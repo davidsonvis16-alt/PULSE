@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -22,6 +22,8 @@ import { brand, spacing } from '@/src/theme/tokens';
 import { ThemeProvider, useTheme } from '@/src/theme/theme';
 import { WelcomeScreen } from '@/src/screens/welcome';
 import { OfflinePrompt } from '@/src/ui/offline-prompt';
+import { OpeningScreen } from '@/src/ui/opening';
+import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
 import { ImportScreen } from '@/src/screens/import';
 import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { getLocalCounts } from '@/src/db/repos/local';
@@ -45,6 +47,7 @@ function PulseRoot() {
   const [bootError, setBootError] = useState<Error | null>(null);
   // A font that fails to load falls back to the system face; it never blocks start-up.
   const [fontsLoaded, fontError] = useFonts({
+    PermanentMarker_400Regular,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -65,9 +68,9 @@ function PulseRoot() {
   if (bootError) {
     return (
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <View style={styles.boot}>
-          <PulseLogo size={64} showWordmark variant="white" />
+          <PulseLogo size={64} />
           <Txt variant="title3" align="center" style={{ marginTop: spacing.xl, color: brand.launchInk }}>
             Pulse could not start
           </Txt>
@@ -95,11 +98,8 @@ function PulseRoot() {
   if (!ready || (!fontsLoaded && !fontError)) {
     return (
       <SafeAreaProvider>
-        <StatusBar style="light" />
-        <View style={styles.boot}>
-          <PulseLogo size={96} showWordmark tagline variant="white" />
-          <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxxl }} />
-        </View>
+        <StatusBar style="dark" />
+        <OpeningScreen written={fontsLoaded} />
       </SafeAreaProvider>
     );
   }
@@ -154,10 +154,7 @@ function AuthGate() {
 
   if (!ready) {
     return (
-      <View style={styles.boot}>
-        <PulseLogo size={76} showWordmark tagline variant="white" />
-        <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
-      </View>
+      <OpeningScreen />
     );
   }
 
@@ -166,10 +163,7 @@ function AuthGate() {
 
   if (needsImport === null) {
     return (
-      <View style={styles.boot}>
-        <PulseLogo size={76} showWordmark tagline variant="white" />
-        <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
-      </View>
+      <OpeningScreen />
     );
   }
 
