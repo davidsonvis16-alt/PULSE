@@ -3,6 +3,9 @@ import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useResponsive } from '@/src/hooks/use-responsive';
+import { useStore } from '@/src/hooks/use-store';
+import { connection } from '@/src/core/connection';
+import { playOfflineRadio } from '@/src/library/offline';
 import { TABS, type SidebarTab } from '@/src/ui/sidebar';
 import { layout, typography } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
@@ -33,6 +36,9 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { isLaptopUp } = useResponsive();
   const router = useRouter();
+  // Offline, tabs that need the internet step aside and Radio plays the phone's own music.
+  const { offlineMode } = useStore(connection);
+  const ONLINE_ONLY = new Set(['discover', 'events']);
   const barHeight = layout.tabBarHeight + insets.bottom;
 
   return (
@@ -55,7 +61,8 @@ export default function TabLayout() {
             key={tab.name}
             name={tab.name}
             options={{
-              title: tab.title,
+              title: tab === RADIO_TAB && offlineMode ? 'Offline Radio' : tab.title,
+              href: offlineMode && ONLINE_ONLY.has(tab.name) ? null : undefined,
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons name={focused ? tab.active : tab.icon} size={22} color={color} />
               ),
@@ -65,7 +72,11 @@ export default function TabLayout() {
                 ? {
                     tabPress: (event) => {
                       event.preventDefault();
-                      router.push('/radio');
+                      if (offlineMode) {
+                        void playOfflineRadio().then((ok) => ok && router.push('/player'));
+                      } else {
+                        router.push('/radio');
+                      }
                     },
                   }
                 : undefined

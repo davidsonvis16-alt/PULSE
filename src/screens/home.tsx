@@ -52,6 +52,8 @@ import { searchDeezerTracks } from '@/src/providers/music/adapters/deezer';
 import { oneCoverEach } from '@/src/discovery/variety';
 import { indieTrending } from '@/src/providers/music/adapters/audius';
 import { chatSettings } from '@/src/social/chat';
+import { connection } from '@/src/core/connection';
+import { OfflineHome } from '@/src/screens/home-offline';
 import { ChartRow } from '@/src/ui/chart-row';
 import { Artwork } from '@/src/ui/artwork';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
@@ -123,7 +125,13 @@ interface QuickTile {
  *
  * Nothing here is invented. A section with no data behind it is not rendered.
  */
+/** Home, laid out for whether the internet is there. */
 export function HomeScreen() {
+  const { offlineMode } = useStore(connection);
+  return offlineMode ? <OfflineHome /> : <OnlineHome />;
+}
+
+function OnlineHome() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();

@@ -5,6 +5,9 @@ import { listPlaylists } from '@/src/db/repos/playlists';
 import { getStatsSummary } from '@/src/db/repos/history';
 import { MOODS } from '@/src/core/moods';
 import { moodMixId } from '@/src/discovery/mood-mix';
+import { connection } from '@/src/core/connection';
+import { playOfflineRadio } from '@/src/library/offline';
+import { useStore } from '@/src/hooks/use-store';
 import { useAsync } from '@/src/hooks/use-async';
 import { Artwork } from '@/src/ui/artwork';
 import { PulseLogo } from '@/src/ui/logo';
@@ -55,12 +58,20 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
   // Mood mixes have their own list above; the playlists list is everything else.
   const moodMixes = new Set(MOODS.map((mood) => moodMixId(mood.id)));
 
-  const shortcuts: { label: string; detail: string; icon: IconName; href: string }[] = [
-    { label: 'Liked songs', detail: 'Everything you hearted', icon: 'heart', href: '/collection/favorites' },
-    { label: 'Downloaded', detail: 'Plays with no connection', icon: 'arrow-down-circle', href: '/downloads' },
-    { label: 'Pulse Radio', detail: 'Live freestyles', icon: 'radio', href: '/radio' },
-    { label: 'Indie', detail: 'Full songs from independent artists', icon: 'musical-notes', href: '/indie' },
-  ];
+  const { offlineMode } = useStore(connection);
+  const shortcuts: { label: string; detail: string; icon: IconName; href: string }[] = offlineMode
+    ? [
+        { label: 'Offline Radio', detail: 'Your music, shuffled', icon: 'radio', href: 'offline-radio' },
+        { label: 'Downloaded', detail: 'Plays with no connection', icon: 'arrow-down-circle', href: '/downloads' },
+        { label: 'Liked songs', detail: 'Everything you hearted', icon: 'heart', href: '/collection/favorites' },
+      ]
+    : [
+        { label: 'Liked songs', detail: 'Everything you hearted', icon: 'heart', href: '/collection/favorites' },
+        { label: 'Downloaded', detail: 'Plays with no connection', icon: 'arrow-down-circle', href: '/downloads' },
+        { label: 'Pulse Radio', detail: 'Live freestyles', icon: 'radio', href: '/radio' },
+        { label: 'Indie', detail: 'Full songs from independent artists', icon: 'musical-notes', href: '/indie' },
+      ];
+  const visibleTabs = offlineMode ? tabs.filter((tab) => tab.name !== 'discover' && tab.name !== 'events') : tabs;
 
   return (
     <View style={styles.root}>
@@ -69,7 +80,7 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
           <PulseLogo size={30} />
           <Txt variant="title2">pulse</Txt>
         </View>
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const focused = tab.href === '/' ? pathname === '/' : pathname.startsWith(tab.href);
           return (
             <Pressable
@@ -116,7 +127,11 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
             <Pressable
               key={item.href}
               accessibilityRole="link"
-              onPress={() => router.push(item.href as never)}
+              onPress={() =>
+                item.href === 'offline-radio'
+                  ? void playOfflineRadio().then((ok) => ok && router.push('/player'))
+                  : router.push(item.href as never)
+              }
               style={(s: PressState) => [styles.libraryRow, s.hovered && { backgroundColor: colors.card }]}
             >
               <View style={[styles.shortcutArt, { backgroundColor: colors.accentGlow }]}>

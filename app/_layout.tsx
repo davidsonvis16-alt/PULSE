@@ -21,6 +21,7 @@ import { initializePulse } from '@/src/bootstrap';
 import { brand, spacing } from '@/src/theme/tokens';
 import { ThemeProvider, useTheme } from '@/src/theme/theme';
 import { WelcomeScreen } from '@/src/screens/welcome';
+import { OfflinePrompt } from '@/src/ui/offline-prompt';
 import { ImportScreen } from '@/src/screens/import';
 import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { getLocalCounts } from '@/src/db/repos/local';
@@ -222,6 +223,7 @@ function AppShell() {
       </View>
       {chrome ? <PlayerBar /> : null}
       {isLaptopUp ? null : <GlobalMiniPlayer />}
+      <OfflinePrompt />
     </View>
   );
 }

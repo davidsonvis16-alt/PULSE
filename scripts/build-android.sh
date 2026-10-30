@@ -25,6 +25,9 @@ fi
 # shellcheck disable=SC1090
 source "$SIGNING"
 
+# Previous / next icons on the media notification (see the script).
+node scripts/patch-expo-audio.mjs
+
 # The android folder is generated from app.json; regenerate it so it always
 # matches the current config.
 CI=1 npx expo prebuild --platform android --clean --no-install

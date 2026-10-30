@@ -12,7 +12,8 @@
     "test": "node tests/pulse.test.mjs",
     "build:android": "bash scripts/build-android.sh",
     "build:web": "expo export -p web",
-    "preview:web": "expo export -p web --clear && node scripts/preview-web.mjs"
+    "preview:web": "expo export -p web --clear && node scripts/preview-web.mjs",
+    "postinstall": "node scripts/patch-expo-audio.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -41,6 +42,7 @@
     "expo-linking": "~8.0.11",
     "expo-location": "~19.0.8",
     "expo-media-library": "~18.2.1",
+    "expo-network": "~8.0.8",
     "expo-notifications": "~0.32.17",
     "expo-router": "~6.0.24",
     "expo-sharing": "~14.0.8",
