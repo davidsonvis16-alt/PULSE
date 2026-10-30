@@ -11,12 +11,15 @@ import type { Track } from '@/src/core/types';
 export function oneCoverEach(tracks: Track[]): Track[] {
   const seen = new Set<string>();
   return tracks.filter((track) => {
-    const key =
-      (track.albumTitle && `${track.albumTitle}|${track.artistName}`.toLowerCase()) ||
-      track.artworkUrl ||
-      track.id;
-    if (seen.has(key)) return false;
-    seen.add(key);
+    // The same picture under another name still repeats: a cast album credits
+    // each singer separately but shares one cover.
+    const keys = [
+      track.albumTitle ? `album:${track.albumTitle.toLowerCase()}` : null,
+      track.artworkUrl ? `cover:${track.artworkUrl.replace(/\/\d+x\d+bb\./, '/')}` : null,
+    ].filter((key): key is string => !!key);
+    if (keys.length === 0) return true;
+    if (keys.some((key) => seen.has(key))) return false;
+    keys.forEach((key) => seen.add(key));
     return true;
   });
 }
