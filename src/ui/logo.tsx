@@ -81,7 +81,7 @@ export function PulseLogo({
               }}
               tone={white || onLight ? undefined : 'muted'}
             >
-              Your music. Your way.
+              Own your music
             </Txt>
           )}
         </View>

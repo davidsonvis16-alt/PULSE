@@ -155,7 +155,7 @@ function AuthGate() {
   if (!ready) {
     return (
       <View style={styles.boot}>
-        <PulseLogo size={76} showWordmark variant="white" />
+        <PulseLogo size={76} showWordmark tagline variant="white" />
         <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
       </View>
     );
@@ -167,7 +167,7 @@ function AuthGate() {
   if (needsImport === null) {
     return (
       <View style={styles.boot}>
-        <PulseLogo size={76} showWordmark variant="white" />
+        <PulseLogo size={76} showWordmark tagline variant="white" />
         <ActivityIndicator color={brand.plate} style={{ marginTop: spacing.xxl }} />
       </View>
     );

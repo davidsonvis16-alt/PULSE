@@ -87,7 +87,7 @@ export function WelcomeScreen({ initial = 'intro' }: { initial?: Mode } = {}) {
                 Pulse
               </Txt>
               <Txt variant="body" tone="muted">
-                Your music. Your way.
+                Own your music
               </Txt>
             </View>
 
