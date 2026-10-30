@@ -716,7 +716,7 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.xl,
       borderRadius: radii.lg,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
     tabRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
@@ -743,7 +743,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 14,
       color: colors.text,
       fontSize: 15,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
   });

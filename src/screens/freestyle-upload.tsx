@@ -310,6 +310,8 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       borderRadius: radii.md,
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     input: {
       backgroundColor: colors.card,
@@ -318,7 +320,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 14,
       color: colors.text,
       fontSize: 15,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
   });

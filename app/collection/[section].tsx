@@ -258,7 +258,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.md,
       borderRadius: radii.md,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
       marginTop: spacing.md,
     },

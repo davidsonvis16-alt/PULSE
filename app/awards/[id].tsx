@@ -198,7 +198,7 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 4,
       borderRadius: radii.lg,
       backgroundColor: colors.accentGlow,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.accent,
     },
     filters: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg },
@@ -208,7 +208,7 @@ const makeStyles = (colors: ThemeColors) =>
       gap: spacing.xs,
       borderRadius: radii.lg,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     nominee: {

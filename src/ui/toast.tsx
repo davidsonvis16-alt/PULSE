@@ -92,7 +92,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: spacing.md,
       borderRadius: radii.pill,
       backgroundColor: colors.cardHigh,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
       maxWidth: 420,
     },

@@ -365,7 +365,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 14,
       color: colors.text,
       fontSize: 15,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     wave: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120, overflow: 'hidden' },

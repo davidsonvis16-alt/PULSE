@@ -49,6 +49,8 @@ export const SETTINGS_KEYS = {
   identifyBannerDismissed: 'home.identifyBannerDismissed',
   /** The app version whose "Update available" banner was closed. */
   updateDismissed: 'home.updateDismissed',
+  /** Set once Pulse has asked to keep working in the background. */
+  backgroundAsked: 'import.backgroundAsked',
 } as const;
 
 export interface NotificationPrefs {

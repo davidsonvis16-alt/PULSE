@@ -117,7 +117,7 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.card,
       borderRadius: radii.xl,
       overflow: 'hidden',
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     cardArt: { width: '100%', aspectRatio: 1.35, backgroundColor: colors.cardHigh },

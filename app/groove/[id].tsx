@@ -185,6 +185,8 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.xl,
       justifyContent: 'flex-end',
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
       overflow: 'hidden',
     },
     heroArt: { position: 'absolute', top: spacing.lg, right: spacing.lg, opacity: 0.9 },

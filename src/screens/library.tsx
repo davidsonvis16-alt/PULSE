@@ -396,6 +396,8 @@ const makeStyles = (colors: ThemeColors) =>
       height: 38,
       borderRadius: radii.sm,
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -408,7 +410,7 @@ const makeStyles = (colors: ThemeColors) =>
       marginBottom: spacing.lg,
       borderRadius: radii.md,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
     input: {
@@ -418,7 +420,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 14,
       color: colors.text,
       fontSize: 15,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
   });

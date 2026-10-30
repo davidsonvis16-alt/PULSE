@@ -328,7 +328,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.xl,
       borderRadius: radii.xl,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
       marginBottom: spacing.lg,
     },

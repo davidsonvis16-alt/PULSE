@@ -7,10 +7,8 @@ import { fonts, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
- * The editorial cards on Home: a cover drawn in pencil, its name written over
- * it by hand, and a plain strip underneath saying what it is and playing it.
- * The handwriting is for these titles only — everything else in Pulse is set
- * in type.
+ * The editorial cards on Home: a cover drawn in pencil, its name set over it,
+ * and a plain strip underneath saying what it is and playing it.
  */
 export function EditorialCard({
   title,
@@ -19,7 +17,6 @@ export function EditorialCard({
   artworkUrl,
   width,
   height,
-  tilt = -4,
   onOpen,
   onPlay,
 }: {
@@ -29,8 +26,6 @@ export function EditorialCard({
   artworkUrl: string | null;
   width: number;
   height: number;
-  /** Degrees the handwritten title leans. */
-  tilt?: number;
   onOpen: () => void;
   onPlay?: () => void;
 }) {
@@ -62,7 +57,7 @@ export function EditorialCard({
           numberOfLines={2}
           style={[
             styles.marker,
-            { fontSize: big ? 60 : 42, lineHeight: big ? 60 : 42, transform: [{ rotate: `${tilt}deg` }] },
+            { fontSize: big ? 30 : 22, lineHeight: big ? 36 : 27 },
           ]}
         >
           {title}
@@ -154,7 +149,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radii.xl,
       overflow: 'hidden',
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
     art: { flex: 1, overflow: 'hidden', padding: spacing.xl, gap: spacing.md },
@@ -166,7 +161,8 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radii.pill,
     },
     marker: {
-      fontFamily: fonts.marker,
+      fontFamily: fonts.display,
+      letterSpacing: -0.4,
       color: '#FFFFFF',
       maxWidth: '85%',
       textShadowColor: 'rgba(0,0,0,0.55)',

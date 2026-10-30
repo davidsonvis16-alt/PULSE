@@ -121,7 +121,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     onSurface: {
       backgroundColor: colors.scrim,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     percent: { fontWeight: '800', color: colors.accentInk },

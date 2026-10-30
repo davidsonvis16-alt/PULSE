@@ -388,7 +388,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radii.lg,
       padding: spacing.lg,
       gap: spacing.md,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
     fact: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
@@ -402,6 +402,8 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radii.pill,
       alignSelf: 'flex-start',
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     grooveRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   });

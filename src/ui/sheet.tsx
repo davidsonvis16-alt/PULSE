@@ -191,7 +191,7 @@ const makeStyles = (colors: ThemeColors) =>
       width: 460,
       maxWidth: '92%',
       borderRadius: radii.xl,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       paddingTop: spacing.xl,
     },
     grabber: {
@@ -229,7 +229,7 @@ const makeStyles = (colors: ThemeColors) =>
       padding: 6,
       borderRadius: radii.md,
       backgroundColor: colors.cardRaised,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
       shadowColor: '#000',
       shadowOpacity: 0.45,

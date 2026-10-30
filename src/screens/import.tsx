@@ -15,7 +15,10 @@ import { getLocalCounts } from '@/src/db/repos/local';
 import { listGrooves, type Groove } from '@/src/db/repos/grooves';
 import { getTopArtists } from '@/src/db/repos/history';
 import { buildTasteProfile, type TasteProfile } from '@/src/discovery/taste';
-import { setSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
+import { getSetting, setSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
+import { artworkRepair } from '@/src/ingestion/artwork/backfill';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Application from 'expo-application';
 import { useStore } from '@/src/hooks/use-store';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { useToast } from '@/src/ui/toast';
@@ -29,7 +32,7 @@ import { StatTile } from '@/src/ui/cards';
 import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
-type Stage = 'intro' | 'running' | 'empty' | 'summary';
+type Stage = 'intro' | 'running' | 'background' | 'covers' | 'empty' | 'summary';
 
 const STEPS = [
   { phase: 'finding', label: 'Finding songs' },
@@ -54,6 +57,7 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
   const { gutter, isTabletUp } = useResponsive();
   const toast = useToast();
   const state = useStore(ingestEngine);
+  const repair = useStore(artworkRepair);
 
   const [stage, setStage] = useState<Stage>('intro');
   const [scanner, setScanner] = useState<MusicScanner | null>(null);
@@ -124,10 +128,42 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
         return;
       }
 
-      await finish();
+      // On Android, ask once to keep working in the background — covers keep
+      // arriving and music keeps playing with the screen off — then find covers.
+      const asked = await getSetting(SETTINGS_KEYS.backgroundAsked).catch(() => null);
+      if (Platform.OS === 'android' && !asked) {
+        setStage('background');
+        return;
+      }
+      await findCovers();
     },
+    // findCovers is defined below and stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [scanner, finish, toast],
   );
+
+  /** The cover search, shown with its progress, then the summary. */
+  const findCovers = useCallback(async () => {
+    setStage('covers');
+    await artworkRepair.run().catch(() => undefined);
+    await finish();
+  }, [finish]);
+
+  const allowBackground = useCallback(async () => {
+    await setSetting(SETTINGS_KEYS.backgroundAsked, 'true');
+    try {
+      // Android's own "Let app always run in background?" question.
+      await IntentLauncher.startActivityAsync('android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', {
+        data: `package:${Application.applicationId ?? 'app.pulse.music'}`,
+      });
+    } catch {
+      // Some phones hide that question; their battery settings page does the same job.
+      await IntentLauncher.startActivityAsync('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS').catch(
+        () => {},
+      );
+    }
+    await findCovers();
+  }, [findCovers]);
 
   const done = () => {
     // Skipping counts: Pulse offers the import once, then Library is where music is added.
@@ -202,6 +238,58 @@ export function ImportScreen({ onFinished }: { onFinished?: () => void } = {}) {
                 files you want and Pulse imports those.
               </Txt>
             )}
+          </View>
+        )}
+
+        {stage === 'background' && (
+          <View style={[styles.centered, isTabletUp && { maxWidth: 520, alignSelf: 'center' }]}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="moon-outline" size={26} color={colors.accentInk} />
+            </View>
+            <Txt variant="title2" align="center" style={{ marginTop: spacing.md }}>
+              Let Pulse keep working
+            </Txt>
+            <Txt variant="body" tone="secondary" align="center">
+              Your songs are in. Allow Pulse to run in the background so it can finish finding
+              covers and keep your music playing when the screen is off.
+            </Txt>
+            <View style={{ width: '100%', gap: spacing.sm, marginTop: spacing.xl }}>
+              <Button label="Allow" icon="checkmark" full onPress={() => void allowBackground()} />
+              <Button
+                label="Not now"
+                variant="ghost"
+                full
+                onPress={() => {
+                  void setSetting(SETTINGS_KEYS.backgroundAsked, 'true');
+                  void findCovers();
+                }}
+              />
+            </View>
+          </View>
+        )}
+
+        {stage === 'covers' && (
+          <View style={[styles.centered, isTabletUp && { maxWidth: 520, alignSelf: 'center' }]}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="image-outline" size={26} color={colors.accentInk} />
+            </View>
+            <Txt variant="title2" align="center" style={{ marginTop: spacing.md }}>
+              Finding covers
+            </Txt>
+            <Txt variant="body" tone="secondary" align="center">
+              {repair.total > 0
+                ? `${repair.checked} of ${repair.total} checked · ${pluralize(repair.found, 'cover')} found`
+                : 'Checking which songs need a cover…'}
+            </Txt>
+            <View style={{ width: '100%', marginTop: spacing.lg }}>
+              <ProgressBar progress={repair.total ? repair.checked / repair.total : 0} />
+            </View>
+            <Button
+              label="Skip, keep going in the background"
+              variant="ghost"
+              onPress={() => void finish()}
+              style={{ marginTop: spacing.xl }}
+            />
           </View>
         )}
 
@@ -519,7 +607,7 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       borderRadius: radii.md,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
     steps: { gap: spacing.md, marginTop: spacing.xxl, width: '100%' },
@@ -533,6 +621,8 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       borderRadius: radii.md,
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     grooveDot: { width: 10, height: 10, borderRadius: 5 },
     emptyIcon: {
@@ -540,6 +630,8 @@ const makeStyles = (colors: ThemeColors) =>
       height: 60,
       borderRadius: 30,
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -549,7 +641,7 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       borderRadius: radii.md,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
       gap: 6,
     },

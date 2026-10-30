@@ -52,7 +52,8 @@ export function Artwork({
         <View style={[StyleSheet.absoluteFill, styles.fallback, { borderRadius }]}>
           <Ionicons
             name={rounded ? 'person' : 'musical-notes'}
-            size={size * 0.32}
+            // Android refuses a zero font size outright, so never ask for one.
+            size={Math.max(8, size * 0.32)}
             color={colors.textFaint}
           />
         </View>

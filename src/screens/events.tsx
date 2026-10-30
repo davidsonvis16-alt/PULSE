@@ -465,7 +465,7 @@ const makeStyles = (colors: ThemeColors) =>
       height: 32,
       borderRadius: radii.pill,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     field: {
@@ -476,7 +476,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.md,
       borderRadius: radii.md,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     input: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
@@ -488,5 +488,7 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       borderRadius: radii.md,
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
   });

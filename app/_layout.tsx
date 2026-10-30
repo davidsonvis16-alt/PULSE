@@ -7,16 +7,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SystemUI from 'expo-system-ui';
 import { useFonts } from 'expo-font';
 import {
-  BricolageGrotesque_700Bold,
-  BricolageGrotesque_800ExtraBold,
-} from '@expo-google-fonts/bricolage-grotesque';
-import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
-import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
 import { AuthProvider, useAuth } from '@/src/auth/auth';
 import { PulseProviders } from '@/src/ui/providers';
 import { PulseLogo } from '@/src/ui/logo';
@@ -49,9 +44,6 @@ function PulseRoot() {
   const [bootError, setBootError] = useState<Error | null>(null);
   // A font that fails to load falls back to the system face; it never blocks start-up.
   const [fontsLoaded, fontError] = useFonts({
-    BricolageGrotesque_700Bold,
-    BricolageGrotesque_800ExtraBold,
-    PermanentMarker_400Regular,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

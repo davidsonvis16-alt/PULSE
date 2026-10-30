@@ -401,7 +401,7 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       backgroundColor: colors.card,
       borderRadius: radii.lg,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
     eventBody: { flex: 1, gap: 3 },
@@ -417,7 +417,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.md,
       backgroundColor: colors.card,
       borderRadius: radii.lg,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
   });

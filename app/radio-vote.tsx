@@ -125,7 +125,7 @@ export default function RadioVoteScreen() {
               Pulse Radio
             </Txt>
           </View>
-          <Txt style={[styles.marker, { fontSize: isTabletUp ? 56 : 40, lineHeight: isTabletUp ? 58 : 42 }]}>
+          <Txt style={[styles.marker, { fontSize: isTabletUp ? 30 : 24, lineHeight: isTabletUp ? 36 : 30 }]}>
             Songs of the Week
           </Txt>
           <Txt variant="body" style={{ color: 'rgba(255,255,255,0.85)', maxWidth: 560 }}>
@@ -329,9 +329,9 @@ const makeStyles = (colors: ThemeColors) =>
     },
     liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.onAccent },
     marker: {
-      fontFamily: fonts.marker,
+      fontFamily: fonts.display,
       color: '#FFFFFF',
-      transform: [{ rotate: '-2deg' }],
+      letterSpacing: -0.4,
     },
     trayWrap: { paddingTop: spacing.lg, backgroundColor: colors.background },
     tray: {
@@ -377,7 +377,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     cardArt: { width: '100%', overflow: 'hidden', backgroundColor: colors.cardRaised },
     initials: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cardHigh },
-    initialsText: { fontFamily: fonts.marker, fontSize: 48, color: colors.textSecondary },
+    initialsText: { fontFamily: fonts.display, fontSize: 32, color: colors.textSecondary },
     playDot: {
       position: 'absolute',
       left: 10,

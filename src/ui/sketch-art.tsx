@@ -35,7 +35,9 @@ export function SketchArt({ uri, style }: { uri: string | null | undefined; styl
   return (
     <View style={[StyleSheet.absoluteFill, style]} onLayout={onLayout}>
       {/* The plain cover shows until the sketch is ready, so nothing pops in empty. */}
-      {!image && <Artwork uri={uri} size={Math.max(size?.width ?? 0, size?.height ?? 0)} radius={0} />}
+      {!image && size && size.width > 0 && (
+        <Artwork uri={uri} size={Math.max(size.width, size.height)} radius={0} />
+      )}
       {image && size && (
         <Canvas style={StyleSheet.absoluteFill}>
           {/* The colours, softened. */}

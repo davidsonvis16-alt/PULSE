@@ -169,7 +169,7 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.card,
       borderRadius: radii.lg,
       paddingHorizontal: spacing.lg,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
     row: {
@@ -187,5 +187,7 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       borderRadius: radii.md,
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
   });

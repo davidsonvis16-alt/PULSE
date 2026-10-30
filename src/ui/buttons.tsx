@@ -8,8 +8,9 @@ import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
 
-const HEIGHT: Record<Size, number> = { sm: 34, md: 44, lg: 52 };
-const PADDING: Record<Size, number> = { sm: 14, md: 20, lg: 26 };
+// Slim on purpose: a button should read as a control, not a slab.
+const HEIGHT: Record<Size, number> = { sm: 32, md: 40, lg: 46 };
+const PADDING: Record<Size, number> = { sm: 12, md: 16, lg: 20 };
 
 export function Button({
   label,
@@ -69,12 +70,12 @@ export function Button({
           {icon && (
             <Ionicons
               name={icon}
-              size={size === 'sm' ? 15 : 18}
+              size={size === 'sm' ? 14 : 16}
               color={isPrimary ? colors.onAccent : variant === 'danger' ? colors.danger : colors.text}
             />
           )}
           <Txt
-            variant={size === 'sm' ? 'callout' : 'bodyStrong'}
+            variant="callout"
             tone={isPrimary ? 'onAccent' : variant === 'danger' ? 'danger' : 'default'}
           >
             {label}
@@ -259,19 +260,19 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.sm,
-      borderRadius: radii.pill,
+      gap: spacing.xs + 2,
+      borderRadius: radii.sm,
     },
     primary: { backgroundColor: colors.accent },
     secondary: {
       backgroundColor: colors.cardHigh,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     ghost: { backgroundColor: 'transparent' },
     danger: {
       backgroundColor: 'transparent',
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.danger,
     },
     full: { alignSelf: 'stretch' },
@@ -294,7 +295,7 @@ const makeStyles = (colors: ThemeColors) =>
       height: 32,
       borderRadius: radii.pill,
       backgroundColor: colors.cardRaised,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },

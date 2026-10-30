@@ -96,7 +96,7 @@ const makeStyles = (colors: ThemeColors) =>
       height: layout.miniPlayerHeight,
       borderRadius: radii.lg,
       backgroundColor: colors.cardRaised,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
       overflow: 'hidden',
       justifyContent: 'center',

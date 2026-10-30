@@ -178,6 +178,8 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'flex-end',
       overflow: 'hidden',
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
   });

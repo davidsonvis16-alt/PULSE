@@ -14,8 +14,8 @@ export const palette = {
   surface: '#181A18',
   surfaceRaised: '#1E201E',
   surfaceHigh: '#252825',
-  hairline: '#2C2F2C',
-  hairlineSoft: '#202320',
+  hairline: '#323632',
+  hairlineSoft: '#262926',
 
   /** The lime of the Pulse plate: the accent on white. */
   lime: '#C9F62B',
@@ -120,8 +120,8 @@ export const lightColors: ThemeColors = {
   card: '#F3F4F0',
   cardRaised: '#ECEDE8',
   cardHigh: '#E3E5DF',
-  border: '#D9DBD5',
-  borderSoft: '#E7E9E3',
+  border: '#D3D6CF',
+  borderSoft: '#E2E4DE',
 
   accent: palette.lime,
   accentBright: palette.limeBright,
@@ -175,32 +175,31 @@ export const radii = {
 } as const;
 
 /**
- * Bricolage Grotesque for headings — it has a voice, which a music app should —
- * and Inter for everything you read. Native platforms pick a weight by family
- * name rather than by fontWeight, so each style names the exact cut it uses.
+ * One plain typeface, Inter, for everything: headings are set a little bolder
+ * and larger rather than in a second display face, so screens read light and
+ * clean. Native platforms pick a weight by family name rather than by
+ * fontWeight, so each style names the exact cut it uses.
  */
 export const fonts = {
-  display: 'BricolageGrotesque_800ExtraBold',
-  heading: 'BricolageGrotesque_700Bold',
+  display: 'Inter_700Bold',
+  heading: 'Inter_600SemiBold',
   regular: 'Inter_400Regular',
   medium: 'Inter_500Medium',
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
-  /** Handwriting, for the big editorial card titles only. */
-  marker: 'PermanentMarker_400Regular',
 } as const;
 
 export const typography = {
-  hero: { fontFamily: fonts.display, fontSize: 56, lineHeight: 56, fontWeight: '800' as const, letterSpacing: -2 },
-  display: { fontFamily: fonts.display, fontSize: 36, lineHeight: 40, fontWeight: '800' as const, letterSpacing: -1.2 },
-  title1: { fontFamily: fonts.display, fontSize: 28, lineHeight: 32, fontWeight: '800' as const, letterSpacing: -0.8 },
-  title2: { fontFamily: fonts.heading, fontSize: 22, lineHeight: 27, fontWeight: '700' as const, letterSpacing: -0.5 },
-  title3: { fontFamily: fonts.heading, fontSize: 18, lineHeight: 23, fontWeight: '700' as const, letterSpacing: -0.3 },
-  body: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, fontWeight: '500' as const, letterSpacing: -0.1 },
-  bodyStrong: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, fontWeight: '600' as const, letterSpacing: -0.1 },
-  callout: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, fontWeight: '600' as const },
-  caption: { fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 17, fontWeight: '500' as const },
-  micro: { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, fontWeight: '600' as const, letterSpacing: 0.8 },
+  hero: { fontFamily: fonts.display, fontSize: 34, lineHeight: 40, fontWeight: '700' as const, letterSpacing: -0.8 },
+  display: { fontFamily: fonts.display, fontSize: 26, lineHeight: 32, fontWeight: '700' as const, letterSpacing: -0.5 },
+  title1: { fontFamily: fonts.display, fontSize: 21, lineHeight: 27, fontWeight: '700' as const, letterSpacing: -0.3 },
+  title2: { fontFamily: fonts.heading, fontSize: 18, lineHeight: 24, fontWeight: '600' as const, letterSpacing: -0.2 },
+  title3: { fontFamily: fonts.heading, fontSize: 16, lineHeight: 21, fontWeight: '600' as const, letterSpacing: -0.1 },
+  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, fontWeight: '400' as const },
+  bodyStrong: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, fontWeight: '500' as const },
+  callout: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 19, fontWeight: '500' as const },
+  caption: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 17, fontWeight: '400' as const },
+  micro: { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, fontWeight: '600' as const, letterSpacing: 0.6 },
 } as const;
 
 /** Breakpoints: phone -> tablet -> laptop -> desktop. Layouts change, not stretch. */

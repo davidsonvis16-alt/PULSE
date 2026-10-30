@@ -448,7 +448,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 14,
       color: colors.text,
       fontSize: 15,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.border,
     },
   });

@@ -509,7 +509,6 @@ export function HomeScreen() {
                   artworkUrl={nextWave[1]?.artworkUrl ?? nextWave[0]?.artworkUrl ?? null}
                   width={cardWidth}
                   height={height}
-                  tilt={-5}
                   onOpen={() => router.push(`/playlist/${NEXT_WAVE_ID}`)}
                   onPlay={() => play(nextWave, 0, NEXT_WAVE_NAME)}
                 />
@@ -523,7 +522,6 @@ export function HomeScreen() {
                   artworkUrl={hidden[0]?.artworkUrl ?? null}
                   width={cardWidth}
                   height={height}
-                  tilt={3}
                   onOpen={() => router.push(`/playlist/${HIDDEN_GEMS_ID}`)}
                   onPlay={() => play(hidden, 0, HIDDEN_GEMS_NAME)}
                 />
@@ -1162,6 +1160,8 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radii.sm,
       overflow: 'hidden',
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     tileIcon: {
       width: 56,
@@ -1185,7 +1185,7 @@ const makeStyles = (colors: ThemeColors) =>
       marginBottom: spacing.lg,
       borderRadius: radii.md,
       backgroundColor: colors.card,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
   });

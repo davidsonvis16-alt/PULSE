@@ -172,7 +172,7 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.card,
       borderRadius: radii.lg,
       paddingHorizontal: spacing.lg,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: colors.borderSoft,
     },
     row: {
