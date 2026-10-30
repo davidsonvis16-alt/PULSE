@@ -107,11 +107,31 @@ export async function replaceGrooves(drafts: GrooveDraft[]): Promise<void> {
     for (const draft of drafts) {
       if (draft.members.length === 0) continue;
 
+      // The Groove first: its songs point at it, and the database refuses a
+      // song for a Groove that does not exist yet.
+      await tx.runAsync(
+        `INSERT INTO grooves
+           (id, name, description, energy, era, genre_family, accent, cover_track_id,
+            track_count, duration_ms, generated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, 0, ?);`,
+        [
+          draft.id,
+          draft.name,
+          draft.description,
+          draft.energy,
+          draft.era,
+          draft.genreFamily,
+          draft.accent,
+          timestamp,
+        ],
+      );
+
       for (const member of draft.members) {
+        // A song whose file has gone since the clustering ran is skipped, not fatal.
         await tx.runAsync(
           `INSERT OR REPLACE INTO groove_tracks (groove_id, track_id, score, is_primary)
-           VALUES (?, ?, ?, ?);`,
-          [draft.id, member.trackId, member.score, member.isPrimary ? 1 : 0],
+           SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM tracks WHERE id = ?);`,
+          [draft.id, member.trackId, member.score, member.isPrimary ? 1 : 0, member.trackId],
         );
       }
 
@@ -129,24 +149,13 @@ export async function replaceGrooves(drafts: GrooveDraft[]): Promise<void> {
         [draft.id],
       );
 
+      if (!totals?.count) {
+        await tx.runAsync('DELETE FROM grooves WHERE id = ?;', [draft.id]);
+        continue;
+      }
       await tx.runAsync(
-        `INSERT INTO grooves
-           (id, name, description, energy, era, genre_family, accent, cover_track_id,
-            track_count, duration_ms, generated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-        [
-          draft.id,
-          draft.name,
-          draft.description,
-          draft.energy,
-          draft.era,
-          draft.genreFamily,
-          draft.accent,
-          cover?.track_id ?? null,
-          totals?.count ?? 0,
-          totals?.duration ?? 0,
-          timestamp,
-        ],
+        'UPDATE grooves SET cover_track_id = ?, track_count = ?, duration_ms = ? WHERE id = ?;',
+        [cover?.track_id ?? null, totals.count, totals.duration ?? 0, draft.id],
       );
     }
   });

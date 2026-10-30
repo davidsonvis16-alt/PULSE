@@ -94,14 +94,8 @@ export async function getRecommendationShelves(
           .catch(() => [] as Track[]);
         return {
           id: `library-${slug(artist.name)}`,
-          title:
-            artist.ownedTracks > 0
-              ? `Because ${artist.name} is in your library`
-              : `Because you listen to ${artist.name}`,
-          subtitle:
-            artist.ownedTracks > 0
-              ? `You have ${artist.ownedTracks} of their track${artist.ownedTracks === 1 ? '' : 's'}`
-              : null,
+          title: `More like ${artist.name}`,
+          subtitle: null,
           reason: 'in_your_library' as const,
           seed: artist.name,
           tracks: rank(tracks, profile, shownRecently),

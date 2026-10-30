@@ -250,8 +250,8 @@ export async function saveSystemPlaylist(
     for (let i = 0; i < tracks.length; i += 1) {
       await tx.runAsync(
         `INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position, added_at)
-         VALUES (?, ?, ?, ?);`,
-        [id, tracks[i].id, i, ts],
+         SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM tracks WHERE id = ?);`,
+        [id, tracks[i].id, i, ts, tracks[i].id],
       );
     }
   });

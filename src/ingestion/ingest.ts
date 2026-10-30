@@ -274,7 +274,11 @@ class IngestEngine extends Store<IngestState> {
     } catch (error) {
       this.set({
         phase: 'error',
-        error: error instanceof Error ? error.message : 'Importing your music failed.',
+        // Database errors put the real reason on a "Caused by" line after a generic first line.
+        error:
+          error instanceof Error
+            ? (error.message.match(/Caused by:\s*(.+)/)?.[1] ?? error.message).trim()
+            : 'Importing your music failed.',
         finishedAt: Date.now(),
       });
       return this.getSnapshot();
