@@ -31,7 +31,7 @@ export function EditorialCard({
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const big = width >= 420;
+  const big = width >= 300;
   return (
     <Pressable
       accessibilityRole="button"
@@ -48,7 +48,7 @@ export function EditorialCard({
         <SketchArt uri={artworkUrl} />
         {!!kicker && (
           <View style={styles.kicker}>
-            <Txt variant="micro" uppercase style={{ color: colors.accent }}>
+            <Txt variant="micro" style={{ color: '#FFFFFF' }}>
               {kicker}
             </Txt>
           </View>
@@ -82,7 +82,7 @@ export function EditorialCard({
             }}
             style={({ pressed }) => [styles.play, pressed && { transform: [{ scale: 0.94 }] }]}
           >
-            <Ionicons name="play" size={20} color={colors.onAccent} style={{ marginLeft: 2 }} />
+            <Ionicons name="play" size={17} color={colors.onAccent} style={{ marginLeft: 2 }} />
           </Pressable>
         ) : (
           <Ionicons name="arrow-forward" size={20} color={colors.accentInk} />
@@ -152,13 +152,14 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.borderSoft,
     },
-    art: { flex: 1, overflow: 'hidden', padding: spacing.xl, gap: spacing.md },
+    art: { flex: 1, overflow: 'hidden', padding: spacing.md, gap: spacing.sm },
     kicker: {
       alignSelf: 'flex-start',
-      backgroundColor: '#0A0B0A',
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: radii.pill,
+      // Terracotta: warm, earthy, and nothing like a default UI badge.
+      backgroundColor: '#C2603D',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radii.xs,
     },
     marker: {
       fontFamily: fonts.display,
@@ -173,14 +174,14 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
       backgroundColor: colors.backgroundElevated,
     },
     play: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: colors.accent,
       alignItems: 'center',
       justifyContent: 'center',

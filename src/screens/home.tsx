@@ -40,7 +40,7 @@ import { useTrackActions } from '@/src/ui/track-actions';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { AlbumCard, ArtCard, EventCard, MoodCard, TrackCard } from '@/src/ui/cards';
-import { DiscoveryCard } from '@/src/ui/editorial';
+import { DiscoveryCard, EditorialCard } from '@/src/ui/editorial';
 import { loadMoodCovers } from '@/src/discovery/mood-mix';
 import {
   findHiddenGems,
@@ -300,30 +300,6 @@ export function HomeScreen() {
   const quickTiles = useMemo<QuickTile[]>(() => {
     if (!data) return [];
     const tiles: QuickTile[] = [];
-    if (mix.length) {
-      tiles.push({
-        key: 'mix',
-        title: YOUR_MIX_NAME,
-        artwork: coverOf(mix),
-        onPress: () => router.push(`/playlist/${YOUR_MIX_ID}`),
-      });
-    }
-    if (nextWave.length) {
-      tiles.push({
-        key: 'wave',
-        title: NEXT_WAVE_NAME,
-        artwork: coverOf(nextWave),
-        onPress: () => router.push(`/playlist/${NEXT_WAVE_ID}`),
-      });
-    }
-    if (hidden.length) {
-      tiles.push({
-        key: 'gems',
-        title: HIDDEN_GEMS_NAME,
-        artwork: coverOf(hidden),
-        onPress: () => router.push(`/playlist/${HIDDEN_GEMS_ID}`),
-      });
-    }
     if (data.own.length) {
       tiles.push({
         key: 'all',
@@ -333,7 +309,7 @@ export function HomeScreen() {
         onPress: () => play(data.own, 0, 'Your music', true, true),
       });
     }
-    for (const groove of data.grooves.slice(0, 2)) {
+    for (const groove of data.grooves.slice(0, 3)) {
       tiles.push({
         key: groove.id,
         title: groove.name,
@@ -341,7 +317,7 @@ export function HomeScreen() {
         onPress: () => router.push(`/groove/${groove.id}`),
       });
     }
-    for (const playlist of data.playlists.slice(0, 2)) {
+    for (const playlist of data.playlists.slice(0, 4)) {
       tiles.push({
         key: playlist.id,
         title: playlist.name,
@@ -349,8 +325,36 @@ export function HomeScreen() {
         onPress: () => router.push(`/playlist/${playlist.id}`),
       });
     }
-    return tiles.slice(0, 8);
-  }, [data, mix, nextWave, hidden, play, router]);
+    return tiles.slice(0, 6);
+  }, [data, play, router]);
+
+  /** The playlists Pulse makes for them, as medium cards. */
+  const madeForYou = [
+    mix.length > 0 && {
+      key: 'mix',
+      kicker: 'Made for you',
+      title: YOUR_MIX_NAME,
+      subtitle: pluralize(mix.length, 'song'),
+      tracks: mix,
+      href: `/playlist/${YOUR_MIX_ID}`,
+    },
+    nextWave.length > 0 && {
+      key: 'wave',
+      kicker: 'New for you',
+      title: NEXT_WAVE_NAME,
+      subtitle: 'Renewed every day',
+      tracks: nextWave,
+      href: `/playlist/${NEXT_WAVE_ID}`,
+    },
+    hidden.length > 0 && {
+      key: 'gems',
+      kicker: 'Under 10K listeners',
+      title: HIDDEN_GEMS_NAME,
+      subtitle: 'Artists hardly anyone has found',
+      tracks: hidden,
+      href: `/playlist/${HIDDEN_GEMS_ID}`,
+    },
+  ].filter((card) => !!card);
 
   if (local.error && !data) {
     return (
@@ -494,6 +498,29 @@ export function HomeScreen() {
               </Pressable>
             ))}
           </View>
+        )}
+
+        {/* Made for you: medium cards, between the tiles and the full-width page. */}
+        {madeForYou.length > 0 && (
+          <Section title="Made for you" gutter={gutter}>
+            <Shelf
+              data={madeForYou}
+              gutter={gutter}
+              keyExtractor={(card) => card.key}
+              renderItem={(card) => (
+                <EditorialCard
+                  kicker={card.kicker}
+                  title={card.title}
+                  subtitle={card.subtitle}
+                  artworkUrl={card.tracks.find((track) => !!track.artworkUrl)?.artworkUrl ?? null}
+                  width={isTabletUp ? 260 : 210}
+                  height={isTabletUp ? 310 : 260}
+                  onOpen={() => router.push(card.href as never)}
+                  onPlay={() => play(card.tracks, 0, card.title)}
+                />
+              )}
+            />
+          </Section>
         )}
 
         {/* Today's discoveries */}
@@ -780,19 +807,6 @@ export function HomeScreen() {
 }
 
 /** Up to four covers, for a playlist made of many songs. */
-function coverOf(tracks: Track[]): (string | null)[] {
-  const seen = new Set<string>();
-  const covers: string[] = [];
-  for (const track of tracks) {
-    if (track.artworkUrl && !seen.has(track.artworkUrl)) {
-      seen.add(track.artworkUrl);
-      covers.push(track.artworkUrl);
-    }
-    if (covers.length === 4) break;
-  }
-  return covers;
-}
-
 /** One cover, or a two-by-two collage when a playlist has four to show. */
 /**
  * Your Mix as the page's headline: its cover blurred behind it, the artists in
