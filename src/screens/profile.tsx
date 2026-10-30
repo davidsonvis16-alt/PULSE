@@ -465,7 +465,7 @@ export function ProfileScreen() {
             {/* Account */}
             <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxxl, gap: spacing.md }}>
               <Button
-                label="Privacy and sharing"
+                label="Privacy, sharing and chats"
                 variant="secondary"
                 icon="lock-closed-outline"
                 full

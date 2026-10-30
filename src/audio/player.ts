@@ -107,7 +107,8 @@ async function applyAudioMode(mixWithOtherApps: boolean) {
   await setAudioModeAsync({
     playsInSilentMode: true,
     shouldPlayInBackground: true,
-    interruptionMode: mixWithOtherApps ? 'mixWithOthers' : 'duckOthers',
+    // Off by default, Pulse asks other apps to stop rather than play quietly underneath.
+    interruptionMode: mixWithOtherApps ? 'mixWithOthers' : 'doNotMix',
     allowsRecording: false,
     shouldRouteThroughEarpiece: false,
   }).catch(() => {});
@@ -157,7 +158,47 @@ class PlayerStore extends Store<PlayerState> {
     );
   }
 
+  /** Where the last status update put the song, and when it arrived. */
+  private lastSeen: { ms: number; at: number } | null = null;
+  /** Until this time, position jumps are Pulse's own doing (seeks, new songs). */
+  private ownJumpUntil = 0;
+
+  /**
+   * The phone's media notification only offers "10 seconds back" and "10
+   * seconds forward" (expo-audio keeps the queue in JS, out of its reach).
+   * Pulse turns them into previous and next: a jump of about ten seconds that
+   * Pulse did not make itself came from those buttons.
+   */
+  private notificationSkip(status: AudioStatus) {
+    const ms = Math.round(status.currentTime * 1000);
+    const now = Date.now();
+    const last = this.lastSeen;
+    this.lastSeen = { ms, at: now };
+    if (!last || now < this.ownJumpUntil || this.isRadio || !status.isLoaded) return;
+    const expected = status.playing ? now - last.at : 0;
+    const jump = ms - last.ms - expected;
+    const TEN = 10_000;
+    if (jump > TEN - 2000 && jump < TEN + 2000) {
+      this.ownJumpUntil = now + 2000;
+      void this.next();
+    } else if (jump < -(TEN - 2000) && jump > -(TEN + 2000)) {
+      this.ownJumpUntil = now + 2000;
+      void this.previous();
+    } else if (ms < 1000 && last.ms > 1500 && last.ms < TEN + 2000 && jump < -1000) {
+      // "Back" in the first ten seconds lands on zero instead of ten back.
+      this.ownJumpUntil = now + 2000;
+      void this.previous();
+    }
+  }
+
+  /** A song change or a seek Pulse made: the jump it causes is not a button. */
+  private markOwnJump() {
+    this.ownJumpUntil = Date.now() + 3000;
+    this.lastSeen = null;
+  }
+
   private onStatus(status: AudioStatus) {
+    this.notificationSkip(status);
     progressStore.update(
       Math.max(0, Math.round(status.currentTime * 1000)),
       Math.max(0, Math.round((status.duration || 0) * 1000)),
@@ -324,6 +365,7 @@ class PlayerStore extends Store<PlayerState> {
       }
 
       this.alternates = [...(source.alternates ?? [])];
+      this.markOwnJump();
       this.player!.replace({ uri: source.uri });
       this.player!.volume = this.getSnapshot().volume;
       this.player!.loop = this.getSnapshot().repeat === 'one';
@@ -339,6 +381,7 @@ class PlayerStore extends Store<PlayerState> {
           await new Promise((resolve) => setTimeout(resolve, 100));
           if (token !== this.loadToken) return;
         }
+        this.markOwnJump();
         await player.seekTo(options.startPositionMs / 1000).catch(() => {});
         player.volume = this.getSnapshot().volume;
       }
@@ -386,6 +429,7 @@ class PlayerStore extends Store<PlayerState> {
     // Same song, another way in.
     const next = this.alternates.shift();
     if (next && this.player) {
+      this.markOwnJump();
       this.player.replace({ uri: next });
       this.player.play();
       this.watchStart(token, track, next);
@@ -436,9 +480,8 @@ class PlayerStore extends Store<PlayerState> {
    * It is a bonus, never a reason to fail playback, so every call is guarded.
    *
    * What is on it is what the audio session offers: play/pause, and ten
-   * seconds either way. Skipping to the next song from the notification needs
-   * the queue to live in the native media session rather than here in JS,
-   * which expo-audio does not expose — see `docs/playback.md`.
+   * seconds either way — which Pulse turns into previous and next (see
+   * notificationSkip), since the queue lives here in JS, not in the session.
    */
   private showNotification(track: Track) {
     try {
@@ -448,7 +491,8 @@ class PlayerStore extends Store<PlayerState> {
           title: track.title,
           artist: track.artistName,
           albumTitle: track.albumTitle ?? undefined,
-          artworkUrl: track.artworkUrl ?? undefined,
+          // The notification and lock screen draw it large: ask for a bigger cut.
+          artworkUrl: track.artworkUrl?.replace(/\/\d+x\d+bb\./, '/1000x1000bb.') ?? undefined,
         },
         { showSeekForward: true, showSeekBackward: true },
       );
@@ -493,6 +537,7 @@ class PlayerStore extends Store<PlayerState> {
   async seekTo(ms: number) {
     // A radio has no scrub bar. Nothing to rewind to and nothing to skip past.
     if (this.isRadio) return;
+    this.markOwnJump();
     await this.player?.seekTo(Math.max(0, ms) / 1000).catch(() => {});
     progressStore.update(ms, progressStore.getSnapshot().durationMs);
   }

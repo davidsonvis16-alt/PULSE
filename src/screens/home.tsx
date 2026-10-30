@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { checkForUpdate } from '@/src/core/updates';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,6 +51,7 @@ import {
 import { searchDeezerTracks } from '@/src/providers/music/adapters/deezer';
 import { oneCoverEach } from '@/src/discovery/variety';
 import { indieTrending } from '@/src/providers/music/adapters/audius';
+import { chatSettings } from '@/src/social/chat';
 import { ChartRow } from '@/src/ui/chart-row';
 import { Artwork } from '@/src/ui/artwork';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
@@ -245,6 +246,11 @@ export function HomeScreen() {
     { enabled: !!suggestions.data },
   );
 
+  const chats = useStore(chatSettings);
+  const nowPlaying = useStore(playerStore);
+  useEffect(() => {
+    void chatSettings.load();
+  }, []);
   const moodCovers = useAsync(() => loadMoodCovers().catch(() => []), []);
   // Whole songs, not previews: independent artists stream their own music in full.
   const indie = useAsync(() => indieTrending(undefined, 16).catch(() => []), []);
@@ -414,13 +420,22 @@ export function HomeScreen() {
         }
       >
         <View style={[styles.header, { paddingHorizontal: gutter }]}>
+          {/* With chats on, the picture opens them; the arrow shows where they went. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Your profile"
-            onPress={() => router.push('/profile')}
+            accessibilityLabel={chats.enabled ? 'Your chats' : 'Your profile'}
+            onPress={() => {
+              if (chats.enabled) {
+                chatSettings.dismissHint();
+                router.push('/chats');
+              } else {
+                router.push('/profile');
+              }
+            }}
           >
             <ProfileAvatar size={38} />
           </Pressable>
+          {chats.enabled && chats.hintPending && <BouncingArrow />}
           <View style={{ flex: 1 }} />
           <Pressable
             accessibilityRole="button"
@@ -519,6 +534,10 @@ export function HomeScreen() {
                 <Txt variant="callout" numberOfLines={2} style={{ flex: 1 }}>
                   {tile.title}
                 </Txt>
+                {/* What is playing right now gets the moving beat. */}
+                {nowPlaying.isPlaying &&
+                  (nowPlaying.contextLabel === tile.title ||
+                    (tile.key === 'all' && nowPlaying.contextLabel === 'Your music')) && <Beat />}
               </Pressable>
             ))}
           </View>
@@ -864,6 +883,67 @@ export function HomeScreen() {
  * Your Mix as the page's headline: its cover blurred behind it, the artists in
  * it named, and play a tap away.
  */
+/** Three bars bouncing to the music, in a small circle: this one is playing. */
+function Beat() {
+  const { colors } = useTheme();
+  const bars = useRef([0, 1, 2].map(() => new Animated.Value(0.4))).current;
+  useEffect(() => {
+    const loops = bars.map((bar, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(bar, { toValue: 1, duration: 260 + index * 90, useNativeDriver: true }),
+          Animated.timing(bar, { toValue: 0.3, duration: 260 + index * 70, useNativeDriver: true }),
+        ]),
+      ),
+    );
+    loops.forEach((loop) => loop.start());
+    return () => loops.forEach((loop) => loop.stop());
+  }, [bars]);
+  return (
+    <View
+      accessibilityLabel="Playing now"
+      style={{
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        marginRight: spacing.sm,
+        backgroundColor: colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+      }}
+    >
+      {bars.map((bar, index) => (
+        <Animated.View
+          key={index}
+          style={{ width: 3, height: 12, borderRadius: 1, backgroundColor: colors.onAccent, transform: [{ scaleY: bar }] }}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** A small black arrow nudging toward the profile picture, which now opens chats. */
+function BouncingArrow() {
+  const nudge = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(nudge, { toValue: -6, duration: 380, useNativeDriver: true }),
+        Animated.timing(nudge, { toValue: 0, duration: 380, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [nudge]);
+  return (
+    <Animated.View accessibilityLabel="Chats open from your picture" style={{ transform: [{ translateX: nudge }] }}>
+      <Ionicons name="arrow-back" size={18} color="#0A0B0A" />
+    </Animated.View>
+  );
+}
+
 /** Up to two songs from each shelf in turn, so the mix of reasons stays wide. */
 function interleaveShelves(shelves: RecommendationShelf[], size: number): Track[] {
   const out: Track[] = [];

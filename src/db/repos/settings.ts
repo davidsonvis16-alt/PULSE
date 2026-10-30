@@ -51,6 +51,10 @@ export const SETTINGS_KEYS = {
   updateDismissed: 'home.updateDismissed',
   /** Set once Pulse has asked to keep working in the background. */
   backgroundAsked: 'import.backgroundAsked',
+  /** Chats switched on in Settings. */
+  chatsEnabled: 'chats.enabled',
+  /** The arrow on Home pointing at where chats now open. */
+  chatsHintPending: 'chats.hintPending',
 } as const;
 
 export interface NotificationPrefs {

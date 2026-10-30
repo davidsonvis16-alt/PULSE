@@ -15,6 +15,9 @@ import { clearCachedArtwork } from '@/src/ingestion/artwork/provider';
 import { invalidateTasteProfile } from '@/src/discovery/taste';
 import { pluralize } from '@/src/core/format';
 import { isSocialAvailable, pushProfile } from '@/src/social/sync';
+import { chatSettings } from '@/src/social/chat';
+import { useStore } from '@/src/hooks/use-store';
+import { useAuth } from '@/src/auth/auth';
 import { useAsync } from '@/src/hooks/use-async';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { useToast } from '@/src/ui/toast';
@@ -55,6 +58,11 @@ export default function PrivacySettings() {
   const bottomInset = useBottomInset();
   const toast = useToast();
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY_PREFS);
+  const chats = useStore(chatSettings);
+  const { session } = useAuth();
+  useEffect(() => {
+    void chatSettings.load();
+  }, []);
 
   const loaded = useAsync(() => getPrivacyPrefs(), []);
   const localCounts = useAsync(() => getLocalCounts(), []);
@@ -71,7 +79,7 @@ export default function PrivacySettings() {
 
   return (
     <Screen>
-      <PageHeader title="Privacy" subtitle="You decide what other people see" />
+      <PageHeader title="Privacy and chats" subtitle="You decide what other people see" />
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: gutter, paddingBottom: bottomInset }}
         showsVerticalScrollIndicator={false}
@@ -95,6 +103,32 @@ export default function PrivacySettings() {
               />
             </View>
           ))}
+        </View>
+
+        {/* Chats: off until switched on; then the profile picture on Home opens them. */}
+        <View style={[styles.group, { marginTop: spacing.xl }]}>
+          <View style={styles.row}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt variant="bodyStrong">Chats</Txt>
+              <Txt variant="caption" tone="muted">
+                Message people on Pulse and invite friends. When on, tap your picture on Home to
+                open your chats. Only people who also have chats on can message you.
+              </Txt>
+            </View>
+            <Switch
+              value={chats.enabled}
+              onValueChange={(value) =>
+                void chatSettings
+                  .setEnabled(value, session?.user.id)
+                  .then(() => toast(value ? 'Chats are on. Tap your picture on Home.' : 'Chats are off', 'success'))
+                  .catch((error: Error) => toast(error.message, 'error'))
+              }
+              trackColor={{ true: colors.accent, false: colors.cardHigh }}
+              thumbColor={colors.text}
+              accessibilityLabel="Chats"
+              disabled={!isSocialAvailable()}
+            />
+          </View>
         </View>
 
         {!isSocialAvailable() && (
