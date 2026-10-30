@@ -9,7 +9,8 @@ export type NotificationType =
   | 'playlist'
   | 'download'
   | 'award'
-  | 'news';
+  | 'news'
+  | 'library';
 
 export interface PulseNotification {
   id: string;
@@ -73,6 +74,29 @@ export async function pushNotification(input: {
     ],
   );
   return true;
+}
+
+/**
+ * "N songs need identifying", kept as one notification that follows the
+ * count: a new number replaces the old note (and shows as unread again), and
+ * when nothing is left to identify the note goes away.
+ */
+export async function noteSongsNeedIdentifying(count: number): Promise<void> {
+  const instance = await db();
+  const entityId = `identify|${count}`;
+  const current = await instance.getFirstAsync<{ entity_id: string }>(
+    "SELECT entity_id FROM notifications WHERE type = 'library' AND entity_type = 'identify' LIMIT 1;",
+  );
+  if (current?.entity_id === entityId) return;
+  await instance.runAsync("DELETE FROM notifications WHERE type = 'library' AND entity_type = 'identify';");
+  if (count <= 0) return;
+  await pushNotification({
+    type: 'library',
+    title: `${count} ${count === 1 ? 'song needs' : 'songs need'} identifying`,
+    body: "Pulse wasn't sure enough to name these. Tap to pick the right match.",
+    entityType: 'identify',
+    entityId,
+  });
 }
 
 export async function listNotifications(limit = 60): Promise<PulseNotification[]> {

@@ -1,14 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from 'react-native';
-import {
-  Blur,
-  Canvas,
-  ColorMatrix,
-  Group,
-  Image as SkiaImage,
-  Paint,
-  useImage,
-} from '@shopify/react-native-skia';
+import { Blur, Canvas, ColorMatrix, Image as SkiaImage, useImage } from '@shopify/react-native-skia';
 import { Artwork } from '@/src/ui/artwork';
 
 /**
@@ -40,22 +32,35 @@ export function SketchArt({ uri, style }: { uri: string | null | undefined; styl
       )}
       {image && size && (
         <Canvas style={StyleSheet.absoluteFill}>
-          {/* The colours, softened. */}
+          {/* 1. The picture in grey. */}
           <SkiaImage image={image} x={0} y={0} width={size.width} height={size.height} fit="cover">
-            <Blur blur={1.6} />
+            <ColorMatrix matrix={GREY} />
           </SkiaImage>
-          {/* The pencil: grey, dodged by its own blurred negative, multiplied over the colour. */}
-          <Group layer={<Paint blendMode="multiply" />}>
-            <SkiaImage image={image} x={0} y={0} width={size.width} height={size.height} fit="cover">
-              <ColorMatrix matrix={GREY} />
-            </SkiaImage>
-            <Group layer={<Paint blendMode="colorDodge" />}>
-              <SkiaImage image={image} x={0} y={0} width={size.width} height={size.height} fit="cover">
-                <ColorMatrix matrix={GREY_NEGATIVE} />
-                <Blur blur={7} />
-              </SkiaImage>
-            </Group>
-          </Group>
+          {/* 2. Dodged by its own blurred negative: flat areas go white, edges stay as pencil lines. */}
+          <SkiaImage
+            image={image}
+            x={0}
+            y={0}
+            width={size.width}
+            height={size.height}
+            fit="cover"
+            blendMode="colorDodge"
+          >
+            <ColorMatrix matrix={GREY_NEGATIVE} />
+            <Blur blur={7} mode="clamp" />
+          </SkiaImage>
+          {/* 3. The real colours, softened, multiplied over the lines. */}
+          <SkiaImage
+            image={image}
+            x={0}
+            y={0}
+            width={size.width}
+            height={size.height}
+            fit="cover"
+            blendMode="multiply"
+          >
+            <Blur blur={1.6} mode="clamp" />
+          </SkiaImage>
         </Canvas>
       )}
     </View>

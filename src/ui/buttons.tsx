@@ -293,7 +293,7 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 6,
       paddingHorizontal: 14,
       height: 32,
-      borderRadius: radii.pill,
+      borderRadius: radii.sm,
       backgroundColor: colors.cardRaised,
       borderWidth: 1,
       borderColor: colors.border,
@@ -302,7 +302,7 @@ const makeStyles = (colors: ThemeColors) =>
     segment: {
       flexDirection: 'row',
       backgroundColor: colors.card,
-      borderRadius: radii.pill,
+      borderRadius: radii.sm,
       padding: 4,
       gap: 4,
     },
@@ -311,7 +311,7 @@ const makeStyles = (colors: ThemeColors) =>
       height: 32,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: radii.pill,
+      borderRadius: radii.sm,
     },
     segmentItemActive: { backgroundColor: colors.accent },
   });

@@ -26,8 +26,14 @@ export interface Responsive {
 export function useResponsive(): Responsive {
   const { width, height } = useWindowDimensions();
 
-  const device: Device =
-    width >= breakpoints.desktop
+  // A phone turned sideways is still a phone: its short side stays phone-sized,
+  // so it keeps the phone layout instead of switching to the laptop one. Real
+  // tablets and computers have a short side well past this on any rotation.
+  const phoneSized = Math.min(width, height) < 600;
+
+  const device: Device = phoneSized
+    ? 'phone'
+    : width >= breakpoints.desktop
       ? 'desktop'
       : width >= breakpoints.laptop
         ? 'laptop'
@@ -50,9 +56,9 @@ export function useResponsive(): Responsive {
         ? 28
         : Math.max(32, (pageWidth - layout.maxContentWidth) / 2);
   const contentWidth = Math.min(pageWidth - gutter * 2, layout.maxContentWidth);
-  const gridColumns = device === 'phone' ? (width >= breakpoints.phoneLarge ? 3 : 2) : device === 'tablet' ? 4 : device === 'laptop' ? 5 : 6;
+  const gridColumns = device === 'phone' ? (width >= breakpoints.phoneLarge ? (width > height ? 5 : 3) : 2) : device === 'tablet' ? 4 : device === 'laptop' ? 5 : 6;
   const shelfCardWidth =
-    device === 'phone' ? Math.min(158, (width - gutter * 2 - 24) / 2.2) : device === 'tablet' ? 180 : 196;
+    device === 'phone' ? Math.min(158, (Math.min(width, 520) - gutter * 2 - 24) / 2.2) : device === 'tablet' ? 180 : 196;
 
   return {
     width,

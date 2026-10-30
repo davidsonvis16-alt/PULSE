@@ -33,6 +33,7 @@ const ICONS: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   download: 'arrow-down-circle-outline',
   award: 'trophy-outline',
   news: 'newspaper-outline',
+  library: 'help-circle-outline',
 };
 
 /** The notification centre: new releases, events, friends, recommendations. */
@@ -80,6 +81,9 @@ export default function NotificationsScreen() {
         break;
       case 'article':
         void WebBrowser.openBrowserAsync(notification.entityId);
+        break;
+      case 'identify':
+        router.push('/identify');
         break;
       default:
         break;

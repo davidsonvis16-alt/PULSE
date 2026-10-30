@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { checkForUpdate } from '@/src/core/updates';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { Album, MusicEvent, Track } from '@/src/core/types';
 import { MOODS } from '@/src/core/moods';
-import { formatListeningTime, greeting, pluralize } from '@/src/core/format';
+import { formatListeningTime, pluralize } from '@/src/core/format';
 import { eventProvider } from '@/src/providers/events';
 import { musicProvider } from '@/src/providers/music';
 import { config } from '@/src/core/config';
@@ -22,7 +22,7 @@ import { advanceRotation, currentRotation } from '@/src/discovery/rotation';
 import { buildMix, YOUR_MIX_DESCRIPTION, YOUR_MIX_ID, YOUR_MIX_NAME } from '@/src/discovery/mix';
 import { chartsStore, CHART_MARKET_COUNT, type ChartEntry } from '@/src/discovery/charts';
 import { getTopArtists, getTopTracks, type TopArtist } from '@/src/db/repos/history';
-import { unreadNotificationCount } from '@/src/db/repos/notifications';
+import { noteSongsNeedIdentifying, unreadNotificationCount } from '@/src/db/repos/notifications';
 import { getCachedEvents } from '@/src/db/repos/events';
 import { listGrooves, type Groove } from '@/src/db/repos/grooves';
 import { getLocalCounts, listLocalTracks } from '@/src/db/repos/local';
@@ -32,7 +32,6 @@ import { getSetting, setSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { playerStore } from '@/src/audio/player';
 import { ingestEngine } from '@/src/ingestion/ingest';
 import { artworkRepair } from '@/src/ingestion/artwork/backfill';
-import { useAuth } from '@/src/auth/auth';
 import { useAsync } from '@/src/hooks/use-async';
 import { useFocusReload } from '@/src/hooks/use-focus-reload';
 import { useResponsive } from '@/src/hooks/use-responsive';
@@ -41,11 +40,10 @@ import { useTrackActions } from '@/src/ui/track-actions';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { AlbumCard, ArtCard, EventCard, MoodCard, TrackCard } from '@/src/ui/cards';
-import { DiscoveryCard, EditorialCard } from '@/src/ui/editorial';
+import { DiscoveryCard } from '@/src/ui/editorial';
 import { loadMoodCovers } from '@/src/discovery/mood-mix';
 import {
   findHiddenGems,
-  HIDDEN_GEMS_DESCRIPTION,
   HIDDEN_GEMS_ID,
   HIDDEN_GEMS_NAME,
 } from '@/src/discovery/hidden-gems';
@@ -55,7 +53,7 @@ import { Artwork } from '@/src/ui/artwork';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
 import { Txt } from '@/src/ui/text';
 import { EmptyState, ErrorState, SkeletonShelf } from '@/src/ui/states';
-import { radii, spacing } from '@/src/theme/tokens';
+import { fonts, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
@@ -125,7 +123,6 @@ export function HomeScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
-  const { profile } = useAuth();
   const { gutter, shelfCardWidth, pageWidth: width, isTabletUp } = useResponsive();
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
@@ -136,13 +133,6 @@ export function HomeScreen() {
   // to refresh moves it on, so asking for more really does bring new songs
   // rather than re-fetching the ones already on screen.
   const [rotation, setRotation] = useState(currentRotation);
-  // The "need identifying" banner stays closed until more songs need it.
-  const [identifyDismissed, setIdentifyDismissed] = useState(0);
-  useEffect(() => {
-    void getSetting(SETTINGS_KEYS.identifyBannerDismissed).then((value) =>
-      setIdentifyDismissed(Number(value) || 0),
-    );
-  }, []);
 
   const local = useAsync<LocalHome>(async () => {
     const counts = await getLocalCounts();
@@ -156,6 +146,9 @@ export function HomeScreen() {
     // Most played first, then everything else, so the mix leans on favourites.
     const plays = new Map(topTracks.map((entry) => [entry.track.id, entry.plays]));
     const own = [...library].sort((a, b) => (plays.get(b.id) ?? 0) - (plays.get(a.id) ?? 0));
+
+    // Songs Pulse could not name are a notification, not a box on Home.
+    await noteSongsNeedIdentifying(counts.needsIdentification ?? 0).catch(() => {});
 
     const [recentlyPlayed, taste, topArtists, grooves, playlists, unread] = await Promise.all([
       getContinueRail(12),
@@ -297,9 +290,9 @@ export function HomeScreen() {
   const data = local.data;
   const mix = useMemo(() => suggestions.data?.mix ?? [], [suggestions.data]);
   const shelves = suggestions.data?.shelves ?? [];
-  const nextWave = suggestions.data?.nextWave ?? [];
+  const nextWave = useMemo(() => suggestions.data?.nextWave ?? [], [suggestions.data]);
   const discoveries = nextWave.slice(0, isTabletUp ? 12 : 10);
-  const hidden = gems.data ?? [];
+  const hidden = useMemo(() => gems.data ?? [], [gems.data]);
   const repeatShelves = suggestions.data?.repeatShelves ?? [];
   const globalTop: ChartEntry[] = chart.board?.entries.slice(0, TOP_ON_HOME) ?? [];
 
@@ -312,7 +305,23 @@ export function HomeScreen() {
         key: 'mix',
         title: YOUR_MIX_NAME,
         artwork: coverOf(mix),
-        onPress: () => play(mix, 0, YOUR_MIX_NAME),
+        onPress: () => router.push(`/playlist/${YOUR_MIX_ID}`),
+      });
+    }
+    if (nextWave.length) {
+      tiles.push({
+        key: 'wave',
+        title: NEXT_WAVE_NAME,
+        artwork: coverOf(nextWave),
+        onPress: () => router.push(`/playlist/${NEXT_WAVE_ID}`),
+      });
+    }
+    if (hidden.length) {
+      tiles.push({
+        key: 'gems',
+        title: HIDDEN_GEMS_NAME,
+        artwork: coverOf(hidden),
+        onPress: () => router.push(`/playlist/${HIDDEN_GEMS_ID}`),
       });
     }
     if (data.own.length) {
@@ -324,7 +333,7 @@ export function HomeScreen() {
         onPress: () => play(data.own, 0, 'Your music', true, true),
       });
     }
-    for (const groove of data.grooves.slice(0, 3)) {
+    for (const groove of data.grooves.slice(0, 2)) {
       tiles.push({
         key: groove.id,
         title: groove.name,
@@ -340,8 +349,8 @@ export function HomeScreen() {
         onPress: () => router.push(`/playlist/${playlist.id}`),
       });
     }
-    return tiles.slice(0, 6);
-  }, [data, mix, play, router]);
+    return tiles.slice(0, 8);
+  }, [data, mix, nextWave, hidden, play, router]);
 
   if (local.error && !data) {
     return (
@@ -351,13 +360,13 @@ export function HomeScreen() {
     );
   }
 
-  const name = profile?.displayName?.split(' ')[0];
   const importing =
     ingest.phase !== 'idle' &&
     ingest.phase !== 'done' &&
     ingest.phase !== 'error' &&
     ingest.phase !== 'cancelled';
-  const tileWidth = (Math.min(width, 900) - gutter * 2 - spacing.sm) / 2;
+  const tileColumns = isTabletUp ? 4 : 2;
+  const tileWidth = (width - gutter * 2 - spacing.sm * (tileColumns - 1)) / tileColumns;
   const coverWidth = isTabletUp ? 180 : Math.min(160, shelfCardWidth + 8);
 
   return (
@@ -382,29 +391,9 @@ export function HomeScreen() {
             accessibilityLabel="Your profile"
             onPress={() => router.push('/profile')}
           >
-            <ProfileAvatar size={34} />
+            <ProfileAvatar size={38} />
           </Pressable>
-          <View style={{ flex: 1 }}>
-            <Txt variant="micro" tone="accent" uppercase numberOfLines={1}>
-              {dayAndTime()}
-            </Txt>
-            <Txt variant={isTabletUp ? 'display' : 'title1'} numberOfLines={1}>
-              {name ? `${greeting()}, ${name}` : greeting()}
-            </Txt>
-          </View>
-          {/* Pulse Radio: always on, one tap away, in the colour of the mark. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open Pulse Radio, live freestyles"
-            onPress={() => router.push('/radio')}
-            style={({ pressed }) => [styles.radioButton, pressed && { opacity: 0.85 }]}
-          >
-            <View style={styles.liveDot} />
-            <Ionicons name="radio" size={18} color={colors.onAccent} />
-            <Txt variant="callout" tone="onAccent">
-              Radio
-            </Txt>
-          </Pressable>
+          <View style={{ flex: 1 }} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add music from this device"
@@ -419,8 +408,12 @@ export function HomeScreen() {
             hitSlop={8}
             onPress={() => router.push('/notifications')}
           >
-            <Ionicons name="notifications-outline" size={22} color={colors.text} />
-            {!!data?.unread && <View style={styles.dot} />}
+            <Ionicons name="notifications-outline" size={24} color={colors.text} />
+            {!!data?.unread && (
+              <View style={styles.badge}>
+                <Txt style={styles.badgeText}>{data.unread > 9 ? '9+' : data.unread}</Txt>
+              </View>
+            )}
           </Pressable>
         </View>
 
@@ -450,21 +443,6 @@ export function HomeScreen() {
           />
         )}
 
-        {!!data?.counts.needsIdentification && data.counts.needsIdentification > identifyDismissed && (
-          <Banner
-            gutter={gutter}
-            icon="help-circle-outline"
-            tint={colors.warning}
-            title={`${pluralize(data.counts.needsIdentification, 'song')} need identifying`}
-            detail="Pulse wasn't sure enough to name these. Tap to pick the right match."
-            onPress={() => router.push('/identify')}
-            onDismiss={() => {
-              const count = data.counts.needsIdentification;
-              setIdentifyDismissed(count);
-              void setSetting(SETTINGS_KEYS.identifyBannerDismissed, String(count));
-            }}
-          />
-        )}
 
         {repair.running && (
           <Banner
@@ -483,51 +461,39 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* The headlines: big pencil-drawn cards for the three ways into new music. */}
-        {(mix.length > 0 || nextWave.length > 0) && (
-          <EditorialRow gutter={gutter} width={width} wide={isTabletUp}>
-            {(cardWidth, featureWidth, height) => [
-              mix.length > 0 && (
-                <EditorialCard
-                  key="mix"
-                  kicker="Made for you"
-                  title={YOUR_MIX_NAME}
-                  subtitle={`${pluralize(mix.length, 'song')} · your music and new finds`}
-                  artworkUrl={mix[0]?.artworkUrl ?? null}
-                  width={featureWidth}
-                  height={height}
-                  onOpen={() => router.push(`/playlist/${YOUR_MIX_ID}`)}
-                  onPlay={() => play(mix, 0, YOUR_MIX_NAME)}
-                />
-              ),
-              nextWave.length > 0 && (
-                <EditorialCard
-                  key="wave"
-                  kicker="New for you"
-                  title={NEXT_WAVE_NAME}
-                  subtitle={NEXT_WAVE_DESCRIPTION}
-                  artworkUrl={nextWave[1]?.artworkUrl ?? nextWave[0]?.artworkUrl ?? null}
-                  width={cardWidth}
-                  height={height}
-                  onOpen={() => router.push(`/playlist/${NEXT_WAVE_ID}`)}
-                  onPlay={() => play(nextWave, 0, NEXT_WAVE_NAME)}
-                />
-              ),
-              hidden.length > 0 && (
-                <EditorialCard
-                  key="gems"
-                  kicker="Under 10K listeners"
-                  title={HIDDEN_GEMS_NAME}
-                  subtitle={HIDDEN_GEMS_DESCRIPTION}
-                  artworkUrl={hidden[0]?.artworkUrl ?? null}
-                  width={cardWidth}
-                  height={height}
-                  onOpen={() => router.push(`/playlist/${HIDDEN_GEMS_ID}`)}
-                  onPlay={() => play(hidden, 0, HIDDEN_GEMS_NAME)}
-                />
-              ),
-            ]}
-          </EditorialRow>
+        {/* The quick-start grid: what they were last into. */}
+        {quickTiles.length > 1 && (
+          <Txt variant="title2" style={{ paddingHorizontal: gutter, marginBottom: spacing.md }}>
+            Previously
+          </Txt>
+        )}
+        {quickTiles.length > 1 && (
+          <View style={[styles.grid, { paddingHorizontal: gutter }]}>
+            {quickTiles.map((tile) => (
+              <Pressable
+                key={tile.key}
+                accessibilityRole="button"
+                accessibilityLabel={`Play ${tile.title}`}
+                onPress={tile.onPress}
+                style={({ pressed }) => [
+                  styles.tile,
+                  { width: tileWidth },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                {tile.icon ? (
+                  <View style={styles.tileIcon}>
+                    <Ionicons name={tile.icon} size={22} color={colors.onAccent} />
+                  </View>
+                ) : (
+                  <Cover artwork={tile.artwork} size={56} radius={0} />
+                )}
+                <Txt variant="callout" numberOfLines={2} style={{ flex: 1 }}>
+                  {tile.title}
+                </Txt>
+              </Pressable>
+            ))}
+          </View>
         )}
 
         {/* Today's discoveries */}
@@ -561,36 +527,6 @@ export function HomeScreen() {
               />
             )}
           </Section>
-        )}
-
-        {/* The quick-start grid */}
-        {quickTiles.length > 1 && (
-          <View style={[styles.grid, { paddingHorizontal: gutter }]}>
-            {quickTiles.map((tile) => (
-              <Pressable
-                key={tile.key}
-                accessibilityRole="button"
-                accessibilityLabel={`Play ${tile.title}`}
-                onPress={tile.onPress}
-                style={({ pressed }) => [
-                  styles.tile,
-                  { width: tileWidth },
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                {tile.icon ? (
-                  <View style={styles.tileIcon}>
-                    <Ionicons name={tile.icon} size={22} color={colors.onAccent} />
-                  </View>
-                ) : (
-                  <Cover artwork={tile.artwork} size={56} radius={0} />
-                )}
-                <Txt variant="callout" numberOfLines={2} style={{ flex: 1 }}>
-                  {tile.title}
-                </Txt>
-              </Pressable>
-            ))}
-          </View>
         )}
 
         {/* Their music, organised into playlists */}
@@ -858,59 +794,10 @@ function coverOf(tracks: Track[]): (string | null)[] {
 }
 
 /** One cover, or a two-by-two collage when a playlist has four to show. */
-/** "Tuesday evening" — the line over the greeting. */
-function dayAndTime(date = new Date()): string {
-  const day = date.toLocaleDateString(undefined, { weekday: 'long' });
-  const hour = date.getHours();
-  const part = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : hour < 22 ? 'evening' : 'night';
-  return `${day} ${part}`;
-}
-
 /**
  * Your Mix as the page's headline: its cover blurred behind it, the artists in
  * it named, and play a tap away.
  */
-/**
- * The row of editorial cards. On a wide screen the first card takes twice the
- * room of the others; on a phone the cards sit side by side and swipe.
- */
-function EditorialRow({
-  gutter,
-  width,
-  wide,
-  children,
-}: {
-  gutter: number;
-  width: number;
-  wide: boolean;
-  children: (cardWidth: number, featureWidth: number, height: number) => (ReactNode | false)[];
-}) {
-  const inner = width - gutter * 2;
-  if (wide) {
-    const unit = (inner - spacing.xl * 3) / 4;
-    const cards = children(unit, unit * 2 + spacing.xl, 400).filter(Boolean);
-    return (
-      <View style={{ flexDirection: 'row', gap: spacing.xl, paddingHorizontal: gutter, marginBottom: spacing.xxxl }}>
-        {cards}
-      </View>
-    );
-  }
-  const card = Math.min(inner - 28, 360);
-  const cards = children(card, card, 340).filter(Boolean);
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      snapToInterval={card + spacing.md}
-      decelerationRate="fast"
-      contentContainerStyle={{ gap: spacing.md, paddingHorizontal: gutter }}
-      style={{ marginBottom: spacing.xxl }}
-    >
-      {cards}
-    </ScrollView>
-  );
-}
-
 /** Up to two songs from each shelf in turn, so the mix of reasons stays wide. */
 function interleaveShelves(shelves: RecommendationShelf[], size: number): Track[] {
   const out: Track[] = [];
@@ -1120,30 +1007,21 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: spacing.md,
       marginBottom: spacing.sm,
     },
-    radioButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      height: 38,
-      paddingHorizontal: 14,
-      borderRadius: 19,
-      backgroundColor: colors.accent,
-    },
-    liveDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 4,
-      backgroundColor: colors.danger,
-    },
-    dot: {
+    badge: {
       position: 'absolute',
-      top: -1,
-      right: -1,
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
+      top: -6,
+      right: -8,
+      minWidth: 18,
+      height: 18,
+      paddingHorizontal: 4,
+      borderRadius: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.danger,
+      borderWidth: 2,
+      borderColor: colors.background,
     },
+    badgeText: { color: '#FFFFFF', fontFamily: fonts.bold, fontSize: 10, lineHeight: 12 },
     discoveryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xl },
     grid: {
       flexDirection: 'row',

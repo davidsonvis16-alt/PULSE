@@ -164,13 +164,14 @@ export const spacing = {
   huge: 44,
 } as const;
 
+/** Square-ish on purpose: cards, covers and buttons have small, crisp corners. */
 export const radii = {
-  xs: 6,
-  sm: 10,
-  md: 14,
-  lg: 18,
-  xl: 24,
-  xxl: 32,
+  xs: 2,
+  sm: 4,
+  md: 4,
+  lg: 6,
+  xl: 8,
+  xxl: 10,
   pill: 999,
 } as const;
 
