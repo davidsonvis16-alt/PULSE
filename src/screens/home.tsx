@@ -50,6 +50,7 @@ import {
 } from '@/src/discovery/hidden-gems';
 import { searchDeezerTracks } from '@/src/providers/music/adapters/deezer';
 import { oneCoverEach } from '@/src/discovery/variety';
+import { indieTrending } from '@/src/providers/music/adapters/audius';
 import { ChartRow } from '@/src/ui/chart-row';
 import { Artwork } from '@/src/ui/artwork';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
@@ -245,6 +246,8 @@ export function HomeScreen() {
   );
 
   const moodCovers = useAsync(() => loadMoodCovers().catch(() => []), []);
+  // Whole songs, not previews: independent artists stream their own music in full.
+  const indie = useAsync(() => indieTrending(undefined, 16).catch(() => []), []);
 
   // A newer Android app on GitHub, unless this version's banner was closed.
   const update = useAsync(async () => {
@@ -538,6 +541,30 @@ export function HomeScreen() {
                   height={isTabletUp ? 284 : 232}
                   onOpen={() => router.push(card.href as never)}
                   onPlay={() => play(card.tracks, 0, card.title)}
+                />
+              )}
+            />
+          </Section>
+        )}
+
+        {/* Full songs from independent artists */}
+        {!!indie.data?.length && (
+          <Section
+            title="Full songs from indie artists"
+            subtitle="Played start to finish, uploaded by the artists themselves"
+            gutter={gutter}
+            onSeeAll={() => router.push('/indie')}
+          >
+            <Shelf
+              data={oneCoverEach(indie.data)}
+              gutter={gutter}
+              keyExtractor={(track) => track.id}
+              renderItem={(track) => (
+                <DiscoveryCard
+                  track={track}
+                  width={148}
+                  onPlay={() => play(indie.data!, Math.max(0, indie.data!.indexOf(track as never)), 'Indie')}
+                  onMore={() => actions.openTrack(track, { queue: indie.data! })}
                 />
               )}
             />

@@ -1,6 +1,7 @@
 import { itunesProvider, ITUNES_PROVIDER_ID } from '@/src/providers/music/adapters/itunes';
 import { localProvider } from '@/src/providers/music/adapters/local';
 import { deezerProvider } from '@/src/providers/music/adapters/deezer';
+import { audiusProvider } from '@/src/providers/music/adapters/audius';
 import type { MusicProvider } from '@/src/providers/music/types';
 import { freestyleProvider } from '@/src/radio/freestyle-provider';
 
@@ -23,6 +24,8 @@ const registry = new Map<string, MusicProvider>([
   [freestyleProvider.id, freestyleProvider],
   // A second catalogue for discovery, so music one shop lacks is not missed.
   [deezerProvider.id, deezerProvider],
+  // Independent music, streamed in full, on the Indie page.
+  [audiusProvider.id, audiusProvider],
 ]);
 
 let activeProviderId = itunesProvider.id;

@@ -59,6 +59,7 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
     { label: 'Liked songs', detail: 'Everything you hearted', icon: 'heart', href: '/collection/favorites' },
     { label: 'Downloaded', detail: 'Plays with no connection', icon: 'arrow-down-circle', href: '/downloads' },
     { label: 'Pulse Radio', detail: 'Live freestyles', icon: 'radio', href: '/radio' },
+    { label: 'Indie', detail: 'Full songs from independent artists', icon: 'musical-notes', href: '/indie' },
   ];
 
   return (
