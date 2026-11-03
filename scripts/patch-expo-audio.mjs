@@ -58,3 +58,68 @@ if (after !== before) {
   fs.writeFileSync(file, after);
   console.log('expo-audio: notification buttons set to previous / next');
 }
+
+// Samsung (and other phones) draw their own media controls from the actions
+// the session says the player supports, ignoring custom buttons. So the player
+// handed to the session claims previous / next and gives up the 10-second
+// jumps: then the phone shows ⏮ ⏭, and they do what Pulse understands.
+const SKIP_PLAYER = `
+
+/** Pulse: previous / next on the phone's controls, mapped onto one song. */
+@OptIn(UnstableApi::class)
+class PulseSkipPlayer(player: Player) : androidx.media3.common.ForwardingPlayer(player) {
+  override fun getAvailableCommands(): Player.Commands =
+    super.getAvailableCommands().buildUpon()
+      .add(Player.COMMAND_SEEK_TO_NEXT)
+      .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+      .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+      .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+      .remove(Player.COMMAND_SEEK_FORWARD)
+      .remove(Player.COMMAND_SEEK_BACK)
+      .build()
+
+  override fun isCommandAvailable(command: Int): Boolean = availableCommands.contains(command)
+  override fun hasNextMediaItem(): Boolean = true
+  override fun hasPreviousMediaItem(): Boolean = true
+  override fun seekToNext() = toEnd()
+  override fun seekToNextMediaItem() = toEnd()
+  override fun seekToPrevious() = seekTo(0)
+  override fun seekToPreviousMediaItem() = seekTo(0)
+
+  // The end of the song: Pulse then plays the next one as if it had finished.
+  private fun toEnd() {
+    val length = duration
+    if (length > 0) seekTo(length)
+  }
+}
+`;
+
+edit(file, (text) => {
+  let next = text.replace(
+    'MediaSession.Builder(this, player.ref)',
+    'MediaSession.Builder(this, PulseSkipPlayer(player.ref))',
+  );
+  if (!next.includes('class PulseSkipPlayer')) next = next.trimEnd() + '\n' + SKIP_PLAYER;
+  return next;
+});
+
+edit(callback, (text) =>
+  text
+    .replace(
+      `            .add(Player.COMMAND_SEEK_FORWARD)
+            .add(Player.COMMAND_SEEK_BACK)
+            // Remove track navigation commands
+            .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+            .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+            .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .remove(Player.COMMAND_SEEK_TO_NEXT)`,
+      `            // Pulse: previous / next instead of 10-second jumps.
+            .remove(Player.COMMAND_SEEK_FORWARD)
+            .remove(Player.COMMAND_SEEK_BACK)
+            .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+            .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+            .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .add(Player.COMMAND_SEEK_TO_NEXT)`,
+    ),
+);
+

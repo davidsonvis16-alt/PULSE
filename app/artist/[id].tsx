@@ -4,8 +4,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
+import { ownedByArtist, resolveOwnedAll } from '@/src/library/owned';
 import type { Album, Artist, MusicEvent, Track } from '@/src/core/types';
-import { formatShortDate } from '@/src/core/format';
+import { formatShortDate, pluralize } from '@/src/core/format';
 import { providerFor } from '@/src/providers/music';
 import { eventProvider } from '@/src/providers/events';
 import { upsertArtist } from '@/src/db/repos/catalog';
@@ -39,6 +40,8 @@ interface ArtistPageData {
   singles: Album[];
   related: Artist[];
   events: MusicEvent[];
+  /** Their songs already on this phone. */
+  mine: Track[];
 }
 
 /** The artist page: their music, their latest, and where to see them live. */
@@ -78,7 +81,23 @@ export default function ArtistScreen() {
       void cacheEvents(events);
     }
 
-    return { artist, topTracks, albums, singles, related, events };
+    // Their own copies play in full, and their own songs by this artist lead the page.
+    const [popular, mine] = await Promise.all([
+      resolveOwnedAll(topTracks),
+      ownedByArtist(artist.name).catch(() => [] as Track[]),
+    ]);
+    const newestFirst = (list: Album[]) =>
+      [...list].sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''));
+
+    return {
+      artist,
+      topTracks: popular,
+      albums: newestFirst(albums),
+      singles: newestFirst(singles),
+      related,
+      events,
+      mine,
+    };
   }, [id]);
 
   const artist = state.data?.artist;
@@ -212,29 +231,71 @@ export default function ArtistScreen() {
               </View>
             ) : (
               <View style={{ paddingHorizontal: gutter }}>
-                {tab === 'popular' &&
-                  (state.data!.topTracks.length === 0 ? (
-                    <EmptyState icon="musical-notes-outline" title="No songs listed" compact />
-                  ) : (
-                    state.data!.topTracks.map((track, index) => (
-                      <TrackRow
-                        key={track.id}
-                        track={track}
-                        index={index}
-                        showArtwork
-                        subtitleOverride={track.albumTitle ?? artist.name}
-                        isDownloaded={downloads.byTrackId[track.id]?.status === 'completed'}
-                        onPress={() =>
-                          void playerStore.playQueue(state.data!.topTracks, {
-                            startIndex: index,
-                            context: 'artist',
-                            contextLabel: artist.name,
-                          })
-                        }
-                        onMore={() => actions.openTrack(track, { queue: state.data!.topTracks })}
+                {tab === 'popular' && (
+                  <View style={{ gap: spacing.xl }}>
+                    {/* What they already have by this artist comes first. */}
+                    {state.data!.mine.length > 0 && (
+                      <View>
+                        <SectionHeader
+                          title={`Your songs by ${artist.name}`}
+                          subtitle={`${pluralize(state.data!.mine.length, 'song')} on this phone · full length`}
+                        />
+                        {state.data!.mine.slice(0, 10).map((track, index) => (
+                          <TrackRow
+                            key={`mine-${track.id}`}
+                            track={track}
+                            showArtwork
+                            onPress={() =>
+                              void playerStore.playQueue(state.data!.mine, {
+                                startIndex: index,
+                                context: 'library',
+                                contextLabel: `${artist.name} · your songs`,
+                              })
+                            }
+                            onMore={() => actions.openTrack(track, { queue: state.data!.mine })}
+                          />
+                        ))}
+                      </View>
+                    )}
+
+                    <View>
+                      <SectionHeader title="Popular" />
+                      {state.data!.topTracks.length === 0 ? (
+                        <EmptyState icon="musical-notes-outline" title="No songs listed" compact />
+                      ) : (
+                        state.data!.topTracks.slice(0, 5).map((track, index) => (
+                          <TrackRow
+                            key={track.id}
+                            track={track}
+                            index={index}
+                            showArtwork
+                            subtitleOverride={track.albumTitle ?? artist.name}
+                            isDownloaded={downloads.byTrackId[track.id]?.status === 'completed'}
+                            onPress={() =>
+                              void playerStore.playQueue(state.data!.topTracks, {
+                                startIndex: index,
+                                context: 'artist',
+                                contextLabel: artist.name,
+                              })
+                            }
+                            onMore={() => actions.openTrack(track, { queue: state.data!.topTracks })}
+                          />
+                        ))
+                      )}
+                    </View>
+
+                    {state.data!.albums.length > 0 && (
+                      <ReleaseRow title="Albums" releases={state.data!.albums} onSeeAll={() => setTab('albums')} />
+                    )}
+                    {state.data!.singles.length > 0 && (
+                      <ReleaseRow
+                        title="Singles & EPs"
+                        releases={state.data!.singles}
+                        onSeeAll={() => setTab('singles')}
                       />
-                    ))
-                  ))}
+                    )}
+                  </View>
+                )}
 
                 {tab === 'albums' && (
                   <ReleaseGrid
@@ -346,6 +407,26 @@ export default function ArtistScreen() {
       </ScrollView>
     </View>
   );
+
+  /** A row of releases, newest first, each with its year. */
+  function ReleaseRow({ title, releases, onSeeAll }: { title: string; releases: Album[]; onSeeAll: () => void }) {
+    const cardWidth = isTabletUp ? 180 : 140;
+    return (
+      <View>
+        <SectionHeader title={title} actionLabel="See all" onAction={onSeeAll} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
+          {releases.slice(0, 12).map((album) => (
+            <AlbumCard
+              key={album.id}
+              album={album}
+              width={cardWidth}
+              onPress={() => router.push(`/album/${encodeURIComponent(album.id)}`)}
+            />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
 
   function ReleaseGrid({ releases, emptyLabel }: { releases: Album[]; emptyLabel: string }) {
     if (releases.length === 0) {

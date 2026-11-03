@@ -244,7 +244,7 @@ class PlayerStore extends Store<PlayerState> {
     if (!last || now < this.ownJumpUntil || this.isRadio || !status.isLoaded) return;
     // Repeat-one wraps to the start by itself.
     if (this.player?.loop) return;
-    if (ms < 1000 && last.ms > 2500) {
+    if (ms < 1000 && last.ms > 1500) {
       this.markOwnJump();
       void this.previous();
     }
@@ -555,7 +555,8 @@ class PlayerStore extends Store<PlayerState> {
           // The notification and lock screen draw it large: ask for a bigger cut.
           artworkUrl: track.artworkUrl?.replace(/\/\d+x\d+bb\./, '/1000x1000bb.') ?? undefined,
         },
-        { showSeekForward: true, showSeekBackward: true },
+        // The phone's own previous / next buttons replace these (scripts/patch-expo-audio.mjs).
+        { showSeekForward: false, showSeekBackward: false },
       );
     } catch {
       /* no media session on this platform */

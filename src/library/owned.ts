@@ -127,3 +127,17 @@ export async function libraryArtistNames(limit = 200): Promise<string[]> {
     .slice(0, limit)
     .map((entry) => entry.name);
 }
+
+/** Songs on the phone by this artist, including ones they are featured on. */
+export async function ownedByArtist(name: string): Promise<Track[]> {
+  const wanted = artistsOf(name);
+  if (wanted.size === 0) return [];
+  const map = await ownedIndex();
+  const out: Track[] = [];
+  for (const list of map.values()) {
+    for (const track of list) {
+      if ([...artistsOf(track.artistName)].some((artist) => wanted.has(artist))) out.push(track);
+    }
+  }
+  return out.sort((a, b) => a.title.localeCompare(b.title));
+}
