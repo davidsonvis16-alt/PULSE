@@ -34,7 +34,15 @@ CI=1 npx expo prebuild --platform android --clean --no-install
 
 # Real phones only (not emulators), which roughly halves the build time. The
 # build tool's default 2 GB runs out while packing the app's code, so it gets 4.
+#
+# Gentle on the laptop: two jobs at a time, Kotlin compiled inside the build
+# rather than in a second background program, and nothing left running after.
+# A build at full tilt filled 14 GB of memory alongside an open editor and a
+# browser and froze the machine; this way takes a little longer and does not.
 (cd android && ./gradlew assembleRelease \
+  --no-daemon \
+  --max-workers=2 \
+  -Pkotlin.compiler.execution.strategy=in-process \
   -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
   -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
   -Pandroid.injected.signing.store.file="$PULSE_KEYSTORE" \
