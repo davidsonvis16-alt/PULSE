@@ -544,26 +544,39 @@ class PlayerStore extends Store<PlayerState> {
    * seconds either way — which Pulse turns into previous and next (see
    * notificationSkip), since the queue lives here in JS, not in the session.
    */
+  /** True once the notification is up; later songs only update its details. */
+  private notificationActive = false;
+
   private showNotification(track: Track) {
+    const metadata = {
+      title: track.title,
+      artist: track.artistName,
+      albumTitle: track.albumTitle ?? undefined,
+      // The notification and lock screen draw it large: ask for a bigger cut.
+      artworkUrl: track.artworkUrl?.replace(/\/\d+x\d+bb\./, '/1000x1000bb.') ?? undefined,
+    };
     try {
+      if (this.notificationActive) {
+        // Rebuilding it for every song tore it down and started it again, and
+        // Android does not let an app in the background start one: the card
+        // vanished after a skip from the phone's controls. Updating keeps it.
+        this.player?.updateLockScreenMetadata(metadata);
+        return;
+      }
       this.player?.setActiveForLockScreen(
         true,
-        {
-          title: track.title,
-          artist: track.artistName,
-          albumTitle: track.albumTitle ?? undefined,
-          // The notification and lock screen draw it large: ask for a bigger cut.
-          artworkUrl: track.artworkUrl?.replace(/\/\d+x\d+bb\./, '/1000x1000bb.') ?? undefined,
-        },
+        metadata,
         // The phone's own previous / next buttons replace these (scripts/patch-expo-audio.mjs).
         { showSeekForward: false, showSeekBackward: false },
       );
+      this.notificationActive = true;
     } catch {
       /* no media session on this platform */
     }
   }
 
   private hideNotification() {
+    this.notificationActive = false;
     try {
       this.player?.clearLockScreenControls();
     } catch {
