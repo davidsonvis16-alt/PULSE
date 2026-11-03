@@ -14,13 +14,22 @@ import { coreTitle, normalise } from '@/src/ingestion/identify/text';
  * import rather than on every lookup.
  */
 
-/** Songs on the phone, by title; each title can hold several artists' songs. */
+/** Songs on the phone, by every title they could go by. */
 let index: Map<string, Track[]> | null = null;
 let building: Promise<Map<string, Track[]>> | null = null;
+/** Every artist each song on the phone can be linked to, by track id. */
+let artistsById = new Map<string, Set<string>>();
 
-/** The feature credit is dropped from the title so it matches both ways. */
+/**
+ * A title reduced to the song's name: the feature credit and the bits files
+ * pick up from video sites — "(Official Audio)", "[Lyrics]", "Official Music
+ * Video" — are dropped so the same song matches however it was saved.
+ */
 function titleKey(title: string): string {
-  return normalise(coreTitle(title));
+  const clean = title
+    .replace(/[([][^)\]]*\b(official|audio|video|lyrics?|lyric video|visuali[sz]er|music video|hd|hq|explicit|clean|remaster(ed)?)\b[^)\]]*[)\]]/gi, ' ')
+    .replace(/\b(official (music )?video|official audio|lyric video|lyrics)\b/gi, ' ');
+  return normalise(coreTitle(clean));
 }
 
 /**
@@ -33,16 +42,43 @@ function artistsOf(credit: string): Set<string> {
     credit
       .split(/\s*(?:,|&|\+|\/|;)\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|x)\s+/i)
       .map((name) => normalise(name))
-      .filter((name) => name.length > 0),
+      .filter((name) => name.length > 0 && !UNKNOWN.has(name)),
   );
 }
 
-/** The same song if the title matches and the credits share at least one artist. */
+/** What tags say when they do not know. */
+const UNKNOWN = new Set(['unknown artist', 'unknown', 'artist', 'various artists', 'va', '<unknown>']);
+
+/**
+ * "Juice WRLD - Lucid Dreams", "03. Juice WRLD - Lucid Dreams (Official Audio)":
+ * the artist and song a file or title names, when it is written that way.
+ */
+function splitNamed(text: string): { artist: string; title: string } | null {
+  const clean = text
+    .replace(/\.[a-z0-9]{2,4}$/i, '')
+    .replace(/^\s*\d{1,3}\s*[.)_-]?\s+/, '')
+    .replace(/_/g, ' ');
+  const parts = clean.split(/\s+[-–—]\s+/);
+  if (parts.length < 2) return null;
+  return { artist: parts[0], title: parts.slice(1).join(' - ') };
+}
+
+/**
+ * The same song if a name matches and the artists agree. A song of theirs
+ * that was never identified (artist unknown) matches on its name alone, as
+ * long as the name is long enough not to be a coincidence ("Intro" is not).
+ */
 function findMine(map: Map<string, Track[]>, track: Track): Track | null {
-  const candidates = map.get(titleKey(track.title));
+  const key = titleKey(track.title);
+  const candidates = map.get(key);
   if (!candidates?.length) return null;
   const theirs = artistsOf(track.artistName);
-  return candidates.find((mine) => [...artistsOf(mine.artistName)].some((name) => theirs.has(name))) ?? null;
+  const byArtist = candidates.find((mine) =>
+    [...(artistsById.get(mine.id) ?? [])].some((name) => theirs.has(name)),
+  );
+  if (byArtist) return byArtist;
+  if (key.length < 5) return null;
+  return candidates.find((mine) => (artistsById.get(mine.id)?.size ?? 0) === 0) ?? null;
 }
 
 export async function ownedIndex(): Promise<Map<string, Track[]>> {
@@ -52,13 +88,29 @@ export async function ownedIndex(): Promise<Map<string, Track[]>> {
   building = (async () => {
     const rows = await listLocalTracks({ limit: 5000 }).catch(() => []);
     const map = new Map<string, Track[]>();
-    for (const row of rows) {
-      const key = titleKey(row.track.title);
+    const artists = new Map<string, Set<string>>();
+    const add = (key: string, track: Track) => {
+      if (!key) return;
       const list = map.get(key) ?? [];
       // Rescans keep the copy already indexed: the first one stays first.
-      if (!list.some((t) => t.id === row.track.id)) list.push(row.track);
+      if (!list.some((t) => t.id === track.id)) list.push(track);
       map.set(key, list);
+    };
+    for (const row of rows) {
+      const track = row.track;
+      const known = artistsOf(track.artistName);
+      add(titleKey(track.title), track);
+      // Names written into the title or the file name count too.
+      for (const named of [splitNamed(track.title), splitNamed(row.filename ?? '')]) {
+        if (!named) continue;
+        add(titleKey(named.title), track);
+        for (const name of artistsOf(named.artist)) known.add(name);
+      }
+      const plainFile = (row.filename ?? '').replace(/\.[a-z0-9]{2,4}$/i, '');
+      if (plainFile && !splitNamed(plainFile)) add(titleKey(plainFile), track);
+      artists.set(track.id, known);
     }
+    artistsById = artists;
     index = map;
     return map;
   })();
@@ -112,7 +164,8 @@ export async function resolveOwnedAll(tracks: Track[]): Promise<Track[]> {
 export async function libraryArtistNames(limit = 200): Promise<string[]> {
   const owned = await ownedIndex();
   const counts = new Map<string, { name: string; count: number }>();
-  for (const track of [...owned.values()].flat()) {
+  const unique = new Map([...owned.values()].flat().map((track) => [track.id, track]));
+  for (const track of unique.values()) {
     for (const part of track.artistName.split(/\s*(?:,|&|\+|\bx\b|\band\b|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b)\s*/i)) {
       const name = part.trim();
       if (name.length < 2 || /^unknown artist$/i.test(name)) continue;
@@ -133,11 +186,12 @@ export async function ownedByArtist(name: string): Promise<Track[]> {
   const wanted = artistsOf(name);
   if (wanted.size === 0) return [];
   const map = await ownedIndex();
-  const out: Track[] = [];
+  const out = new Map<string, Track>();
   for (const list of map.values()) {
     for (const track of list) {
-      if ([...artistsOf(track.artistName)].some((artist) => wanted.has(artist))) out.push(track);
+      // Artists from the tag, the title or the file name all count.
+      if ([...(artistsById.get(track.id) ?? [])].some((artist) => wanted.has(artist))) out.set(track.id, track);
     }
   }
-  return out.sort((a, b) => a.title.localeCompare(b.title));
+  return [...out.values()].sort((a, b) => a.title.localeCompare(b.title));
 }

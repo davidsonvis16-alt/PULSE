@@ -4,7 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
-import { ownedByArtist, resolveOwnedAll } from '@/src/library/owned';
+import { ownedByArtist, ownedMatchOf } from '@/src/library/owned';
+import { Ionicons } from '@expo/vector-icons';
 import type { Album, Artist, MusicEvent, Track } from '@/src/core/types';
 import { formatShortDate, pluralize } from '@/src/core/format';
 import { providerFor } from '@/src/providers/music';
@@ -42,6 +43,8 @@ interface ArtistPageData {
   events: MusicEvent[];
   /** Their songs already on this phone. */
   mine: Track[];
+  /** Popular songs they already have (ticked, played from their own copy). */
+  owned: Set<string>;
 }
 
 /** The artist page: their music, their latest, and where to see them live. */
@@ -82,16 +85,18 @@ export default function ArtistScreen() {
     }
 
     // Their own copies play in full, and their own songs by this artist lead the page.
-    const [popular, mine] = await Promise.all([
-      resolveOwnedAll(topTracks),
+    const [ownedMatches, mine] = await Promise.all([
+      Promise.all(topTracks.map((t) => ownedMatchOf(t).catch(() => null))),
       ownedByArtist(artist.name).catch(() => [] as Track[]),
     ]);
+    const owned = new Set(topTracks.filter((_, i) => !!ownedMatches[i]).map((t) => t.id));
     const newestFirst = (list: Album[]) =>
       [...list].sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''));
 
     return {
       artist,
-      topTracks: popular,
+      topTracks,
+      owned,
       albums: newestFirst(albums),
       singles: newestFirst(singles),
       related,
@@ -269,7 +274,16 @@ export default function ArtistScreen() {
                             track={track}
                             index={index}
                             showArtwork
-                            subtitleOverride={track.albumTitle ?? artist.name}
+                            subtitleOverride={
+                              state.data!.owned.has(track.id)
+                                ? `On your phone · ${track.albumTitle ?? artist.name}`
+                                : (track.albumTitle ?? artist.name)
+                            }
+                            trailing={
+                              state.data!.owned.has(track.id) ? (
+                                <Ionicons name="checkmark-circle" size={20} color={colors.accentInk} />
+                              ) : undefined
+                            }
                             isDownloaded={downloads.byTrackId[track.id]?.status === 'completed'}
                             onPress={() =>
                               void playerStore.playQueue(state.data!.topTracks, {

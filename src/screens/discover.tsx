@@ -17,7 +17,7 @@ import { musicProvider } from '@/src/providers/music';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
 import { addTrackToLibrary, getLibraryTracks, isInLibrary } from '@/src/db/repos/library';
-import { resolveOwnedAll } from '@/src/library/owned';
+import { ownedMatchOf } from '@/src/library/owned';
 import { recordSearch } from '@/src/db/repos/settings';
 import { listPlaylists, type Playlist } from '@/src/db/repos/playlists';
 import {
@@ -93,10 +93,20 @@ export function DiscoverScreen() {
         signal,
       });
       void recordSearch(debounced);
-      // Songs they own come back as their own files: whole songs.
-      return { ...found, tracks: await resolveOwnedAll(found.tracks) };
+      return found;
     },
     [debounced],
+  );
+
+  // Which results they already have (matched by name, identified or not): ticked,
+  // and played from their own file when tapped.
+  const ownedIds = useAsync<Set<string>>(
+    async () => {
+      const tracks = results.data?.tracks ?? [];
+      const matches = await Promise.all(tracks.map((t) => ownedMatchOf(t).catch(() => null)));
+      return new Set(tracks.filter((_, i) => !!matches[i]).map((t) => t.id));
+    },
+    [results.data],
   );
 
   // Their own songs that match, shown first: search finds what they have too.
@@ -239,6 +249,7 @@ export function DiscoverScreen() {
             filter={filter}
             results={results.data}
             mine={mine.data ?? []}
+            ownedIds={ownedIds.data ?? EMPTY_IDS}
             playlists={playlistMatches.data ?? []}
             gutter={gutter}
             shelfCardWidth={shelfCardWidth}
@@ -336,12 +347,14 @@ function BrowseState({
 }
 
 const EMPTY_RESULTS: SearchResults = { tracks: [], artists: [], albums: [] };
+const EMPTY_IDS = new Set<string>();
 
 function SearchResultsView({
   query,
   filter,
   results,
   mine,
+  ownedIds,
   playlists,
   gutter,
   shelfCardWidth,
@@ -353,6 +366,8 @@ function SearchResultsView({
   results: SearchResults | null | undefined;
   /** Matching songs from their own library. */
   mine: Track[];
+  /** Results they already have. */
+  ownedIds: Set<string>;
   playlists: Playlist[];
   gutter: number;
   shelfCardWidth: number;
@@ -437,6 +452,7 @@ function SearchResultsView({
                 track={track}
                 queue={(results ?? EMPTY_RESULTS).tracks}
                 index={index}
+                owned={ownedIds.has(track.id)}
               />
             ))}
           </View>
@@ -570,7 +586,19 @@ function SearchResultsView({
 }
 
 /** A result row carrying its own quick actions: play, download, add, share. */
-function SearchTrackRow({ track, queue, index }: { track: Track; queue: Track[]; index: number }) {
+function SearchTrackRow({
+  track,
+  queue,
+  index,
+  owned,
+}: {
+  track: Track;
+  queue: Track[];
+  index: number;
+  /** Already on their phone: ticked, and played from their own copy. */
+  owned?: boolean;
+}) {
+  const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const actions = useTrackActions();
   const share = useShareSheet();
@@ -616,6 +644,14 @@ function SearchTrackRow({ track, queue, index }: { track: Track; queue: Track[];
           <Txt variant="caption" tone="muted" numberOfLines={1}>
             {[track.artistName, track.albumTitle].filter(Boolean).join(' · ')}
           </Txt>
+          {owned && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.accentInk} />
+              <Txt variant="caption" tone="accent">
+                On your phone · plays in full
+              </Txt>
+            </View>
+          )}
           {/* When a song came out is part of knowing what it is. */}
           {!!track.releaseDate && (
             <Txt variant="caption" tone="faint" numberOfLines={1}>
