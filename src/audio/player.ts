@@ -5,7 +5,13 @@ import { providerFor } from '@/src/providers/music';
 import { LOCAL_PROVIDER_ID } from '@/src/db/repos/local';
 import { downloadManager } from '@/src/downloads/manager';
 import { beginPlay, updatePlay, type PlayContext } from '@/src/db/repos/history';
-import { getPlaybackPrefs, setPlaybackPrefs } from '@/src/db/repos/settings';
+import {
+  getJsonSetting,
+  getPlaybackPrefs,
+  setJsonSetting,
+  setPlaybackPrefs,
+  SETTINGS_KEYS,
+} from '@/src/db/repos/settings';
 import { publishListening } from '@/src/social/sync';
 import { ownedMatchOf } from '@/src/library/owned';
 import { FREESTYLE_PROVIDER_ID } from '@/src/radio/freestyle-provider';
@@ -52,6 +58,15 @@ export interface PlayerState {
 export interface ProgressState {
   positionMs: number;
   durationMs: number;
+}
+
+interface SavedSession {
+  queue: Track[];
+  index: number;
+  positionMs: number;
+  durationMs: number;
+  context: PlayContext;
+  contextLabel: string | null;
 }
 
 const EMPTY: PlayerState = {
@@ -156,6 +171,58 @@ class PlayerStore extends Store<PlayerState> {
     this.subscription = this.player.addListener('playbackStatusUpdate', (status) =>
       this.onStatus(status),
     );
+    await this.restoreSession();
+  }
+
+  /* --------------------------------------------------- picking up again */
+
+  /** Where to start when play is pressed on a song brought back from last time. */
+  private resumeAtMs: number | null = null;
+  private lastSavedAt = 0;
+
+  /**
+   * Puts back what was playing when Pulse was last closed — the song, the
+   * queue around it and the exact second — paused, so pressing play carries on
+   * from there instead of starting over or from nothing.
+   */
+  private async restoreSession() {
+    if (this.getSnapshot().current) return;
+    const saved = await getJsonSetting<SavedSession | null>(SETTINGS_KEYS.playerSession, null).catch(() => null);
+    if (!saved?.queue?.length) return;
+    const index = Math.min(Math.max(0, saved.index), saved.queue.length - 1);
+    this.set({
+      queue: saved.queue,
+      index,
+      current: saved.queue[index],
+      isPlaying: false,
+      context: saved.context ?? 'library',
+      contextLabel: saved.contextLabel ?? null,
+    });
+    const at = saved.positionMs ?? 0;
+    this.resumeAtMs = at;
+    progressStore.update(at, saved.durationMs ?? 0);
+  }
+
+  /** Saved every few seconds while playing, and on every pause and song change. */
+  private saveSession(force = false) {
+    const now = Date.now();
+    if (!force && now - this.lastSavedAt < 4000) return;
+    this.lastSavedAt = now;
+    const state = this.getSnapshot();
+    if (!state.current || state.context === 'radio') return;
+    const { positionMs, durationMs } = progressStore.getSnapshot();
+    // A queue of hundreds is trimmed to the songs around the current one.
+    const start = Math.max(0, state.index - 50);
+    const queue = state.queue.slice(start, start + 200);
+    const session: SavedSession = {
+      queue,
+      index: state.index - start,
+      positionMs,
+      durationMs,
+      context: state.context,
+      contextLabel: state.contextLabel,
+    };
+    void setJsonSetting(SETTINGS_KEYS.playerSession, session).catch(() => {});
   }
 
   /** Where the last status update put the song, and when it arrived. */
@@ -164,10 +231,10 @@ class PlayerStore extends Store<PlayerState> {
   private ownJumpUntil = 0;
 
   /**
-   * The phone's media notification only offers "10 seconds back" and "10
-   * seconds forward" (expo-audio keeps the queue in JS, out of its reach).
-   * Pulse turns them into previous and next: a jump of about ten seconds that
-   * Pulse did not make itself came from those buttons.
+   * The media notification's "previous" button sends the song back to its
+   * start (see scripts/patch-expo-audio.mjs); "next" sends it to its end, which
+   * plays the next song the normal way. So a jump back to the start that Pulse
+   * did not make itself means "previous".
    */
   private notificationSkip(status: AudioStatus) {
     const ms = Math.round(status.currentTime * 1000);
@@ -175,18 +242,10 @@ class PlayerStore extends Store<PlayerState> {
     const last = this.lastSeen;
     this.lastSeen = { ms, at: now };
     if (!last || now < this.ownJumpUntil || this.isRadio || !status.isLoaded) return;
-    const expected = status.playing ? now - last.at : 0;
-    const jump = ms - last.ms - expected;
-    const TEN = 10_000;
-    if (jump > TEN - 2000 && jump < TEN + 2000) {
-      this.ownJumpUntil = now + 2000;
-      void this.next();
-    } else if (jump < -(TEN - 2000) && jump > -(TEN + 2000)) {
-      this.ownJumpUntil = now + 2000;
-      void this.previous();
-    } else if (ms < 1000 && last.ms > 1500 && last.ms < TEN + 2000 && jump < -1000) {
-      // "Back" in the first ten seconds lands on zero instead of ten back.
-      this.ownJumpUntil = now + 2000;
+    // Repeat-one wraps to the start by itself.
+    if (this.player?.loop) return;
+    if (ms < 1000 && last.ms > 2500) {
+      this.markOwnJump();
       void this.previous();
     }
   }
@@ -199,6 +258,7 @@ class PlayerStore extends Store<PlayerState> {
 
   private onStatus(status: AudioStatus) {
     this.notificationSkip(status);
+    if (status.playing) this.saveSession();
     progressStore.update(
       Math.max(0, Math.round(status.currentTime * 1000)),
       Math.max(0, Math.round((status.duration || 0) * 1000)),
@@ -313,6 +373,7 @@ class PlayerStore extends Store<PlayerState> {
   private async load(requested: Track, options: { startPositionMs?: number } = {}) {
     if (!this.player) await this.init();
     const token = ++this.loadToken;
+    this.resumeAtMs = null;
 
     this.stopHistory(false, true);
     progressStore.reset();
@@ -512,6 +573,15 @@ class PlayerStore extends Store<PlayerState> {
   /* -------------------------------------------------------------- controls */
 
   play() {
+    const state = this.getSnapshot();
+    // A song brought back from last time has not been opened yet: open it at
+    // the second it stopped.
+    if (this.resumeAtMs !== null && state.current && !state.source) {
+      const at = this.resumeAtMs;
+      this.resumeAtMs = null;
+      void this.load(state.current, { startPositionMs: at > 1000 ? at : undefined });
+      return;
+    }
     this.player?.play();
     this.set({ isPlaying: true });
   }
@@ -522,6 +592,7 @@ class PlayerStore extends Store<PlayerState> {
     this.set({ isPlaying: false });
     const { positionMs } = progressStore.getSnapshot();
     if (this.playId) void updatePlay(this.playId, positionMs);
+    this.saveSession(true);
   }
 
   toggle() {

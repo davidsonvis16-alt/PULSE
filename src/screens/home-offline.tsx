@@ -127,7 +127,7 @@ export function OfflineHome() {
                 : 'Your songs will play here'}
             </Txt>
           </View>
-          <Ionicons name="play-circle" size={40} color="#0A0B0A" />
+          <Ionicons name="play-circle" size={40} color={colors.onAccent} />
         </Pressable>
 
         {!!data?.playlists.length && (

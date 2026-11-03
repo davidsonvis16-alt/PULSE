@@ -16,7 +16,8 @@ import { formatDuration, formatReleaseDate } from '@/src/core/format';
 import { musicProvider } from '@/src/providers/music';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
-import { addTrackToLibrary, isInLibrary } from '@/src/db/repos/library';
+import { addTrackToLibrary, getLibraryTracks, isInLibrary } from '@/src/db/repos/library';
+import { resolveOwnedAll } from '@/src/library/owned';
 import { recordSearch } from '@/src/db/repos/settings';
 import { listPlaylists, type Playlist } from '@/src/db/repos/playlists';
 import {
@@ -92,7 +93,18 @@ export function DiscoverScreen() {
         signal,
       });
       void recordSearch(debounced);
-      return found;
+      // Songs they own come back as their own files: whole songs.
+      return { ...found, tracks: await resolveOwnedAll(found.tracks) };
+    },
+    [debounced],
+  );
+
+  // Their own songs that match, shown first: search finds what they have too.
+  const mine = useAsync<Track[]>(
+    async () => {
+      if (debounced.length < 2) return [];
+      const rows = await getLibraryTracks({ search: debounced, limit: 20 });
+      return rows;
     },
     [debounced],
   );
@@ -215,17 +227,18 @@ export function DiscoverScreen() {
             shelfCardWidth={shelfCardWidth}
             onMood={(id) => router.push(`/mood/${id}`)}
           />
-        ) : results.loading ? (
+        ) : results.loading && !mine.data?.length ? (
           <View style={{ paddingHorizontal: gutter, paddingTop: spacing.md }}>
             <SkeletonRows count={7} />
           </View>
-        ) : results.error ? (
+        ) : results.error && !mine.data?.length ? (
           <ErrorState error={results.error} onRetry={results.reload} />
         ) : (
           <SearchResultsView
             query={debounced}
             filter={filter}
             results={results.data}
+            mine={mine.data ?? []}
             playlists={playlistMatches.data ?? []}
             gutter={gutter}
             shelfCardWidth={shelfCardWidth}
@@ -322,10 +335,13 @@ function BrowseState({
   );
 }
 
+const EMPTY_RESULTS: SearchResults = { tracks: [], artists: [], albums: [] };
+
 function SearchResultsView({
   query,
   filter,
   results,
+  mine,
   playlists,
   gutter,
   shelfCardWidth,
@@ -335,6 +351,8 @@ function SearchResultsView({
   query: string;
   filter: Filter;
   results: SearchResults | null | undefined;
+  /** Matching songs from their own library. */
+  mine: Track[];
   playlists: Playlist[];
   gutter: number;
   shelfCardWidth: number;
@@ -346,11 +364,13 @@ function SearchResultsView({
   const router = useRouter();
 
   const nothing =
-    !results ||
-    (results.tracks.length === 0 &&
+    mine.length === 0 &&
+    (!results ||
+      results.tracks.length === 0) &&
+    (!results ||
       results.artists.length === 0 &&
-      results.albums.length === 0 &&
-      playlists.length === 0);
+      results.albums.length === 0) &&
+    playlists.length === 0;
 
   if (nothing) {
     return (
@@ -367,7 +387,7 @@ function SearchResultsView({
   const showAlbums = filter === 'all' || filter === 'albums';
   const showPlaylists = filter === 'all' || filter === 'playlists';
 
-  const topArtist = results!.artists[0];
+  const topArtist = results?.artists[0];
 
   return (
     <View style={{ gap: spacing.xxl, paddingTop: spacing.xs }}>
@@ -396,15 +416,26 @@ function SearchResultsView({
         </View>
       )}
 
-      {showTracks && results!.tracks.length > 0 && (
+      {showTracks && mine.length > 0 && (
+        <View>
+          <SectionHeader title="In your library" style={{ paddingHorizontal: gutter }} />
+          <View style={{ paddingHorizontal: gutter }}>
+            {mine.slice(0, filter === 'songs' ? 20 : 5).map((track, index) => (
+              <SearchTrackRow key={`mine-${track.id}`} track={track} queue={mine} index={index} />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {showTracks && !!results && results.tracks.length > 0 && (
         <View>
           <SectionHeader title="Songs" style={{ paddingHorizontal: gutter }} />
           <View style={{ paddingHorizontal: gutter }}>
-            {results!.tracks.slice(0, filter === 'songs' ? 50 : 8).map((track, index) => (
+            {(results ?? EMPTY_RESULTS).tracks.slice(0, filter === 'songs' ? 50 : 8).map((track, index) => (
               <SearchTrackRow
                 key={track.id}
                 track={track}
-                queue={results!.tracks}
+                queue={(results ?? EMPTY_RESULTS).tracks}
                 index={index}
               />
             ))}
@@ -412,12 +443,12 @@ function SearchResultsView({
         </View>
       )}
 
-      {showArtists && results!.artists.length > (filter === 'all' ? 1 : 0) && (
+      {showArtists && (results ?? EMPTY_RESULTS).artists.length > (filter === 'all' ? 1 : 0) && (
         <View>
           <SectionHeader title="Artists" style={{ paddingHorizontal: gutter }} />
           {filter === 'artists' ? (
             <View style={{ paddingHorizontal: gutter }}>
-              {results!.artists.map((artist) => (
+              {(results ?? EMPTY_RESULTS).artists.map((artist) => (
                 <ArtistRow
                   key={artist.id}
                   artist={artist}
@@ -427,7 +458,7 @@ function SearchResultsView({
             </View>
           ) : (
             <Shelf
-              data={results!.artists.slice(1)}
+              data={(results ?? EMPTY_RESULTS).artists.slice(1)}
               gutter={gutter}
               keyExtractor={(artist) => artist.id}
               renderItem={(artist) => (
@@ -447,11 +478,11 @@ function SearchResultsView({
         </View>
       )}
 
-      {showAlbums && results!.albums.length > 0 && (
+      {showAlbums && (results ?? EMPTY_RESULTS).albums.length > 0 && (
         <View>
           <SectionHeader title="Albums" style={{ paddingHorizontal: gutter }} />
           <View style={{ paddingHorizontal: gutter }}>
-            {results!.albums.slice(0, filter === 'albums' ? 40 : 6).map((album) => (
+            {(results ?? EMPTY_RESULTS).albums.slice(0, filter === 'albums' ? 40 : 6).map((album) => (
               <AlbumRow
                 key={album.id}
                 album={album}

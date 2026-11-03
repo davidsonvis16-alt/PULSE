@@ -5,6 +5,7 @@ import { deezerProvider } from '@/src/providers/music/adapters/deezer';
 import { getPlaylist, getPlaylistTracks, saveSystemPlaylist } from '@/src/db/repos/playlists';
 import { getPlayedTrackIds } from '@/src/db/repos/history';
 import { getArtistProfile } from '@/src/discovery/artists';
+import { resolveOwnedAll } from '@/src/library/owned';
 
 /**
  * A playlist for every mood, kept for each listener.
@@ -49,7 +50,8 @@ export async function refreshMoodMix(mood: Mood, now = Date.now()): Promise<Mood
     musicProvider().getMoodTracks(mood, POOL_SIZE).catch(() => [] as Track[]),
     deezerProvider.getMoodTracks(mood, POOL_SIZE).catch(() => [] as Track[]),
   ]);
-  const pool = interleave(apple, deezer);
+  // Songs they own play from their own files.
+  const pool = await resolveOwnedAll(interleave(apple, deezer));
   // Offline, with nothing new to swap in, the mix stays exactly as it was.
   if (pool.length === 0) return { mood, tracks: previous, fresh: 0 };
 

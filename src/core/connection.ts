@@ -21,16 +21,34 @@ interface ConnectionState {
   justReconnected: boolean;
 }
 
+/** The connection must stay down this long before Pulse calls it offline. */
+const OFFLINE_AFTER_MS = 6000;
+/** And stay up this long before offline mode ends. */
+const ONLINE_AFTER_MS = 2500;
+
 class ConnectionStore extends Store<ConnectionState> {
   private started = false;
+  private pending: ReturnType<typeof setTimeout> | null = null;
 
   start() {
     if (this.started) return;
     this.started = true;
     void Network.getNetworkStateAsync()
-      .then((state) => this.apply(isOnline(state)))
+      .then((state) => this.report(isOnline(state)))
       .catch(() => {});
-    Network.addNetworkStateListener((state) => this.apply(isOnline(state)));
+    Network.addNetworkStateListener((state) => this.report(isOnline(state)));
+  }
+
+  /**
+   * Phones report reachability in flickers — yes, unknown, no, yes — several
+   * times a second while a signal settles. Acting on each one rebuilt Home
+   * over and over, so a change only counts once it has held for a moment.
+   */
+  private report(online: boolean) {
+    if (this.pending) clearTimeout(this.pending);
+    this.pending = null;
+    if (online === this.getSnapshot().online) return;
+    this.pending = setTimeout(() => this.apply(online), online ? ONLINE_AFTER_MS : OFFLINE_AFTER_MS);
   }
 
   private apply(online: boolean) {
@@ -56,9 +74,9 @@ class ConnectionStore extends Store<ConnectionState> {
 }
 
 function isOnline(state: Network.NetworkState): boolean {
-  if (state.isConnected === false) return false;
-  // "Connected" to a network that does not reach the internet is still offline.
-  return state.isInternetReachable !== false;
+  // No network at all is offline. Reachability alone is too jumpy to trust:
+  // it reads "no" for a moment on every handover between cell towers.
+  return state.isConnected !== false;
 }
 
 export const connection = new ConnectionStore({

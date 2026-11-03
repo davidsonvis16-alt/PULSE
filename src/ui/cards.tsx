@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Artwork } from '@/src/ui/artwork';
 import { DownloadButton } from '@/src/ui/download-button';
 import { likesStore } from '@/src/ui/likes';
-import { useDoubleTapLike } from '@/src/ui/use-double-tap-like';
+import { useDoubleTapPlayNext } from '@/src/ui/use-double-tap';
 import { useStore } from '@/src/hooks/use-store';
 import { Txt } from '@/src/ui/text';
 import { palette, radii, spacing } from '@/src/theme/tokens';
@@ -99,7 +99,7 @@ export function TrackCard({
   downloadable?: boolean;
 }) {
   const styles = useThemedStyles(makeStyles);
-  const likeOnDoubleTap = useDoubleTapLike();
+  const tapOrPlayNext = useDoubleTapPlayNext();
   const likes = useStore(likesStore);
   return (
     <View style={{ width }}>
@@ -109,11 +109,8 @@ export function TrackCard({
         artworkUrl={track.artworkUrl}
         width={width}
         liked={likes.ids.has(track.id)}
-        onPress={() => {
-          // Second tap of a double tap likes it rather than restarting it.
-          if (likeOnDoubleTap(track)) return;
-          onPress();
-        }}
+        // One tap plays; two quick taps put it next in the queue.
+        onPress={() => tapOrPlayNext(track, onPress)}
       />
       {downloadable && (
         <View style={[styles.cardDownload, { top: width - 42 }]}>

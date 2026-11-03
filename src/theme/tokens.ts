@@ -22,10 +22,10 @@ export const palette = {
   limeBright: '#D8FF52',
   limeDim: '#9CC61F',
 
-  /** The accent in the dark, where full lime glares. */
-  green: '#25D366',
-  greenBright: '#3EE07B',
-  greenDim: '#1DA851',
+  /** The accent, light and dark: the deep green of the navigation bar. */
+  green: '#3E7A00',
+  greenBright: '#4C9200',
+  greenDim: '#2F5C00',
 
   /** The cream of the flag on the mark. */
   cream: '#F6F1DF',
@@ -85,11 +85,14 @@ export const darkColors = {
   accent: palette.green,
   accentBright: palette.greenBright,
   accentDim: palette.greenDim,
-  accentGlow: 'rgba(37, 211, 102, 0.14)',
-  /** The accent as text or an icon on the background — readable in both schemes. */
-  accentInk: palette.green,
-  /** Text/icon colour to use *on top of* the accent — the mark's ink. */
-  onAccent: '#0A0B0A',
+  accentGlow: 'rgba(62, 122, 0, 0.22)',
+  /**
+   * The accent as text or an icon on the background. The same green, lifted
+   * just enough to stay readable as small text on the dark background.
+   */
+  accentInk: '#5A9E16',
+  /** Text/icon colour to use *on top of* the accent. */
+  onAccent: '#FFFFFF',
 
   text: palette.text,
   textSecondary: palette.textSecondary,
@@ -126,12 +129,12 @@ export const lightColors: ThemeColors = {
   border: '#D3D6CF',
   borderSoft: '#E2E4DE',
 
-  accent: palette.lime,
-  accentBright: palette.limeBright,
-  accentDim: palette.limeDim,
-  accentGlow: 'rgba(201, 246, 43, 0.22)',
-  accentInk: '#3E7A00',
-  onAccent: '#0A0B0A',
+  accent: palette.green,
+  accentBright: palette.greenBright,
+  accentDim: palette.greenDim,
+  accentGlow: 'rgba(62, 122, 0, 0.12)',
+  accentInk: palette.green,
+  onAccent: '#FFFFFF',
 
   text: '#0C0D0C',
   textSecondary: '#4E524D',

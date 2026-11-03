@@ -50,6 +50,7 @@ import {
 } from '@/src/discovery/hidden-gems';
 import { searchDeezerTracks } from '@/src/providers/music/adapters/deezer';
 import { oneCoverEach } from '@/src/discovery/variety';
+import { resolveOwnedAll } from '@/src/library/owned';
 import { indieTrending } from '@/src/providers/music/adapters/audius';
 import { chatSettings } from '@/src/social/chat';
 import { connection } from '@/src/core/connection';
@@ -191,12 +192,16 @@ function OnlineHome() {
 
   const suggestions = useAsync<Suggestions>(
     async () => {
-      const [shelves, repeatShelves] = await Promise.all([
+      const [rawShelves, rawRepeat] = await Promise.all([
         getRecommendationShelves(taste!, { rotate: rotation }).catch(
           () => [] as RecommendationShelf[],
         ),
         getRepeatPlayShelves().catch(() => [] as RecommendationShelf[]),
       ]);
+      // Songs they already own come from their own files: whole songs, no preview.
+      const mine = (list: RecommendationShelf[]) =>
+        Promise.all(list.map(async (shelf) => ({ ...shelf, tracks: await resolveOwnedAll(shelf.tracks) })));
+      const [shelves, repeatShelves] = await Promise.all([mine(rawShelves), mine(rawRepeat)]);
       const mix = buildMix(
         ownRef.current,
         [...repeatShelves, ...shelves].map((shelf) => shelf.tracks),

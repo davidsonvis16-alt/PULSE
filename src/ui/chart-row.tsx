@@ -4,7 +4,7 @@ import type { ChartEntry } from '@/src/discovery/charts';
 import { Artwork } from '@/src/ui/artwork';
 import { DownloadButton } from '@/src/ui/download-button';
 import { likesStore } from '@/src/ui/likes';
-import { useDoubleTapLike } from '@/src/ui/use-double-tap-like';
+import { useDoubleTapPlayNext } from '@/src/ui/use-double-tap';
 import { useStore } from '@/src/hooks/use-store';
 import { useSongInfo } from '@/src/ui/song-info';
 import { releaseYear } from '@/src/core/format';
@@ -37,7 +37,7 @@ export function ChartRow({
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const likeOnDoubleTap = useDoubleTapLike();
+  const tapOrPlayNext = useDoubleTapPlayNext();
   const likes = useStore(likesStore);
   const songInfo = useSongInfo();
   const { track, position, countries, movement, change } = entry;
@@ -51,8 +51,7 @@ export function ChartRow({
       accessibilityRole="button"
       accessibilityLabel={`Number ${position}, ${track.title} by ${track.artistName}`}
       onPress={() => {
-        if (likeOnDoubleTap(track)) return;
-        onPress();
+        tapOrPlayNext(track, onPress);
       }}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.card }]}
     >

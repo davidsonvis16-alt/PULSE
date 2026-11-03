@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { likesStore } from '@/src/ui/likes';
-import { useDoubleTapLike } from '@/src/ui/use-double-tap-like';
+import { useDoubleTapPlayNext } from '@/src/ui/use-double-tap';
 import { useStore } from '@/src/hooks/use-store';
 import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
@@ -36,7 +36,7 @@ export const TrackRow = memo(function TrackRow({
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const likeOnDoubleTap = useDoubleTapLike();
+  const tapOrPlayNext = useDoubleTapPlayNext();
   const likes = useStore(likesStore);
   const songInfo = useSongInfo();
   const isLiked = likes.ids.has(track.id);
@@ -48,11 +48,10 @@ export const TrackRow = memo(function TrackRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${track.title} by ${track.artistName}${isLiked ? ', liked' : ''}. Double tap to ${isLiked ? 'unlike' : 'like'}.`}
+      accessibilityLabel={`${track.title} by ${track.artistName}${isLiked ? ', liked' : ''}. Double tap to play next.`}
       onPress={() => {
-        // The second tap of a double tap likes the song instead of restarting it.
-        if (likeOnDoubleTap(track)) return;
-        onPress();
+        // One tap plays; two quick taps put it next in the queue.
+        tapOrPlayNext(track, onPress);
       }}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >

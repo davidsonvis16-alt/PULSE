@@ -64,7 +64,7 @@ export function WelcomeScreen({ initial = 'intro' }: { initial?: Mode } = {}) {
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={['rgba(201,246,43,0.12)', 'transparent']}
+        colors={['rgba(62,122,0,0.10)', 'transparent']}
         start={{ x: 0.1, y: 1 }}
         end={{ x: 0.9, y: 0 }}
         style={StyleSheet.absoluteFill}

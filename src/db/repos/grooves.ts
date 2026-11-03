@@ -1,4 +1,5 @@
 import { db, now, transaction } from '@/src/db/client';
+import { getJsonSetting, setJsonSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { rowToTrack } from '@/src/db/repos/catalog';
 import type { Track } from '@/src/core/types';
 
@@ -96,9 +97,25 @@ export async function groovesForTrack(trackId: string): Promise<Groove[]> {
   return rows.map(toGroove);
 }
 
+/**
+ * Gives a Groove the listener's own name. Grooves are rebuilt after imports,
+ * but their ids stay the same, so the name is kept and put back each time.
+ */
+export async function renameGroove(id: string, name: string): Promise<void> {
+  const clean = name.trim().slice(0, 60);
+  if (!clean) throw new Error('Give it a name first.');
+  const names = await getJsonSetting<Record<string, string>>(SETTINGS_KEYS.grooveNames, {});
+  await setJsonSetting(SETTINGS_KEYS.grooveNames, { ...names, [id]: clean });
+  const instance = await db();
+  await instance.runAsync('UPDATE grooves SET name = ? WHERE id = ?;', [clean, id]);
+}
+
 /** Replaces every Groove in one transaction, so the UI never sees a half state. */
 export async function replaceGrooves(drafts: GrooveDraft[]): Promise<void> {
   const timestamp = now();
+  const names = await getJsonSetting<Record<string, string>>(SETTINGS_KEYS.grooveNames, {}).catch(
+    () => ({}) as Record<string, string>,
+  );
 
   await transaction(async (tx) => {
     await tx.runAsync('DELETE FROM groove_tracks;');
@@ -116,7 +133,7 @@ export async function replaceGrooves(drafts: GrooveDraft[]): Promise<void> {
          VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, 0, ?);`,
         [
           draft.id,
-          draft.name,
+          names[draft.id] ?? draft.name,
           draft.description,
           draft.energy,
           draft.era,

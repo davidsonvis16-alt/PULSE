@@ -38,7 +38,7 @@ export const TOPIC_LABELS: Record<NewsTopic, string> = {
 
 /** Topic colours for kickers and the picture-less fallback. */
 const TOPIC_TINT: Record<NewsTopic, [string, string]> = {
-  'new-music': ['#C9F62B', '#1D2A05'],
+  'new-music': ['#8CC63F', '#1D2A05'],
   awards: ['#E6BE5A', '#2A1F07'],
   tours: ['#FF7A59', '#2B0F07'],
   charts: ['#63B3ED', '#08192A'],
@@ -90,7 +90,7 @@ export function ReleasePoster({
         {release.leavingSoon && <Kicker label="Last days" color="rgba(10,11,10,0.66)" />}
       </View>
       <View style={posterStyles.bottom}>
-        <Txt variant="micro" style={{ color: '#C9F62B' }} numberOfLines={1}>
+        <Txt variant="micro" style={{ color: '#8CC63F' }} numberOfLines={1}>
           {words.when.toUpperCase()}
         </Txt>
         <Txt style={posterStyles.releaseTitle} numberOfLines={2}>
@@ -157,7 +157,7 @@ export function HeadlinePoster({
       </View>
       <View style={posterStyles.bottom}>
         {story.mentions.length > 0 && (
-          <Txt variant="micro" style={{ color: '#C9F62B' }} numberOfLines={1}>
+          <Txt variant="micro" style={{ color: '#8CC63F' }} numberOfLines={1}>
             {`ABOUT ${story.mentions.join(', ').toUpperCase()}`}
           </Txt>
         )}
@@ -284,7 +284,7 @@ export function AwardPoster({
         <Txt variant="callout" style={{ color: INK }} numberOfLines={1}>
           {[formatAwardDate(edition.info.date), awardWhen(edition)].filter(Boolean).join(' · ')}
         </Txt>
-        <Txt variant="caption" style={{ color: yourNominees ? '#C9F62B' : INK_SOFT }} numberOfLines={2}>
+        <Txt variant="caption" style={{ color: yourNominees ? '#8CC63F' : INK_SOFT }} numberOfLines={2}>
           {yourNominees
             ? `${yourNominees} of your artists ${yourNominees === 1 ? 'is' : 'are'} in the running`
             : edition.categories.length

@@ -55,6 +55,10 @@ export const SETTINGS_KEYS = {
   chatsEnabled: 'chats.enabled',
   /** The arrow on Home pointing at where chats now open. */
   chatsHintPending: 'chats.hintPending',
+  /** What was playing, the queue around it and the exact second, for resuming. */
+  playerSession: 'player.session',
+  /** Names the listener gave their Grooves, kept across rebuilds. */
+  grooveNames: 'grooves.names',
 } as const;
 
 export interface NotificationPrefs {

@@ -14,25 +14,50 @@ import { coreTitle, normalise } from '@/src/ingestion/identify/text';
  * import rather than on every lookup.
  */
 
-let index: Map<string, Track> | null = null;
-let building: Promise<Map<string, Track>> | null = null;
+/** Songs on the phone, by title; each title can hold several artists' songs. */
+let index: Map<string, Track[]> | null = null;
+let building: Promise<Map<string, Track[]>> | null = null;
 
-/** "essence|wizkid" — the feature credit is dropped so it matches both ways. */
-function keyOf(title: string, artist: string): string {
-  return `${normalise(coreTitle(title))}|${normalise(artist)}`;
+/** The feature credit is dropped from the title so it matches both ways. */
+function titleKey(title: string): string {
+  return normalise(coreTitle(title));
 }
 
-export async function ownedIndex(): Promise<Map<string, Track>> {
+/**
+ * Every artist a credit names. Files and shops write the same song as
+ * "Nicki Minaj, Juice WRLD", "Nicki Minaj & Juice WRLD" or "Nicki Minaj feat.
+ * Juice WRLD", so a credit is compared artist by artist, not as one string.
+ */
+function artistsOf(credit: string): Set<string> {
+  return new Set(
+    credit
+      .split(/\s*(?:,|&|\+|\/|;)\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|x)\s+/i)
+      .map((name) => normalise(name))
+      .filter((name) => name.length > 0),
+  );
+}
+
+/** The same song if the title matches and the credits share at least one artist. */
+function findMine(map: Map<string, Track[]>, track: Track): Track | null {
+  const candidates = map.get(titleKey(track.title));
+  if (!candidates?.length) return null;
+  const theirs = artistsOf(track.artistName);
+  return candidates.find((mine) => [...artistsOf(mine.artistName)].some((name) => theirs.has(name))) ?? null;
+}
+
+export async function ownedIndex(): Promise<Map<string, Track[]>> {
   if (index) return index;
   if (building) return building;
 
   building = (async () => {
     const rows = await listLocalTracks({ limit: 5000 }).catch(() => []);
-    const map = new Map<string, Track>();
+    const map = new Map<string, Track[]>();
     for (const row of rows) {
-      const key = keyOf(row.track.title, row.track.artistName);
-      // First one wins: rescans keep the copy already indexed.
-      if (!map.has(key)) map.set(key, row.track);
+      const key = titleKey(row.track.title);
+      const list = map.get(key) ?? [];
+      // Rescans keep the copy already indexed: the first one stays first.
+      if (!list.some((t) => t.id === row.track.id)) list.push(row.track);
+      map.set(key, list);
     }
     index = map;
     return map;
@@ -51,9 +76,7 @@ export function invalidateOwnedIndex() {
 /** Your copy of this song, or null when you do not have it. */
 export async function ownedMatchOf(track: Track): Promise<Track | null> {
   if (track.provider === 'local') return track;
-  const map = await ownedIndex();
-  const mine = map.get(keyOf(track.title, track.artistName));
-  return mine ?? null;
+  return findMine(await ownedIndex(), track);
 }
 
 /** Swaps a suggestion for your own copy where you have one. */
@@ -74,7 +97,7 @@ export async function resolveOwnedAll(tracks: Track[]): Promise<Track[]> {
 
   return tracks.map((track) => {
     if (track.provider === 'local') return track;
-    const mine = map.get(keyOf(track.title, track.artistName));
+    const mine = findMine(map, track);
     if (!mine) return track;
     return mine.artworkUrl ? mine : { ...mine, artworkUrl: track.artworkUrl };
   });
@@ -89,7 +112,7 @@ export async function resolveOwnedAll(tracks: Track[]): Promise<Track[]> {
 export async function libraryArtistNames(limit = 200): Promise<string[]> {
   const owned = await ownedIndex();
   const counts = new Map<string, { name: string; count: number }>();
-  for (const track of owned.values()) {
+  for (const track of [...owned.values()].flat()) {
     for (const part of track.artistName.split(/\s*(?:,|&|\+|\bx\b|\band\b|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b)\s*/i)) {
       const name = part.trim();
       if (name.length < 2 || /^unknown artist$/i.test(name)) continue;

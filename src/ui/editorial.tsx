@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Track } from '@/src/core/types';
 import { SketchArt } from '@/src/ui/sketch-art';
+import { useDoubleTapPlayNext } from '@/src/ui/use-double-tap';
 import { Txt } from '@/src/ui/text';
 import { fonts, palette, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
@@ -104,13 +105,13 @@ export function DiscoveryCard({
   onPlay: () => void;
   onMore: () => void;
 }) {
-  const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const tapOrPlayNext = useDoubleTapPlayNext();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Play ${track.title} by ${track.artistName}`}
-      onPress={onPlay}
+      onPress={() => tapOrPlayNext(track, onPlay)}
       onLongPress={onMore}
       style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
         { width, gap: spacing.sm },
@@ -121,7 +122,7 @@ export function DiscoveryCard({
       <View style={[styles.cover, { width, height: width }]}>
         <SketchArt uri={track.artworkUrl} />
         <View style={styles.coverPlay}>
-          <Ionicons name="play" size={15} color={colors.accent} style={{ marginLeft: 2 }} />
+          <Ionicons name="play" size={15} color="#FFFFFF" style={{ marginLeft: 2 }} />
         </View>
       </View>
       <View>

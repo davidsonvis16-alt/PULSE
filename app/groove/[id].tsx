@@ -1,9 +1,13 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Track } from '@/src/core/types';
 import { formatListeningTime, pluralize } from '@/src/core/format';
-import { getGroove, getGrooveTracks } from '@/src/db/repos/grooves';
+import { getGroove, getGrooveTracks, renameGroove } from '@/src/db/repos/grooves';
+import { Sheet } from '@/src/ui/sheet';
+import { useToast } from '@/src/ui/toast';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
 import { useAsync } from '@/src/hooks/use-async';
@@ -47,6 +51,9 @@ export default function GrooveScreen() {
   }, [id]);
 
   const groove = state.data?.groove;
+  const toast = useToast();
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState('');
   const tracks: Track[] = state.data?.tracks ?? [];
   const accent = groove?.accent ?? colors.accent;
 
@@ -90,9 +97,21 @@ export default function GrooveScreen() {
             <Txt variant="micro" uppercase style={{ color: 'rgba(255,255,255,0.7)' }}>
               Groove
             </Txt>
-            <Txt variant="display" numberOfLines={2}>
-              {groove?.name ?? ' '}
-            </Txt>
+            {/* Tap the name (or the pencil) to call it whatever you like. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Rename ${groove?.name ?? 'this Groove'}`}
+              onPress={() => {
+                setNewName(groove?.name ?? '');
+                setNaming(true);
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+            >
+              <Txt variant="display" numberOfLines={2} style={{ flexShrink: 1 }}>
+                {groove?.name ?? ' '}
+              </Txt>
+              <Ionicons name="pencil" size={18} color="rgba(255,255,255,0.8)" />
+            </Pressable>
             {groove?.description ? (
               <Txt variant="body" style={{ color: 'rgba(255,255,255,0.84)' }}>
                 {groove.description}
@@ -174,12 +193,48 @@ export default function GrooveScreen() {
           />
         </View>
       </ScrollView>
+      <Sheet visible={naming} onClose={() => setNaming(false)} title="Name this Groove">
+        <View style={{ gap: spacing.md, paddingTop: spacing.sm }}>
+          <TextInput
+            value={newName}
+            onChangeText={setNewName}
+            placeholder="Give it a name"
+            autoFocus
+            maxLength={60}
+            accessibilityLabel="Groove name"
+            style={styles.nameInput}
+          />
+          <Button
+            label="Save name"
+            full
+            onPress={() =>
+              void renameGroove(id!, newName)
+                .then(() => {
+                  setNaming(false);
+                  toast('Renamed', 'success');
+                  state.reload();
+                })
+                .catch((error: Error) => toast(error.message, 'error'))
+            }
+          />
+        </View>
+      </Sheet>
     </Screen>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    nameInput: {
+      height: 46,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      color: colors.text,
+      fontSize: 16,
+    },
     hero: {
       borderRadius: radii.xl,
       padding: spacing.xl,
