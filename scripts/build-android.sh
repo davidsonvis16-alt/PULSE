@@ -43,7 +43,7 @@ CI=1 npx expo prebuild --platform android --clean --no-install
   --no-daemon \
   --max-workers=2 \
   -Pkotlin.compiler.execution.strategy=in-process \
-  -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
+  -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
   -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
   -Pandroid.injected.signing.store.file="$PULSE_KEYSTORE" \
   -Pandroid.injected.signing.store.password="$PULSE_KEYSTORE_PASSWORD" \
