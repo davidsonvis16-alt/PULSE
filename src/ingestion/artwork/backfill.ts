@@ -17,7 +17,8 @@ import { readFileTags } from '@/src/ingestion/tags';
  */
 
 /** Tracks worked on at once. The HTTP layer rate-limits the catalogue itself. */
-const CONCURRENCY = 6;
+/** Three at a time: more and Apple starts refusing, which looked like "0 found". */
+const CONCURRENCY = 3;
 
 export interface ArtworkRepairState {
   running: boolean;
