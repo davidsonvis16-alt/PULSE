@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -23,6 +23,8 @@ import { ThemeProvider, useTheme } from '@/src/theme/theme';
 import { WelcomeScreen } from '@/src/screens/welcome';
 import { OfflinePrompt } from '@/src/ui/offline-prompt';
 import { OpeningScreen } from '@/src/ui/opening';
+import * as ScreenOrientation from 'expo-screen-orientation';
+
 import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
 import { ImportScreen } from '@/src/screens/import';
 import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
@@ -32,6 +34,15 @@ import { PlayerBar } from '@/src/ui/player-bar';
 import { Sidebar, TABS } from '@/src/ui/sidebar';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { useNotificationRouting } from '@/src/notifications/routing';
+
+// Phones stay upright, like Spotify: turning the phone, even with auto-rotate
+// on, does not turn Pulse. Tablets turn with the screen and use the wide layout.
+if (Platform.OS !== 'web') {
+  const { width, height } = Dimensions.get('screen');
+  if (Math.min(width, height) < 600) {
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }
+}
 
 export default function RootLayout() {
   return (
