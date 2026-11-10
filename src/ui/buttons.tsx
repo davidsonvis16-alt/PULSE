@@ -147,11 +147,17 @@ export function PlayButton({
   onPress,
   size = 64,
   loading,
+  color,
+  ink,
 }: {
   playing: boolean;
   onPress: () => void;
   size?: number;
   loading?: boolean;
+  /** Fill of the circle; the theme accent if unset. */
+  color?: string;
+  /** Colour of the play / pause mark. */
+  ink?: string;
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -165,16 +171,17 @@ export function PlayButton({
       }}
       style={({ pressed }) => [
         styles.play,
+        color ? { backgroundColor: color } : null,
         { width: size, height: size, borderRadius: size / 2, opacity: pressed ? 0.85 : 1 },
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={colors.onAccent} />
+        <ActivityIndicator color={ink ?? colors.onAccent} />
       ) : (
         <Ionicons
           name={playing ? 'pause' : 'play'}
           size={size * 0.44}
-          color={colors.onAccent}
+          color={ink ?? colors.onAccent}
           style={!playing && { marginLeft: size * 0.04 }}
         />
       )}

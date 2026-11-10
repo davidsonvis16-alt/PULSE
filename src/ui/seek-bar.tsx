@@ -20,6 +20,8 @@ export function SeekBar({
   onScrub,
   onSeek,
   height = 4,
+  color,
+  trackColor,
 }: {
   positionSummary?: never;
   position: number;
@@ -29,6 +31,10 @@ export function SeekBar({
   /** Called once on release, with the position to seek to in ms. */
   onSeek: (positionMs: number) => void;
   height?: number;
+  /** Colour of the played part and the thumb; the theme accent if unset. */
+  color?: string;
+  /** Colour of the unplayed part. */
+  trackColor?: string;
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -82,20 +88,20 @@ export function SeekBar({
       // A generous touch target around a deliberately thin bar.
       style={styles.hit}
     >
-      <View style={[styles.track, { height, borderRadius: height / 2 }]}>
+      <View style={[styles.track, { height, borderRadius: height / 2 }, trackColor ? { backgroundColor: trackColor } : null]}>
         <View
           style={{
             width: `${ratio * 100}%`,
             height,
             borderRadius: height / 2,
-            backgroundColor: colors.accent,
+            backgroundColor: color ?? colors.accent,
           }}
         />
       </View>
       {width > 0 && (
         <View
           pointerEvents="none"
-          style={[styles.thumb, { left: Math.max(0, Math.min(width - 12, thumbX - 6)) }]}
+          style={[styles.thumb, color ? { backgroundColor: color } : null, { left: Math.max(0, Math.min(width - 12, thumbX - 6)) }]}
         />
       )}
     </View>

@@ -160,3 +160,39 @@ export const deezerProvider: MusicProvider = {
     };
   },
 };
+
+/** The Deezer artist a name means: of the artists sharing it, the one with the following. */
+export async function findDeezerArtist(
+  name: string,
+): Promise<{ id: number; name: string; fans: number; albums: number; picture: string | null } | null> {
+  const data = await getJson<{
+    data?: { id: number; name: string; nb_fan?: number; nb_album?: number; picture_xl?: string }[];
+  }>(buildUrl(`${API}/search/artist`, { q: name, limit: 6 }), { ttlMs: 7 * DAY });
+  const wanted = name.trim().toLowerCase();
+  const rows = (data?.data ?? []).filter((row) => row.name.trim().toLowerCase() === wanted);
+  const best = (rows.length ? rows : (data?.data ?? []).slice(0, 1)).sort(
+    (a, b) => (b.nb_fan ?? 0) - (a.nb_fan ?? 0),
+  )[0];
+  if (!best) return null;
+  return {
+    id: best.id,
+    name: best.name,
+    fans: best.nb_fan ?? 0,
+    albums: best.nb_album ?? 0,
+    picture: best.picture_xl && !best.picture_xl.includes('/artist//') ? best.picture_xl : null,
+  };
+}
+
+/**
+ * An artist's most played songs of all time, most played first — Deezer
+ * ranks an artist's catalogue by plays.
+ */
+export async function deezerMostPlayed(name: string, limit = 100): Promise<Track[]> {
+  const artist = await findDeezerArtist(name);
+  if (!artist) return [];
+  const data = await getJson<{ data?: DeezerTrack[] }>(
+    buildUrl(`${API}/artist/${artist.id}/top`, { limit }),
+    { ttlMs: DAY },
+  );
+  return (data?.data ?? []).map((raw) => mapTrack(raw, null)).filter((t): t is Track => !!t);
+}

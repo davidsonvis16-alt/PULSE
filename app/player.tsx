@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDuration } from '@/src/core/format';
 import { playerStore, progressStore } from '@/src/audio/player';
@@ -140,7 +138,7 @@ export default function PlayerScreen() {
           name={liked ? 'heart' : 'heart-outline'}
           label={liked ? 'Unlike' : 'Like'}
           background="glass"
-          color={liked ? colors.accent : ON_ART}
+          color={ON_ART}
           onPress={async () => {
             const next = await toggleFavorite('track', track.id);
             if (next) await addTrackToLibrary(track);
@@ -167,6 +165,8 @@ export default function PlayerScreen() {
             duration={duration}
             onScrub={setScrubbing}
             onSeek={(value) => void playerStore.seekTo(value)}
+            color="#FFFFFF"
+            trackColor="rgba(255, 255, 255, 0.2)"
           />
         )}
         <View style={styles.times}>
@@ -200,7 +200,9 @@ export default function PlayerScreen() {
           playing={player.isPlaying}
           loading={player.isLoading}
           onPress={() => playerStore.toggle()}
-          size={76}
+          size={isLaptopUp ? 84 : 76}
+          color="#FFFFFF"
+          ink="#000000"
         />
         <IconButton
           name="play-skip-forward"
@@ -304,20 +306,6 @@ export default function PlayerScreen() {
 
   return (
     <View style={styles.root}>
-      {/* The cover, blurred, is the whole background. */}
-      {track.artworkUrl ? (
-        <Image
-          source={{ uri: track.artworkUrl }}
-          blurRadius={isLaptopUp ? 90 : 60}
-          contentFit="cover"
-          style={StyleSheet.absoluteFill}
-          accessibilityIgnoresInvertColors
-        />
-      ) : null}
-      <LinearGradient
-        colors={['rgba(12, 11, 16, 0.35)', 'rgba(12, 11, 16, 0.6)', 'rgba(12, 11, 16, 0.9)']}
-        style={StyleSheet.absoluteFill}
-      />
 
       <View
         style={{
@@ -389,7 +377,7 @@ export default function PlayerScreen() {
                   <Artwork uri={track.artworkUrl} size={artSize} radius={radii.xl} />
                 </View>
               </View>
-              <View style={{ width: '100%', maxWidth: 560 }}>{details}</View>
+              <View style={{ width: '100%', maxWidth: Math.max(640, Math.min(900, artSize * 2.2)) }}>{details}</View>
             </View>
 
             {/* What plays next */}
@@ -455,7 +443,7 @@ export default function PlayerScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: { flex: 1, backgroundColor: colors.background, overflow: 'hidden' },
+    root: { flex: 1, backgroundColor: '#000000', overflow: 'hidden' },
     top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     artWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', marginVertical: spacing.lg },
     artShadow: {
@@ -472,7 +460,7 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      maxWidth: 440,
+      width: '100%',
     },
     bottom: { flexDirection: 'row', alignItems: 'center' },
     wide: { flex: 1, flexDirection: 'row', gap: 48, paddingVertical: spacing.xxl },
@@ -481,7 +469,9 @@ const makeStyles = (colors: ThemeColors) =>
     upNext: {
       width: 380,
       borderRadius: radii.lg,
-      backgroundColor: 'rgba(0, 0, 0, 0.28)',
+      backgroundColor: '#000000',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.14)',
       padding: spacing.sm,
     },
     upNextHead: {
