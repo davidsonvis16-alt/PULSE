@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { chatSettings } from '@/src/social/chat';
 import { useStore } from '@/src/hooks/use-store';
 import { useToast } from '@/src/ui/toast';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
+import { MenuIcon } from '@/src/ui/menu-icon';
 import { Txt } from '@/src/ui/text';
 import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme } from '@/src/theme/theme';
@@ -31,8 +32,14 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const chats = useStore(chatSettings);
-  const panelWidth = Math.min(340, width * 0.84);
+  const panelWidth = Math.min(380, width * 0.88);
   const slide = useRef(new Animated.Value(panelWidth)).current;
+  // The lines in the corner turn into an ✕ just after the panel arrives.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(open), open ? 60 : 0);
+    return () => clearTimeout(timer);
+  }, [open]);
 
   useEffect(() => {
     Animated.timing(slide, {
@@ -56,7 +63,10 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
           label: 'Chats',
           icon: 'chatbubbles-outline',
           go: chats.enabled
-            ? to('/chats')
+            ? () => {
+                chatSettings.dismissHint();
+                to('/chats')();
+              }
             : () => {
                 toast('Switch chats on first', 'success');
                 to('/settings/privacy')();
@@ -128,10 +138,13 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
           },
         ]}
       >
+        {/* Close on the left; the account picture on the right, clear of the list. */}
         <View style={styles.head}>
-          <ProfileAvatar size={40} />
           <Pressable accessibilityRole="button" accessibilityLabel="Close the menu" onPress={onClose} hitSlop={10}>
-            <Ionicons name="close" size={24} color={colors.text} />
+            <MenuIcon open={shown} color={colors.text} size={24} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Your profile" onPress={to('/profile')} hitSlop={6}>
+            <ProfileAvatar size={46} />
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}>
@@ -169,7 +182,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
   },
   groupTitle: { paddingHorizontal: spacing.lg, marginBottom: spacing.xs },
   row: {

@@ -53,11 +53,11 @@ import { resolveOwnedAll } from '@/src/library/owned';
 import { indieTrending } from '@/src/providers/music/adapters/audius';
 import { chatSettings } from '@/src/social/chat';
 import { SideMenu } from '@/src/ui/side-menu';
+import { MenuIcon } from '@/src/ui/menu-icon';
 import { connection } from '@/src/core/connection';
 import { OfflineHome } from '@/src/screens/home-offline';
 import { ChartRow } from '@/src/ui/chart-row';
 import { Artwork } from '@/src/ui/artwork';
-import { ProfileAvatar } from '@/src/ui/profile-avatar';
 import { Txt } from '@/src/ui/text';
 import { EmptyState, ErrorState, SkeletonShelf } from '@/src/ui/states';
 import { fonts, radii, spacing } from '@/src/theme/tokens';
@@ -258,7 +258,6 @@ function OnlineHome() {
     { enabled: !!suggestions.data },
   );
 
-  const chats = useStore(chatSettings);
   const [menuOpen, setMenuOpen] = useState(false);
   const nowPlaying = useStore(playerStore);
   useEffect(() => {
@@ -432,22 +431,6 @@ function OnlineHome() {
         }
       >
         <View style={[styles.header, { paddingHorizontal: gutter }]}>
-          {/* With chats on, the picture opens them; the arrow shows where they went. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={chats.enabled ? 'Your chats' : 'Your profile'}
-            onPress={() => {
-              if (chats.enabled) {
-                chatSettings.dismissHint();
-                router.push('/chats');
-              } else {
-                router.push('/profile');
-              }
-            }}
-          >
-            <ProfileAvatar size={38} />
-          </Pressable>
-          {chats.enabled && chats.hintPending && <BouncingArrow />}
           <View style={{ flex: 1 }} />
           <Pressable
             accessibilityRole="button"
@@ -477,7 +460,7 @@ function OnlineHome() {
             hitSlop={8}
             onPress={() => setMenuOpen(true)}
           >
-            <Ionicons name="menu" size={26} color={colors.text} />
+            <MenuIcon open={menuOpen} color={colors.text} size={24} />
           </Pressable>
         </View>
         <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
@@ -909,26 +892,6 @@ function Beat() {
         />
       ))}
     </View>
-  );
-}
-
-/** A small black arrow nudging toward the profile picture, which now opens chats. */
-function BouncingArrow() {
-  const nudge = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(nudge, { toValue: -6, duration: 380, useNativeDriver: true }),
-        Animated.timing(nudge, { toValue: 0, duration: 380, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [nudge]);
-  return (
-    <Animated.View accessibilityLabel="Chats open from your picture" style={{ transform: [{ translateX: nudge }] }}>
-      <Ionicons name="arrow-back" size={18} color="#0A0B0A" />
-    </Animated.View>
   );
 }
 
