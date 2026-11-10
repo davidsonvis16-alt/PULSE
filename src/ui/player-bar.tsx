@@ -12,6 +12,7 @@ import { SeekBar } from '@/src/ui/seek-bar';
 import { Txt } from '@/src/ui/text';
 import { layout, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
+import { useSwipeSkip } from '@/src/ui/use-swipe-skip';
 
 /**
  * The laptop player: a bar along the bottom of every screen, like Spotify,
@@ -19,6 +20,7 @@ import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
  * the seek line in the middle, the queue and volume on the right.
  */
 export function PlayerBar() {
+  const swipe = useSwipeSkip();
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
@@ -47,8 +49,8 @@ export function PlayerBar() {
 
   return (
     <View style={styles.bar}>
-      {/* The song */}
-      <View style={styles.side}>
+      {/* The song: drag it sideways to change song. */}
+      <View style={styles.side} {...swipe}>
         <Pressable accessibilityRole="button" accessibilityLabel="Open the player" onPress={openPlayer}>
           <Artwork uri={track.artworkUrl} size={56} radius={radii.xs} />
         </Pressable>

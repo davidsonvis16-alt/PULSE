@@ -31,6 +31,7 @@ import {
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
 import { Sheet, SheetAction } from '@/src/ui/sheet';
+import { findAlbumId, findArtistId } from '@/src/library/find-in-catalogue';
 import { Button } from '@/src/ui/buttons';
 import { useToast } from '@/src/ui/toast';
 import { useShareSheet } from '@/src/ui/share-sheet';
@@ -251,26 +252,31 @@ export function TrackActionsProvider({ children }: { children: ReactNode }) {
                 setTimeout(() => share(payload), 220);
               }}
             />
-            {menuTrack.albumId && (
-              <SheetAction
-                icon="disc-outline"
-                label="Go to album"
-                onPress={() => {
-                  closeMenu();
-                  router.push(`/album/${encodeURIComponent(menuTrack.albumId!)}`);
-                }}
-              />
-            )}
-            {menuTrack.artistId && (
-              <SheetAction
-                icon="person-outline"
-                label="Go to artist"
-                onPress={() => {
-                  closeMenu();
-                  router.push(`/artist/${encodeURIComponent(menuTrack.artistId!)}`);
-                }}
-              />
-            )}
+            {/* Always offered: songs without a catalogue link are looked up by name. */}
+            <SheetAction
+              icon="disc-outline"
+              label="Go to album"
+              onPress={() => {
+                const track = menuTrack;
+                closeMenu();
+                void findAlbumId(track).then((id) =>
+                  id ? router.push(`/album/${encodeURIComponent(id)}`) : toast("Couldn't find that album", 'error'),
+                );
+              }}
+            />
+            <SheetAction
+              icon="person-outline"
+              label="Go to artist"
+              onPress={() => {
+                const track = menuTrack;
+                closeMenu();
+                void findArtistId(track).then((id) =>
+                  id
+                    ? router.push(`/artist/${encodeURIComponent(id)}`)
+                    : router.push({ pathname: '/discover', params: { q: track.artistName } }),
+                );
+              }}
+            />
           </>
         )}
       </Sheet>

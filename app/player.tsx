@@ -22,6 +22,7 @@ import { EmptyState, ProgressBar } from '@/src/ui/states';
 import { SeekBar } from '@/src/ui/seek-bar';
 import { radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
+import { useSwipeSkip } from '@/src/ui/use-swipe-skip';
 
 /**
  * On the player everything sits on the song's own cover, blurred and darkened,
@@ -42,6 +43,8 @@ const ON_ART_FAINT = 'rgba(245, 243, 247, 0.55)';
  * device.
  */
 export default function PlayerScreen() {
+  // Swipe the cover left or right to change song.
+  const swipe = useSwipeSkip();
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
@@ -354,7 +357,7 @@ export default function PlayerScreen() {
           <View style={styles.wide}>
             <View style={styles.wideSong}>
               {/* The queue as a row of records: what played and what is next lean away on either side. */}
-              <View style={[styles.flow, { height: artSize + 24 }]}>
+              <View style={[styles.flow, { height: artSize + 24 }]} {...swipe}>
                 {([-2, -1, 1, 2] as const).map((offset) => {
                   const index = player.index + offset;
                   const item = player.queue[index];
@@ -437,7 +440,7 @@ export default function PlayerScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.artWrap}>
+            <View style={styles.artWrap} {...swipe}>
               <View style={styles.artShadow}>
                 <Artwork uri={track.artworkUrl} size={artSize} radius={radii.xl} />
               </View>

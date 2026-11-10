@@ -7,6 +7,7 @@ import { layout, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { playerStore, progressStore } from '@/src/audio/player';
 import { useStore } from '@/src/hooks/use-store';
+import { useSwipeSkip } from '@/src/ui/use-swipe-skip';
 
 /**
  * The mini player follows the user everywhere. It sits directly above the tab
@@ -14,6 +15,8 @@ import { useStore } from '@/src/hooks/use-store';
  * between screens cannot interrupt audio.
  */
 export function MiniPlayer({ bottom }: { bottom: number }) {
+  // Swipe the bar left or right to change song.
+  const swipe = useSwipeSkip();
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
@@ -26,7 +29,7 @@ export function MiniPlayer({ bottom }: { bottom: number }) {
   const ratio = progress.durationMs > 0 ? progress.positionMs / progress.durationMs : 0;
 
   return (
-    <View style={[styles.wrap, { bottom }]} pointerEvents="box-none">
+    <View style={[styles.wrap, { bottom }]} pointerEvents="box-none" {...swipe}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Now playing: ${track.title} by ${track.artistName}. Open the player.`}
