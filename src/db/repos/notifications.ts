@@ -99,6 +99,17 @@ export async function noteSongsNeedIdentifying(count: number): Promise<void> {
   });
 }
 
+/** A newer version of the Android app, once per version; tapping it downloads it. */
+export async function noteUpdateAvailable(version: string, url: string): Promise<void> {
+  await pushNotification({
+    type: 'library',
+    title: `Pulse ${version} is ready`,
+    body: 'Tap to download it, then open the file to install. Your music and settings stay.',
+    entityType: 'update',
+    entityId: `${version}|${url}`,
+  });
+}
+
 export async function listNotifications(limit = 60): Promise<PulseNotification[]> {
   const instance = await db();
   const rows = await instance.getAllAsync<Record<string, any>>(

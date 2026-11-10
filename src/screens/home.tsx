@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { checkForUpdate } from '@/src/core/updates';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,16 +23,15 @@ import { buildMix, YOUR_MIX_DESCRIPTION, YOUR_MIX_ID, YOUR_MIX_NAME } from '@/sr
 import { chartsStore, CHART_MARKET_COUNT, getCountryChart, type ChartEntry } from '@/src/discovery/charts';
 import { chartCountry, chartCountryName } from '@/src/discovery/chart-countries';
 import { getTopArtists, getTopTracks, type TopArtist } from '@/src/db/repos/history';
-import { noteSongsNeedIdentifying, unreadNotificationCount } from '@/src/db/repos/notifications';
+import { noteSongsNeedIdentifying, noteUpdateAvailable, unreadNotificationCount } from '@/src/db/repos/notifications';
 import { getCachedEvents } from '@/src/db/repos/events';
 import { listGrooves, type Groove } from '@/src/db/repos/grooves';
 import { getLocalCounts, listLocalTracks } from '@/src/db/repos/local';
 import { getLibraryTracks } from '@/src/db/repos/library';
 import { listPlaylists, saveSystemPlaylist, type Playlist } from '@/src/db/repos/playlists';
-import { getSetting, setSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
+import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { playerStore } from '@/src/audio/player';
 import { ingestEngine } from '@/src/ingestion/ingest';
-import { artworkRepair } from '@/src/ingestion/artwork/backfill';
 import { useAsync } from '@/src/hooks/use-async';
 import { useFocusReload } from '@/src/hooks/use-focus-reload';
 import { useResponsive } from '@/src/hooks/use-responsive';
@@ -140,7 +139,6 @@ function OnlineHome() {
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
   const ingest = useStore(ingestEngine);
-  const repair = useStore(artworkRepair);
 
   // Which slice of this listener's taste today's shelves are drawn from. Pull
   // to refresh moves it on, so asking for more really does bring new songs
@@ -268,12 +266,11 @@ function OnlineHome() {
   // Whole songs, not previews: independent artists stream their own music in full.
   const indie = useAsync(() => indieTrending(undefined, 16).catch(() => []), []);
 
-  // A newer Android app on GitHub, unless this version's banner was closed.
-  const update = useAsync(async () => {
-    const found = await checkForUpdate();
-    if (!found) return null;
-    const dismissed = await getSetting(SETTINGS_KEYS.updateDismissed).catch(() => null);
-    return dismissed === found.version ? null : found;
+  // A newer Android app goes in the bell as a notification, not a box on Home.
+  useEffect(() => {
+    void checkForUpdate()
+      .then((found) => found && noteUpdateAvailable(found.version, found.url))
+      .catch(() => {});
   }, []);
 
   // The worldwide board is shared with the charts page and cached on disk, so
@@ -473,21 +470,6 @@ function OnlineHome() {
           </Pressable>
         </View>
 
-        {!!update.data && (
-          <Banner
-            gutter={gutter}
-            icon="arrow-down-circle"
-            tint={colors.accentInk}
-            title={`Update available: Pulse ${update.data.version}`}
-            detail="Tap to download it, then open the file to install. Your music and settings stay."
-            onPress={() => void Linking.openURL(update.data!.url)}
-            onDismiss={() => {
-              void setSetting(SETTINGS_KEYS.updateDismissed, update.data!.version);
-              update.reload();
-            }}
-          />
-        )}
-
         {importing && (
           <Banner
             gutter={gutter}
@@ -500,15 +482,6 @@ function OnlineHome() {
         )}
 
 
-        {repair.running && (
-          <Banner
-            gutter={gutter}
-            icon="image-outline"
-            tint={colors.accentInk}
-            title="Finding missing covers…"
-            detail={`${repair.checked} of ${repair.total} checked · ${repair.found} found`}
-          />
-        )}
 
         {local.loading && !data && (
           <View style={{ paddingHorizontal: gutter, gap: spacing.xxl }}>
@@ -583,7 +556,6 @@ function OnlineHome() {
         {!!indie.data?.length && (
           <Section
             title="Full songs from indie artists"
-            subtitle="Played start to finish, uploaded by the artists themselves"
             gutter={gutter}
             onSeeAll={() => router.push('/indie')}
           >
@@ -605,7 +577,7 @@ function OnlineHome() {
 
         {/* Today's discoveries */}
         {discoveries.length > 0 && (
-          <Section title="Today's discoveries" subtitle="Fresh every morning, picked from your taste" gutter={gutter}>
+          <Section title="Today's discoveries" gutter={gutter}>
             {isTabletUp ? (
               <View style={[styles.discoveryGrid, { paddingHorizontal: gutter }]}>
                 {discoveries.map((track, index) => (
@@ -640,7 +612,6 @@ function OnlineHome() {
         {!!data && (data.grooves.length > 0 || data.playlists.length > 0) && (
           <Section
             title="Your playlists"
-            subtitle="Made from the songs on your phone"
             gutter={gutter}
             onSeeAll={() => router.push('/library')}
           >
@@ -717,11 +688,6 @@ function OnlineHome() {
         {globalTop.length > 0 && (
           <Section
             title={worldwide ? 'Top songs worldwide' : `Top songs in ${chartCountryName(followed.code)}`}
-            subtitle={
-              worldwide
-                ? `Across ${chart.board?.markets ?? CHART_MARKET_COUNT} country charts · See all to pick your country`
-                : 'Most played today · See all to change country'
-            }
             gutter={gutter}
             onSeeAll={() => router.push('/charts')}
           >
@@ -763,9 +729,6 @@ function OnlineHome() {
         {!!catalogue.data?.newReleases.length && (
           <Section
             title="New releases"
-            subtitle={
-              catalogue.data.followedReleases ? 'From artists you follow' : undefined
-            }
             gutter={gutter}
             onSeeAll={() => router.push('/discover')}
           >

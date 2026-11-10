@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,6 +88,9 @@ export default function NotificationsScreen() {
         break;
       case 'identify':
         router.push('/identify');
+        break;
+      case 'update':
+        void Linking.openURL(notification.entityId.split('|').slice(1).join('|'));
         break;
       default:
         break;
