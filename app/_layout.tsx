@@ -7,11 +7,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SystemUI from 'expo-system-ui';
 import { useFonts } from 'expo-font';
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from '@expo-google-fonts/inter';
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+  Figtree_800ExtraBold,
+} from '@expo-google-fonts/figtree';
 import { AuthProvider, useAuth } from '@/src/auth/auth';
 import { PulseProviders } from '@/src/ui/providers';
 import { PulseLogo } from '@/src/ui/logo';
@@ -61,10 +61,10 @@ function PulseRoot() {
   const [fontsLoaded, fontError] = useFonts({
     PermanentMarker_400Regular,
     Anton_400Regular,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    Figtree_500Medium,
+    Figtree_600SemiBold,
+    Figtree_700Bold,
+    Figtree_800ExtraBold,
   });
 
   useEffect(() => {

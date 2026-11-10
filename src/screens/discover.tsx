@@ -17,7 +17,7 @@ import { musicProvider } from '@/src/providers/music';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
 import { addTrackToLibrary, getLibraryTracks, isInLibrary } from '@/src/db/repos/library';
-import { ownedMatchOf } from '@/src/library/owned';
+import { libraryArtistNames, ownedMatchOf } from '@/src/library/owned';
 import { loadArtistPosters } from '@/src/discovery/artist-posters';
 import { ArtistPoster } from '@/src/ui/artist-poster';
 import { recordSearch } from '@/src/db/repos/settings';
@@ -95,7 +95,16 @@ export function DiscoverScreen() {
         signal,
       });
       void recordSearch(debounced);
-      return found;
+      // Titles that start with what was typed lead, and artists already in the
+      // library come before ones that are not.
+      const owned = new Set((await libraryArtistNames(400).catch(() => [])).map((n) => n.toLowerCase()));
+      return {
+        ...found,
+        tracks: rankByQuery(found.tracks, debounced),
+        artists: [...found.artists].sort(
+          (a, b) => Number(owned.has(b.name.toLowerCase())) - Number(owned.has(a.name.toLowerCase())),
+        ),
+      };
     },
     [debounced],
   );
@@ -115,8 +124,8 @@ export function DiscoverScreen() {
   const mine = useAsync<Track[]>(
     async () => {
       if (debounced.length < 2) return [];
-      const rows = await getLibraryTracks({ search: debounced, limit: 20 });
-      return rows;
+      const rows = await getLibraryTracks({ search: debounced, limit: 60 });
+      return rankByQuery(rows, debounced).slice(0, 20);
     },
     [debounced],
   );
@@ -373,6 +382,28 @@ function BrowseState({
 }
 
 const EMPTY_RESULTS: SearchResults = { tracks: [], artists: [], albums: [] };
+
+/**
+ * Orders songs by how well their name answers what was typed: titles that
+ * start with it first ("sing" → "Sing", "Singing in the Rain"), then titles
+ * with a word starting with it, then artists starting with it, then the rest.
+ * Order within each group is kept.
+ */
+function rankByQuery<T extends Track>(tracks: T[], query: string): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return tracks;
+  const score = (track: Track) => {
+    const title = track.title.toLowerCase().replace(/^[^a-z0-9]+/, '');
+    if (title.startsWith(q)) return 0;
+    if (title.split(/[^a-z0-9']+/).some((word) => word.startsWith(q))) return 1;
+    if (track.artistName.toLowerCase().startsWith(q)) return 2;
+    return 3;
+  };
+  return tracks
+    .map((track, index) => ({ track, index, score: score(track) }))
+    .sort((a, b) => a.score - b.score || a.index - b.index)
+    .map((entry) => entry.track);
+}
 const EMPTY_IDS = new Set<string>();
 
 function SearchResultsView({

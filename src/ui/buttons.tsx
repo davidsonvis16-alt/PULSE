@@ -75,7 +75,7 @@ export function Button({
             />
           )}
           <Txt
-            variant="callout"
+            variant="bodyStrong"
             tone={isPrimary ? 'onAccent' : variant === 'danger' ? 'danger' : 'default'}
           >
             {label}
@@ -261,7 +261,8 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.xs + 2,
-      borderRadius: radii.sm,
+      // Slim pills, the shape people know a button by.
+      borderRadius: radii.pill,
     },
     primary: { backgroundColor: colors.accent },
     secondary: {
@@ -293,7 +294,7 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 6,
       paddingHorizontal: 14,
       height: 32,
-      borderRadius: radii.sm,
+      borderRadius: radii.pill,
       backgroundColor: colors.cardRaised,
       borderWidth: 1,
       borderColor: colors.border,
@@ -302,7 +303,7 @@ const makeStyles = (colors: ThemeColors) =>
     segment: {
       flexDirection: 'row',
       backgroundColor: colors.card,
-      borderRadius: radii.sm,
+      borderRadius: radii.pill,
       padding: 4,
       gap: 4,
     },
@@ -311,7 +312,7 @@ const makeStyles = (colors: ThemeColors) =>
       height: 32,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: radii.sm,
+      borderRadius: radii.pill,
     },
     segmentItemActive: { backgroundColor: colors.accent },
   });

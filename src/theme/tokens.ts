@@ -121,13 +121,15 @@ export type ThemeColors = { [K in keyof typeof darkColors]: string };
  * text and icons in the accent use a deep green of the same family instead.
  */
 export const lightColors: ThemeColors = {
+  // Cloud white: the page is pure white and the boxes on it barely lighter
+  // than paper, with no grey or green in them, so the whole screen reads bright.
   background: palette.white,
-  backgroundElevated: '#FAFAF8',
-  card: '#F3F4F0',
-  cardRaised: '#ECEDE8',
-  cardHigh: '#E3E5DF',
-  border: '#D3D6CF',
-  borderSoft: '#E2E4DE',
+  backgroundElevated: palette.white,
+  card: '#F7F8F8',
+  cardRaised: '#F0F2F2',
+  cardHigh: '#E8EBEB',
+  border: '#E1E5E5',
+  borderSoft: '#EDF0F0',
 
   accent: palette.green,
   accentBright: palette.greenBright,
@@ -136,18 +138,18 @@ export const lightColors: ThemeColors = {
   accentInk: palette.green,
   onAccent: '#FFFFFF',
 
-  text: '#0C0D0C',
-  textSecondary: '#4E524D',
-  textMuted: '#696E68',
-  textFaint: '#8A8F88',
+  text: '#070807',
+  textSecondary: '#2E312D',
+  textMuted: '#4A4E49',
+  textFaint: '#6B6F6A',
 
   danger: '#C62F2F',
   warning: '#9A6A00',
   success: '#3F7D1F',
   info: '#1C6FB8',
 
-  skeleton: '#ECEDE9',
-  skeletonHighlight: '#F5F6F2',
+  skeleton: '#EEF1F1',
+  skeletonHighlight: '#F8FAFA',
   scrim: 'rgba(12, 13, 12, 0.55)',
 };
 
@@ -182,18 +184,18 @@ export const radii = {
 } as const;
 
 /**
- * One plain typeface, Inter, for everything: headings are set a little bolder
- * and larger rather than in a second display face, so screens read light and
- * clean. Native platforms pick a weight by family name rather than by
- * fontWeight, so each style names the exact cut it uses.
+ * One typeface, Figtree — round and friendly, in the spirit of Spotify's — set
+ * a step heavier than plain text usually is, so everything reads with a little
+ * weight without shouting. Native platforms pick a weight by family name rather
+ * than by fontWeight, so each style names the exact cut it uses.
  */
 export const fonts = {
-  display: 'Inter_700Bold',
-  heading: 'Inter_600SemiBold',
-  regular: 'Inter_400Regular',
-  medium: 'Inter_500Medium',
-  semibold: 'Inter_600SemiBold',
-  bold: 'Inter_700Bold',
+  display: 'Figtree_800ExtraBold',
+  heading: 'Figtree_700Bold',
+  regular: 'Figtree_500Medium',
+  medium: 'Figtree_600SemiBold',
+  semibold: 'Figtree_700Bold',
+  bold: 'Figtree_800ExtraBold',
   /** Thick marker handwriting: the opening screen and one line on posters. */
   marker: 'PermanentMarker_400Regular',
   /** Tall condensed capitals for the big artist posters. */
@@ -201,16 +203,16 @@ export const fonts = {
 } as const;
 
 export const typography = {
-  hero: { fontFamily: fonts.display, fontSize: 34, lineHeight: 40, fontWeight: '700' as const, letterSpacing: -0.8 },
-  display: { fontFamily: fonts.display, fontSize: 26, lineHeight: 32, fontWeight: '700' as const, letterSpacing: -0.5 },
-  title1: { fontFamily: fonts.display, fontSize: 21, lineHeight: 27, fontWeight: '700' as const, letterSpacing: -0.3 },
-  title2: { fontFamily: fonts.heading, fontSize: 18, lineHeight: 24, fontWeight: '600' as const, letterSpacing: -0.2 },
-  title3: { fontFamily: fonts.heading, fontSize: 16, lineHeight: 21, fontWeight: '600' as const, letterSpacing: -0.1 },
-  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, fontWeight: '400' as const },
-  bodyStrong: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, fontWeight: '500' as const },
-  callout: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 19, fontWeight: '500' as const },
-  caption: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 17, fontWeight: '400' as const },
-  micro: { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, fontWeight: '600' as const, letterSpacing: 0.6 },
+  hero: { fontFamily: fonts.display, fontSize: 34, lineHeight: 40, fontWeight: '800' as const, letterSpacing: -0.8 },
+  display: { fontFamily: fonts.display, fontSize: 26, lineHeight: 32, fontWeight: '800' as const, letterSpacing: -0.5 },
+  title1: { fontFamily: fonts.display, fontSize: 22, lineHeight: 28, fontWeight: '800' as const, letterSpacing: -0.4 },
+  title2: { fontFamily: fonts.heading, fontSize: 18, lineHeight: 24, fontWeight: '700' as const, letterSpacing: -0.2 },
+  title3: { fontFamily: fonts.heading, fontSize: 16, lineHeight: 21, fontWeight: '700' as const, letterSpacing: -0.1 },
+  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, fontWeight: '500' as const },
+  bodyStrong: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, fontWeight: '600' as const },
+  callout: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 19, fontWeight: '600' as const },
+  caption: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 17, fontWeight: '500' as const },
+  micro: { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, fontWeight: '700' as const, letterSpacing: 0.6 },
 } as const;
 
 /** Breakpoints: phone -> tablet -> laptop -> desktop. Layouts change, not stretch. */
