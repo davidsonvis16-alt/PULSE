@@ -297,8 +297,9 @@ function BrowseState({
           data={posters.data}
           gutter={gutter}
           keyExtractor={(poster) => poster.key}
-          renderItem={(poster) => (
+          renderItem={(poster, index) => (
             <ArtistPoster
+              variant={index}
               name={poster.name}
               imageUrl={poster.imageUrl}
               scribble={poster.scribble}

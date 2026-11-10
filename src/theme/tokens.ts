@@ -2,20 +2,22 @@
  * Pulse design tokens.
  *
  * The mark's own colours: its lime plate, the ink of the P and the white it
- * sits on. Light is the default. In the dark the lime would glow like neon, so
- * dark mode takes a deeper, calmer green. Surfaces stay neutral so artwork
- * carries every other colour in the app.
+ * sits on. Light is the default: white, with deep green and a little black.
+ * Dark is the mirror: calm matte black, with white and a little lime. Surfaces
+ * stay neutral so artwork carries every other colour in the app.
  */
 
 export const palette = {
   /** Canvas — the mark's ink, darkened to let artwork glow. */
-  black: '#0B0C0B',
-  ink: '#111211',
-  surface: '#181A18',
-  surfaceRaised: '#1E201E',
-  surfaceHigh: '#252825',
-  hairline: '#323632',
-  hairlineSoft: '#262926',
+  // Matte black: neutral, no blue or green in it, and only a few steps lighter
+  // for the boxes on top, so dark mode is calm rather than shiny.
+  black: '#0A0A0A',
+  ink: '#0E0E0E',
+  surface: '#141414',
+  surfaceRaised: '#191919',
+  surfaceHigh: '#202020',
+  hairline: '#262626',
+  hairlineSoft: '#1B1B1B',
 
   /** The lime of the Pulse plate: the accent on white. */
   lime: '#C9F62B',
@@ -34,11 +36,11 @@ export const palette = {
   terracotta: '#C2603D',
 
   white: '#FFFFFF',
-  text: '#F4F5F3',
-  textSecondary: '#B7BAB6',
-  textMuted: '#959994',
+  text: '#F2F2F2',
+  textSecondary: '#B5B5B5',
+  textMuted: '#8F8F8F',
   /** Still readable: 4.6:1 on the canvas, so small print never disappears. */
-  textFaint: '#7B7F7A',
+  textFaint: '#767676',
 
   danger: '#FF6B6B',
   warning: '#FFC24B',
@@ -81,18 +83,19 @@ export const darkColors = {
   border: palette.hairline,
   borderSoft: palette.hairlineSoft,
 
-  /** Fills: buttons, switches, progress, the active tab. */
-  accent: palette.green,
-  accentBright: palette.greenBright,
-  accentDim: palette.greenDim,
-  accentGlow: 'rgba(62, 122, 0, 0.22)',
   /**
-   * The accent as text or an icon on the background. The same green, lifted
-   * just enough to stay readable as small text on the dark background.
+   * In the dark the accent is the lime of the mark, used sparingly — a play
+   * button, a switch, the active tab — the way black is only a detail in light
+   * mode. No glow anywhere.
    */
-  accentInk: '#5A9E16',
+  accent: '#B8E62E',
+  accentBright: '#C9F62B',
+  accentDim: '#8FB61F',
+  accentGlow: 'rgba(184, 230, 46, 0.08)',
+  /** The accent as text or an icon on the background. */
+  accentInk: '#B8E62E',
   /** Text/icon colour to use *on top of* the accent. */
-  onAccent: '#FFFFFF',
+  onAccent: '#0A0A0A',
 
   text: palette.text,
   textSecondary: palette.textSecondary,
@@ -104,9 +107,9 @@ export const darkColors = {
   success: palette.success,
   info: palette.info,
 
-  skeleton: '#1A1C1A',
-  skeletonHighlight: '#242724',
-  scrim: 'rgba(11, 12, 11, 0.72)',
+  skeleton: '#161616',
+  skeletonHighlight: '#1E1E1E',
+  scrim: 'rgba(10, 10, 10, 0.75)',
 } as const;
 
 /** Widened so both schemes satisfy the same shape. */
