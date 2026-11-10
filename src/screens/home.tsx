@@ -52,6 +52,7 @@ import { oneCoverEach } from '@/src/discovery/variety';
 import { resolveOwnedAll } from '@/src/library/owned';
 import { indieTrending } from '@/src/providers/music/adapters/audius';
 import { chatSettings } from '@/src/social/chat';
+import { SideMenu } from '@/src/ui/side-menu';
 import { connection } from '@/src/core/connection';
 import { OfflineHome } from '@/src/screens/home-offline';
 import { ChartRow } from '@/src/ui/chart-row';
@@ -258,6 +259,7 @@ function OnlineHome() {
   );
 
   const chats = useStore(chatSettings);
+  const [menuOpen, setMenuOpen] = useState(false);
   const nowPlaying = useStore(playerStore);
   useEffect(() => {
     void chatSettings.load();
@@ -468,7 +470,17 @@ function OnlineHome() {
               </View>
             )}
           </Pressable>
+          {/* Everything not on the bottom bar lives in the menu on the right. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Menu"
+            hitSlop={8}
+            onPress={() => setMenuOpen(true)}
+          >
+            <Ionicons name="menu" size={26} color={colors.text} />
+          </Pressable>
         </View>
+        <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
         {importing && (
           <Banner

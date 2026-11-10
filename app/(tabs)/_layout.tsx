@@ -94,8 +94,9 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     bar: {
       backgroundColor: colors.backgroundElevated,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.borderSoft,
+      // A clear line between the page and the bar, in light and dark alike.
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
       elevation: 0,
     },
   });
