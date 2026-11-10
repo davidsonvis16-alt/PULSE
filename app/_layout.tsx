@@ -26,6 +26,7 @@ import { OpeningScreen } from '@/src/ui/opening';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
+import { Anton_400Regular } from '@expo-google-fonts/anton';
 import { ImportScreen } from '@/src/screens/import';
 import { getSetting, SETTINGS_KEYS } from '@/src/db/repos/settings';
 import { getLocalCounts } from '@/src/db/repos/local';
@@ -59,6 +60,7 @@ function PulseRoot() {
   // A font that fails to load falls back to the system face; it never blocks start-up.
   const [fontsLoaded, fontError] = useFonts({
     PermanentMarker_400Regular,
+    Anton_400Regular,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

@@ -18,6 +18,8 @@ import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
 import { addTrackToLibrary, getLibraryTracks, isInLibrary } from '@/src/db/repos/library';
 import { ownedMatchOf } from '@/src/library/owned';
+import { loadArtistPosters } from '@/src/discovery/artist-posters';
+import { ArtistPoster } from '@/src/ui/artist-poster';
 import { recordSearch } from '@/src/db/repos/settings';
 import { listPlaylists, type Playlist } from '@/src/db/repos/playlists';
 import {
@@ -275,10 +277,34 @@ function BrowseState({
 }) {
   const trending = useAsync(() => musicProvider().getTrending(12), []);
   const artists = useAsync(() => getArtistsFromLibrary(12), []);
+  const posters = useAsync(() => loadArtistPosters().catch(() => []), []);
   const router = useRouter();
 
   return (
     <View style={{ gap: spacing.xxl, paddingTop: spacing.sm }}>
+      {/* Big posters for the artists of the moment, like the ads on the street. */}
+      {!!posters.data?.length && (
+        <Shelf
+          data={posters.data}
+          gutter={gutter}
+          keyExtractor={(poster) => poster.key}
+          renderItem={(poster) => (
+            <ArtistPoster
+              name={poster.name}
+              imageUrl={poster.imageUrl}
+              scribble={poster.scribble}
+              strip={poster.strip}
+              width={cardWidth * 1.75}
+              height={cardWidth * 2.35}
+              onPress={() =>
+                poster.artistId
+                  ? router.push(`/artist/${encodeURIComponent(poster.artistId)}`)
+                  : router.push({ pathname: '/discover', params: { q: poster.name } })
+              }
+            />
+          )}
+        />
+      )}
       {/* The artists behind the collection, rather than a list of old queries. */}
       {!!artists.data?.length && (
         <View>

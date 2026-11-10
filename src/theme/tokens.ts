@@ -194,8 +194,10 @@ export const fonts = {
   medium: 'Inter_500Medium',
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
-  /** Thick marker handwriting, for the opening screen only. */
+  /** Thick marker handwriting: the opening screen and one line on posters. */
   marker: 'PermanentMarker_400Regular',
+  /** Tall condensed capitals for the big artist posters. */
+  poster: 'Anton_400Regular',
 } as const;
 
 export const typography = {
