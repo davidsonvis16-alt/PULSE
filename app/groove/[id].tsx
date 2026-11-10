@@ -15,7 +15,7 @@ import { useResponsive } from '@/src/hooks/use-responsive';
 import { useStore } from '@/src/hooks/use-store';
 import { useTrackActions } from '@/src/ui/track-actions';
 import { useShareSheet } from '@/src/ui/share-sheet';
-import { playlistShare } from '@/src/share/share';
+import { playlistShareOnline } from '@/src/share/share';
 import { PageHeader, Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
@@ -134,10 +134,12 @@ export default function GrooveScreen() {
             <IconButton
               name="share-outline"
               label="Share this Groove"
-              onPress={() =>
-                groove &&
-                share(
-                  playlistShare({
+              onPress={() => {
+                if (!groove) return;
+                // A Groove lives on this phone: publish a copy anyone can open, then share it.
+                toast('Preparing a link…');
+                void playlistShareOnline(
+                  {
                     id: groove.id,
                     name: groove.name,
                     description: groove.description,
@@ -149,9 +151,12 @@ export default function GrooveScreen() {
                     isSystem: true,
                     createdAt: groove.generatedAt,
                     updatedAt: groove.generatedAt,
-                  }),
+                  },
+                  tracks,
                 )
-              }
+                  .then((payload) => share(payload))
+                  .catch((error: Error) => toast(error.message, 'error'));
+              }}
             />
           </View>
 

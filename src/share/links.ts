@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { config } from '@/src/core/config';
 
-export type ShareableKind = 'track' | 'album' | 'artist' | 'playlist' | 'event' | 'stats';
+export type ShareableKind = 'track' | 'album' | 'artist' | 'playlist' | 'event' | 'stats' | 'shared';
 
 /**
  * Share links are dual: a pulse:// deep link that opens the exact screen for

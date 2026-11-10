@@ -25,7 +25,7 @@ import { useStore } from '@/src/hooks/use-store';
 import { useTrackActions } from '@/src/ui/track-actions';
 import { useShareSheet } from '@/src/ui/share-sheet';
 import { useToast } from '@/src/ui/toast';
-import { playlistShare } from '@/src/share/share';
+import { playlistShareOnline } from '@/src/share/share';
 import { PageHeader, Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
@@ -73,6 +73,15 @@ export default function PlaylistScreen() {
 
   const playlist = state.data?.playlist;
   const tracks = state.data?.tracks ?? [];
+
+  /** Publishes a copy anyone can open, then shares its link. */
+  const sharePlaylist = () => {
+    if (!state.data) return;
+    toast('Preparing a link…');
+    void playlistShareOnline(state.data.playlist, tracks)
+      .then((payload) => share(payload))
+      .catch((error: Error) => toast(error.message, 'error'));
+  };
   const totalMs = tracks.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
   const artSize = Math.min(width - gutter * 2, isTabletUp ? 260 : 200);
 
@@ -189,7 +198,7 @@ export default function PlaylistScreen() {
               <IconButton
                 name="share-outline"
                 label="Share this playlist"
-                onPress={() => share(playlistShare(playlist))}
+                onPress={() => sharePlaylist()}
               />
             </View>
 
@@ -388,7 +397,7 @@ export default function PlaylistScreen() {
                   label="Share"
                   onPress={() => {
                     setSettingsOpen(false);
-                    setTimeout(() => share(playlistShare(playlist)), 220);
+                    setTimeout(() => sharePlaylist(), 220);
                   }}
                 />
                 <SheetAction

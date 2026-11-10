@@ -4,7 +4,24 @@ import * as Sharing from 'expo-sharing';
 import type { Album, Artist, MusicEvent, Track } from '@/src/core/types';
 import type { Playlist } from '@/src/db/repos/playlists';
 import { formatListeningTime } from '@/src/core/format';
-import { shareUrl, type ShareableKind } from '@/src/share/links';
+import { shareUrl, webLink, type ShareableKind } from '@/src/share/links';
+import { publishPlaylist } from '@/src/share/shared-playlists';
+
+/**
+ * Songs whose page only exists on the sharer's phone (their own files) or in
+ * a catalogue the song page cannot open (Deezer, Audius) are shared as a
+ * search for them on Pulse, which opens for anyone.
+ */
+function songUrl(track: Track): string {
+  if (track.provider === 'itunes') return shareUrl('track', track.id);
+  const base = webLink('track', 'x').replace(/\/track\/x$/, '');
+  return `${base}/discover?q=${encodeURIComponent(`${track.title} ${track.artistName}`.trim())}`;
+}
+
+/** The Pulse front page: for things that are personal, like someone's stats. */
+function homeUrl(): string {
+  return webLink('track', 'x').replace(/\/track\/x$/, '/');
+}
 
 /**
  * Sharing.
@@ -27,7 +44,7 @@ export interface SharePayload {
 }
 
 export function trackShare(track: Track): SharePayload {
-  const url = shareUrl('track', track.id);
+  const url = songUrl(track);
   return {
     kind: 'track',
     id: track.id,
@@ -82,8 +99,28 @@ export function playlistShare(playlist: Playlist): SharePayload {
   };
 }
 
+/**
+ * A playlist lives on the phone that made it, so sharing it first publishes a
+ * copy anyone can open (see shared-playlists); the link points at that copy.
+ */
+export async function playlistShareOnline(playlist: Playlist, tracks: Track[]): Promise<SharePayload> {
+  const url = await publishPlaylist({
+    localId: playlist.id,
+    name: playlist.name,
+    description: playlist.description,
+    artworkUrl: playlist.coverArtworkUrl,
+    tracks,
+  });
+  return {
+    ...playlistShare(playlist),
+    kind: 'shared',
+    message: `${playlist.name} — a playlist on Pulse\n${url}`,
+    url,
+  };
+}
+
 export function eventShare(event: MusicEvent): SharePayload {
-  const url = event.ticket?.url ?? shareUrl('event', event.id);
+  const url = event.ticket?.url ?? webLink('track', 'x').replace(/\/track\/x$/, '/events');
   const where = [event.venueName, event.city].filter(Boolean).join(', ');
   return {
     kind: 'event',
@@ -105,7 +142,7 @@ export function statsShare(input: {
   topArtist: string | null;
   artworkUrl?: string | null;
 }): SharePayload {
-  const url = shareUrl('stats', 'me');
+  const url = homeUrl();
   const lines = [
     `My ${input.periodLabel} on Pulse`,
     `${formatListeningTime(input.totalMs)} of listening`,

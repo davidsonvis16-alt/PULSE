@@ -59,6 +59,8 @@ export const SETTINGS_KEYS = {
   playerSession: 'player.session',
   /** Names the listener gave their Grooves, kept across rebuilds. */
   grooveNames: 'grooves.names',
+  /** The shared copy of each playlist that was shared, so sharing again updates it. */
+  sharedPlaylistIds: 'share.playlistIds',
 } as const;
 
 export interface NotificationPrefs {
