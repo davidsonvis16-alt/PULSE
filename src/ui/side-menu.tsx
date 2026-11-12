@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { checkForUpdate, installedVersion } from '@/src/core/updates';
 import { chatSettings } from '@/src/social/chat';
+import { useIsAdmin } from '@/src/news/pulse-news';
 import { useStore } from '@/src/hooks/use-store';
 import { useToast } from '@/src/ui/toast';
 import { ProfileAvatar } from '@/src/ui/profile-avatar';
@@ -32,6 +33,7 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const chats = useStore(chatSettings);
+  const admin = useIsAdmin();
   const panelWidth = Math.min(380, width * 0.88);
   const slide = useRef(new Animated.Value(panelWidth)).current;
   // The lines in the corner turn into an ✕ just after the panel arrives.
@@ -105,6 +107,8 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
         { label: 'Notification settings', icon: 'options-outline', go: to('/settings/notifications') },
         { label: 'Playback', icon: 'play-circle-outline', go: to('/settings/playback') },
         { label: 'Profile picture', icon: 'image-outline', go: to('/settings/picture') },
+        // The Pulse News desk: editors only. Nobody else gets the line at all.
+        ...(admin ? [{ label: 'Pulse News desk', icon: 'newspaper-outline' as Icon, go: to('/admin/news') }] : []),
         ...(Platform.OS === 'android'
           ? [
               {

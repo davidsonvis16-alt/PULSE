@@ -13,6 +13,7 @@ import { isJustIn, useLiveRefresh, useNow } from '@/src/news/live';
 import { checkMusicWorld } from '@/src/news/notify';
 import type { NewsTopic } from '@/src/news/rss';
 import { AwardPoster, HeadlinePoster, ReleasePoster, StoryRow, TOPIC_LABELS } from '@/src/ui/posters';
+import { PulseNewsSection } from '@/src/ui/pulse-news-section';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { Chip } from '@/src/ui/buttons';
 import { Txt } from '@/src/ui/text';
@@ -114,6 +115,9 @@ export function MusicNews({ feed }: { feed: MusicNewsFeed }) {
 
   return (
     <View style={{ gap: spacing.xxl, paddingTop: spacing.sm }}>
+      {/* Pulse's own updates, when the desk has opened them (editors always). */}
+      <PulseNewsSection />
+
       {/* Lead story */}
       <View style={{ paddingHorizontal: gutter, gap: spacing.sm }}>
         {stories.loading && !stories.data ? (
