@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, View, type PressableStateCallbackTyp
 import { usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { listPlaylists } from '@/src/db/repos/playlists';
+import { getFollowedArtists, getLibraryAlbums } from '@/src/db/repos/library';
 import { getStatsSummary } from '@/src/db/repos/history';
 import { MOODS } from '@/src/core/moods';
 import { moodMixId } from '@/src/discovery/mood-mix';
@@ -54,6 +55,9 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
   // Re-read on every move, which is when a new playlist could have appeared.
   const playlists = useAsync(() => listPlaylists(), [pathname]);
   const week = useAsync(() => getStatsSummary('week'), [pathname]);
+  // Artists they follow and albums they saved, newest first, like any desktop library.
+  const followed = useAsync(() => getFollowedArtists().catch(() => []), [pathname]);
+  const albums = useAsync(() => getLibraryAlbums().catch(() => []), [pathname]);
   const minutes = Math.round((week.data?.totalMs ?? 0) / 60_000);
   // Mood mixes have their own list above; the playlists list is everything else.
   const moodMixes = new Set(MOODS.map((mood) => moodMixId(mood.id)));
@@ -165,6 +169,60 @@ export function Sidebar({ tabs }: { tabs: SidebarTab[] }) {
               <Txt variant="callout" tone="secondary" numberOfLines={1}>
                 {mood.name}
               </Txt>
+            </Pressable>
+          ))}
+          {!!followed.data?.length && (
+            <Txt variant="micro" tone="faint" uppercase style={styles.groupTitle}>
+              Artists you follow
+            </Txt>
+          )}
+          {(followed.data ?? []).slice(0, 12).map((artist) => (
+            <Pressable
+              key={artist.id}
+              accessibilityRole="link"
+              onPress={() => router.push(`/artist/${encodeURIComponent(artist.id)}`)}
+              style={(s: PressState) => [
+                styles.libraryRow,
+                pathname === `/artist/${encodeURIComponent(artist.id)}` && { backgroundColor: colors.cardRaised },
+                s.hovered && { backgroundColor: colors.card },
+              ]}
+            >
+              <Artwork uri={artist.imageUrl} size={44} rounded />
+              <View style={{ flex: 1 }}>
+                <Txt variant="callout" numberOfLines={1}>
+                  {artist.name}
+                </Txt>
+                <Txt variant="caption" tone="faint" numberOfLines={1}>
+                  Artist
+                </Txt>
+              </View>
+            </Pressable>
+          ))}
+          {!!albums.data?.length && (
+            <Txt variant="micro" tone="faint" uppercase style={styles.groupTitle}>
+              Albums
+            </Txt>
+          )}
+          {(albums.data ?? []).slice(0, 12).map((album) => (
+            <Pressable
+              key={album.id}
+              accessibilityRole="link"
+              onPress={() => router.push(`/album/${encodeURIComponent(album.id)}`)}
+              style={(s: PressState) => [
+                styles.libraryRow,
+                pathname === `/album/${encodeURIComponent(album.id)}` && { backgroundColor: colors.cardRaised },
+                s.hovered && { backgroundColor: colors.card },
+              ]}
+            >
+              <Artwork uri={album.artworkUrl} size={44} radius={radii.xs} />
+              <View style={{ flex: 1 }}>
+                <Txt variant="callout" numberOfLines={1}>
+                  {album.title}
+                </Txt>
+                <Txt variant="caption" tone="faint" numberOfLines={1}>
+                  Album · {album.artistName}
+                </Txt>
+              </View>
             </Pressable>
           ))}
           <Txt variant="micro" tone="faint" uppercase style={styles.groupTitle}>

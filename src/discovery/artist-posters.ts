@@ -2,15 +2,15 @@ import {
   chartsStore,
   getCountryChart,
   type ChartEntry,
-} from "@/src/discovery/charts";
+} from '@/src/discovery/charts';
 import {
   chartCountry,
   chartCountryName,
-} from "@/src/discovery/chart-countries";
-import { getArtistProfile } from "@/src/discovery/artists";
-import { getTopArtists } from "@/src/db/repos/history";
-import { formatListeningTime } from "@/src/core/format";
-import { getJson } from "@/src/core/http";
+} from '@/src/discovery/chart-countries';
+import { getArtistProfile } from '@/src/discovery/artists';
+import { getTopArtists } from '@/src/db/repos/history';
+import { formatListeningTime } from '@/src/core/format';
+import { getJson } from '@/src/core/http';
 
 /** One big poster on the search page. */
 export interface ArtistPosterData {
@@ -43,7 +43,7 @@ export async function loadArtistPosters(): Promise<ArtistPosterData[]> {
   await chartCountry.load();
   const country = chartCountry.getSnapshot().code;
   const place = chartCountryName(country);
-  const worldwide = country === "global";
+  const worldwide = country === 'global';
 
   let entries: ChartEntry[] = [];
   if (worldwide) {
@@ -82,7 +82,7 @@ export async function loadArtistPosters(): Promise<ArtistPosterData[]> {
   // worldwide top artists need no key.
   if (byArtist.size === 0) {
     const top = await getJson<{ data?: { name: string; position?: number }[] }>(
-      "https://api.deezer.com/chart/0/artists?limit=12",
+      'https://api.deezer.com/chart/0/artists?limit=12',
       { ttlMs: 6 * 60 * 60 * 1000 },
     ).catch(() => null);
     (top?.data ?? []).forEach((row, index) =>
@@ -100,7 +100,7 @@ export async function loadArtistPosters(): Promise<ArtistPosterData[]> {
     .slice(0, CHART_POSTERS + 3);
 
   const [mine] = await Promise.all([
-    getTopArtists("month", OWN_POSTERS + 2).catch(() => []),
+    getTopArtists('month', OWN_POSTERS + 2).catch(() => []),
   ]);
 
   const posters: ArtistPosterData[] = [];
@@ -108,7 +108,7 @@ export async function loadArtistPosters(): Promise<ArtistPosterData[]> {
     if (posters.length >= CHART_POSTERS) break;
     const profile = await getArtistProfile(artist.name).catch(() => null);
     if (!profile?.pictureUrl) continue;
-    const where = worldwide ? "the world" : place;
+    const where = worldwide ? 'the world' : place;
     posters.push({
       key: `chart-${artist.name}`,
       name: artist.name,
@@ -117,11 +117,11 @@ export async function loadArtistPosters(): Promise<ArtistPosterData[]> {
         artist.best === 1
           ? `#1 in ${where} right now`
           : artist.songs > 1
-            ? `${artist.songs} songs in the ${worldwide ? "world" : place} chart`
+            ? `${artist.songs} songs in the ${worldwide ? 'world' : place} chart`
             : `#${artist.best} in ${where}`,
-      strip: [artist.genre, `Chart · ${worldwide ? "Worldwide" : place}`]
+      strip: [artist.genre, `Chart · ${worldwide ? 'Worldwide' : place}`]
         .filter(Boolean)
-        .join(" · "),
+        .join(' · '),
       artistId: artist.artistId,
     });
   }
@@ -140,9 +140,9 @@ export async function loadArtistPosters(): Promise<ArtistPosterData[]> {
       imageUrl,
       scribble:
         own === 1
-          ? "your most played this month"
+          ? 'your most played this month'
           : `${formatListeningTime(artist.msPlayed)} with you this month`,
-      strip: "Your music · On repeat",
+      strip: 'Your music · On repeat',
       artistId: artist.artistId,
     });
   }

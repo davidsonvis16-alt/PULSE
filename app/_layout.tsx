@@ -33,6 +33,9 @@ import { getLocalCounts } from '@/src/db/repos/local';
 import { GlobalMiniPlayer } from '@/src/ui/global-mini-player';
 import { PlayerBar } from '@/src/ui/player-bar';
 import { Sidebar, TABS } from '@/src/ui/sidebar';
+import { QueuePanel } from '@/src/ui/queue-panel';
+import { useStore } from '@/src/hooks/use-store';
+import { queuePanel } from '@/src/ui/queue-panel-store';
 import { useResponsive } from '@/src/hooks/use-responsive';
 import { useNotificationRouting } from '@/src/notifications/routing';
 
@@ -196,6 +199,7 @@ function AppShell() {
   const { isLaptopUp } = useResponsive();
   const pathname = usePathname();
   const chrome = isLaptopUp && !pathname.startsWith('/player');
+  const { open: queueOpen } = useStore(queuePanel);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -227,6 +231,7 @@ function AppShell() {
             <Stack.Screen name="freestyle" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           </Stack>
         </View>
+        {chrome && queueOpen ? <QueuePanel /> : null}
       </View>
       {chrome ? <PlayerBar /> : null}
       {isLaptopUp ? null : <GlobalMiniPlayer />}

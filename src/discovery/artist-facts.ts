@@ -100,3 +100,53 @@ async function gather(name: string): Promise<ArtistFacts> {
       wiki?.type === 'standard' && musician.test(wiki.description ?? '') ? (wiki.description ?? null) : null,
   };
 }
+
+const playsMemo = new Map<string, Promise<Map<string, number>>>();
+
+/** A song title reduced to what two sources would agree on. */
+const titleKey = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/\s*[([].*?[)\]]\s*/g, ' ')
+    .replace(/\s*-\s*.*$/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+/**
+ * How many times each of an artist's songs has been played, by title key, from
+ * Last.fm's listeners — the only open source with per-song counts. Empty when
+ * no Last.fm key is set.
+ */
+export function getArtistPlayCounts(name: string): Promise<Map<string, number>> {
+  const key = name.trim().toLowerCase();
+  if (!playsMemo.has(key)) {
+    playsMemo.set(
+      key,
+      (async () => {
+        const counts = new Map<string, number>();
+        if (!config.popularity.lastfmKey) return counts;
+        const data = await getJson<{
+          toptracks?: { track?: { name: string; playcount?: string }[] };
+        }>(
+          buildUrl('https://ws.audioscrobbler.com/2.0/', {
+            method: 'artist.getTopTracks',
+            artist: name,
+            api_key: config.popularity.lastfmKey,
+            autocorrect: 1,
+            limit: 100,
+            format: 'json',
+          }),
+          { ttlMs: WEEK },
+        ).catch(() => null);
+        for (const row of data?.toptracks?.track ?? []) {
+          const n = Number(row.playcount);
+          if (Number.isFinite(n) && n > 0) counts.set(titleKey(row.name), n);
+        }
+        return counts;
+      })(),
+    );
+  }
+  return playsMemo.get(key)!;
+}
+
+export const playCountKey = titleKey;

@@ -16,7 +16,11 @@ import { formatDuration, formatReleaseDate } from '@/src/core/format';
 import { musicProvider } from '@/src/providers/music';
 import { playerStore } from '@/src/audio/player';
 import { downloadManager } from '@/src/downloads/manager';
-import { addTrackToLibrary, getLibraryTracks, isInLibrary } from '@/src/db/repos/library';
+import {
+  addTrackToLibrary,
+  getLibraryTracks,
+  isInLibrary,
+} from '@/src/db/repos/library';
 import { libraryArtistNames, ownedMatchOf } from '@/src/library/owned';
 import { loadArtistPosters } from '@/src/discovery/artist-posters';
 import { ArtistPoster } from '@/src/ui/artist-poster';
@@ -38,10 +42,11 @@ import { trackShare } from '@/src/share/share';
 import { Screen, useBottomInset } from '@/src/ui/screen';
 import { Artwork } from '@/src/ui/artwork';
 import { Txt } from '@/src/ui/text';
-import { Chip, SegmentedControl } from '@/src/ui/buttons';
+import { Chip, PlayButton, SegmentedControl } from '@/src/ui/buttons';
+import { similarity } from '@/src/ingestion/identify/text';
 import { MusicNews, useMusicNews } from '@/src/screens/news';
 import { AlbumRow, ArtistRow } from '@/src/ui/rows';
-import { ArtistCard, MoodCard } from '@/src/ui/cards';
+import { AlbumCard, ArtistCard, MoodCard } from '@/src/ui/cards';
 import { SectionHeader, Shelf } from '@/src/ui/section';
 import { EmptyState, ErrorState, SkeletonRows } from '@/src/ui/states';
 import { radii, spacing } from '@/src/theme/tokens';
@@ -80,7 +85,9 @@ export function DiscoverScreen() {
 
   const [query, setQuery] = useState(params.q ?? '');
   const [filter, setFilter] = useState<Filter>('all');
-  const [page, setPage] = useState<Page>(params.tab === 'news' ? 'news' : 'explore');
+  const [page, setPage] = useState<Page>(
+    params.tab === 'news' ? 'news' : 'explore',
+  );
   const inputRef = useRef<TextInput>(null);
   const debounced = useDebounced(query.trim(), 350);
 
@@ -97,12 +104,18 @@ export function DiscoverScreen() {
       void recordSearch(debounced);
       // Titles that start with what was typed lead, and artists already in the
       // library come before ones that are not.
-      const owned = new Set((await libraryArtistNames(400).catch(() => [])).map((n) => n.toLowerCase()));
+      const owned = new Set(
+        (await libraryArtistNames(400).catch(() => [])).map((n) =>
+          n.toLowerCase(),
+        ),
+      );
       return {
         ...found,
         tracks: rankByQuery(found.tracks, debounced),
         artists: [...found.artists].sort(
-          (a, b) => Number(owned.has(b.name.toLowerCase())) - Number(owned.has(a.name.toLowerCase())),
+          (a, b) =>
+            Number(owned.has(b.name.toLowerCase())) -
+            Number(owned.has(a.name.toLowerCase())),
         ),
       };
     },
@@ -111,34 +124,27 @@ export function DiscoverScreen() {
 
   // Which results they already have (matched by name, identified or not): ticked,
   // and played from their own file when tapped.
-  const ownedIds = useAsync<Set<string>>(
-    async () => {
-      const tracks = results.data?.tracks ?? [];
-      const matches = await Promise.all(tracks.map((t) => ownedMatchOf(t).catch(() => null)));
-      return new Set(tracks.filter((_, i) => !!matches[i]).map((t) => t.id));
-    },
-    [results.data],
-  );
+  const ownedIds = useAsync<Set<string>>(async () => {
+    const tracks = results.data?.tracks ?? [];
+    const matches = await Promise.all(
+      tracks.map((t) => ownedMatchOf(t).catch(() => null)),
+    );
+    return new Set(tracks.filter((_, i) => !!matches[i]).map((t) => t.id));
+  }, [results.data]);
 
   // Their own songs that match, shown first: search finds what they have too.
-  const mine = useAsync<Track[]>(
-    async () => {
-      if (debounced.length < 2) return [];
-      const rows = await getLibraryTracks({ search: debounced, limit: 60 });
-      return rankByQuery(rows, debounced).slice(0, 20);
-    },
-    [debounced],
-  );
+  const mine = useAsync<Track[]>(async () => {
+    if (debounced.length < 2) return [];
+    const rows = await getLibraryTracks({ search: debounced, limit: 60 });
+    return rankByQuery(rows, debounced).slice(0, 20);
+  }, [debounced]);
 
-  const playlistMatches = useAsync<Playlist[]>(
-    async () => {
-      if (debounced.length < 2) return [];
-      const all = await listPlaylists();
-      const needle = debounced.toLowerCase();
-      return all.filter((p) => p.name.toLowerCase().includes(needle));
-    },
-    [debounced],
-  );
+  const playlistMatches = useAsync<Playlist[]>(async () => {
+    if (debounced.length < 2) return [];
+    const all = await listPlaylists();
+    const needle = debounced.toLowerCase();
+    return all.filter((p) => p.name.toLowerCase().includes(needle));
+  }, [debounced]);
 
   const taste = useAsync(() => buildTasteProfile(), []);
 
@@ -180,8 +186,16 @@ export function DiscoverScreen() {
             clearButtonMode="never"
           />
           {query.length > 0 && (
-            <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="Clear search">
-              <Ionicons name="close-circle" size={17} color={colors.textMuted} />
+            <Pressable
+              onPress={() => setQuery('')}
+              hitSlop={8}
+              accessibilityLabel="Clear search"
+            >
+              <Ionicons
+                name="close-circle"
+                size={17}
+                color={colors.textMuted}
+              />
             </Pressable>
           )}
         </View>
@@ -212,7 +226,11 @@ export function DiscoverScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: gutter, gap: spacing.sm, paddingBottom: spacing.md }}
+          contentContainerStyle={{
+            paddingHorizontal: gutter,
+            gap: spacing.sm,
+            paddingBottom: spacing.md,
+          }}
         >
           {FILTERS.map((item) => (
             <Chip
@@ -308,8 +326,13 @@ function BrowseState({
               height={cardWidth * 2.35}
               onPress={() =>
                 poster.artistId
-                  ? router.push(`/artist/${encodeURIComponent(poster.artistId)}`)
-                  : router.push({ pathname: '/discover', params: { q: poster.name } })
+                  ? router.push(
+                      `/artist/${encodeURIComponent(poster.artistId)}`,
+                    )
+                  : router.push({
+                      pathname: '/discover',
+                      params: { q: poster.name },
+                    })
               }
             />
           )}
@@ -331,7 +354,9 @@ function BrowseState({
               <ArtistCard
                 artist={artist}
                 width={shelfCardWidth}
-                onPress={() => router.push(`/artist/${encodeURIComponent(artist.id)}`)}
+                onPress={() =>
+                  router.push(`/artist/${encodeURIComponent(artist.id)}`)
+                }
               />
             )}
           />
@@ -349,7 +374,11 @@ function BrowseState({
           gutter={gutter}
           keyExtractor={(mood) => mood.id}
           renderItem={(mood) => (
-            <MoodCard mood={mood} width={cardWidth} onPress={() => onMood(mood.id)} />
+            <MoodCard
+              mood={mood}
+              width={cardWidth}
+              onPress={() => onMood(mood.id)}
+            />
           )}
         />
       </View>
@@ -365,14 +394,20 @@ function BrowseState({
             <SkeletonRows count={4} />
           </View>
         ) : trending.error ? (
-          <ErrorState error={trending.error} onRetry={trending.reload} compact />
+          <ErrorState
+            error={trending.error}
+            onRetry={trending.reload}
+            compact
+          />
         ) : (
           <View style={{ paddingHorizontal: gutter }}>
             {(trending.data ?? []).slice(0, 8).map((album) => (
               <AlbumRow
                 key={album.id}
                 album={album}
-                onPress={() => router.push(`/album/${encodeURIComponent(album.id)}`)}
+                onPress={() =>
+                  router.push(`/album/${encodeURIComponent(album.id)}`)
+                }
               />
             ))}
           </View>
@@ -432,17 +467,15 @@ function SearchResultsView({
   personalised: Track[];
   taste: TasteProfile | undefined;
 }) {
-  const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
+  const { isTabletUp } = useResponsive();
 
   const nothing =
     mine.length === 0 &&
+    (!results || results.tracks.length === 0) &&
     (!results ||
-      results.tracks.length === 0) &&
-    (!results ||
-      results.artists.length === 0 &&
-      results.albums.length === 0) &&
+      (results.artists.length === 0 && results.albums.length === 0)) &&
     playlists.length === 0;
 
   if (nothing) {
@@ -460,55 +493,130 @@ function SearchResultsView({
   const showAlbums = filter === 'all' || filter === 'albums';
   const showPlaylists = filter === 'all' || filter === 'playlists';
 
-  const topArtist = results?.artists[0];
+  const found = results ?? EMPTY_RESULTS;
+  const topArtist = found.artists[0];
+  // The top result: the artist when the search is their name, else the best
+  // song — their own copy first, since that is the one that plays in full.
+  const artistWins = !!topArtist && similarity(topArtist.name, query) >= 0.72;
+  const topTrack = mine[0] ?? found.tracks[0];
+  // The songs beside the top result: theirs first, then the catalogue's.
+  const songsBeside = [
+    ...mine.slice(0, 2),
+    ...found.tracks.filter((t) => !mine.some((m) => m.id === t.id)),
+  ].slice(0, 5);
 
   return (
     <View style={{ gap: spacing.xxl, paddingTop: spacing.xs }}>
-      {showArtists && topArtist && filter === 'all' && (
-        <View style={{ paddingHorizontal: gutter }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Open ${topArtist.name}`}
-            onPress={() => router.push(`/artist/${encodeURIComponent(topArtist.id)}`)}
-            style={({ pressed }) => [styles.topResult, pressed && { opacity: 0.85 }]}
-          >
-            <Artwork uri={topArtist.imageUrl} size={64} rounded />
-            <View style={{ flex: 1 }}>
-              <Txt variant="micro" tone="accent" uppercase>
-                Top result
+      {filter === 'all' && (topArtist || topTrack) && (
+        <View
+          style={[
+            styles.topBlock,
+            { paddingHorizontal: gutter },
+            isTabletUp && styles.topBlockWide,
+          ]}
+        >
+          <View style={isTabletUp ? styles.topLeft : undefined}>
+            <Txt variant="title2" style={styles.blockTitle}>
+              Top result
+            </Txt>
+            {artistWins && topArtist ? (
+              <TopResultCard
+                imageUrl={topArtist.imageUrl}
+                rounded
+                title={topArtist.name}
+                subtitle={['Artist', topArtist.genre]
+                  .filter(Boolean)
+                  .join(' · ')}
+                onOpen={() =>
+                  router.push(`/artist/${encodeURIComponent(topArtist.id)}`)
+                }
+              />
+            ) : topTrack ? (
+              <TopResultCard
+                imageUrl={topTrack.artworkUrl}
+                title={topTrack.title}
+                subtitle={`Song · ${topTrack.artistName}${ownedIds.has(topTrack.id) || mine.includes(topTrack) ? ' · on your phone' : ''}`}
+                onOpen={() =>
+                  router.push(`/track/${encodeURIComponent(topTrack.id)}`)
+                }
+                onPlay={() =>
+                  void playerStore.playQueue(
+                    songsBeside.length ? songsBeside : [topTrack],
+                    {
+                      startIndex: Math.max(0, songsBeside.indexOf(topTrack)),
+                      context: 'search',
+                      contextLabel: 'Search results',
+                    },
+                  )
+                }
+              />
+            ) : topArtist ? (
+              <TopResultCard
+                imageUrl={topArtist.imageUrl}
+                rounded
+                title={topArtist.name}
+                subtitle="Artist"
+                onOpen={() =>
+                  router.push(`/artist/${encodeURIComponent(topArtist.id)}`)
+                }
+              />
+            ) : null}
+          </View>
+          {showTracks && songsBeside.length > 0 && (
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Txt variant="title2" style={styles.blockTitle}>
+                Songs
               </Txt>
-              <Txt variant="title3" numberOfLines={1}>
-                {topArtist.name}
-              </Txt>
-              <Txt variant="caption" tone="muted">
-                Artist{topArtist.genre ? ` · ${topArtist.genre}` : ''}
-              </Txt>
+              {songsBeside.map((track, index) => (
+                <SongLine
+                  key={track.id}
+                  track={track}
+                  owned={ownedIds.has(track.id) || mine.includes(track)}
+                  onPress={() =>
+                    void playerStore.playQueue(songsBeside, {
+                      startIndex: index,
+                      context: 'search',
+                      contextLabel: 'Search results',
+                    })
+                  }
+                  queue={songsBeside}
+                />
+              ))}
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-          </Pressable>
+          )}
         </View>
       )}
 
-      {showTracks && mine.length > 0 && (
+      {filter === 'songs' && mine.length > 0 && (
         <View>
-          <SectionHeader title="In your library" style={{ paddingHorizontal: gutter }} />
+          <SectionHeader
+            title="On your phone"
+            subtitle="Play in full"
+            style={{ paddingHorizontal: gutter }}
+          />
           <View style={{ paddingHorizontal: gutter }}>
-            {mine.slice(0, filter === 'songs' ? 20 : 5).map((track, index) => (
-              <SearchTrackRow key={`mine-${track.id}`} track={track} queue={mine} index={index} />
+            {mine.slice(0, 20).map((track, index) => (
+              <SearchTrackRow
+                key={`mine-${track.id}`}
+                track={track}
+                queue={mine}
+                index={index}
+                owned
+              />
             ))}
           </View>
         </View>
       )}
 
-      {showTracks && !!results && results.tracks.length > 0 && (
+      {filter === 'songs' && found.tracks.length > 0 && (
         <View>
           <SectionHeader title="Songs" style={{ paddingHorizontal: gutter }} />
           <View style={{ paddingHorizontal: gutter }}>
-            {(results ?? EMPTY_RESULTS).tracks.slice(0, filter === 'songs' ? 50 : 8).map((track, index) => (
+            {found.tracks.slice(0, 50).map((track, index) => (
               <SearchTrackRow
                 key={track.id}
                 track={track}
-                queue={(results ?? EMPTY_RESULTS).tracks}
+                queue={found.tracks}
                 index={index}
                 owned={ownedIds.has(track.id)}
               />
@@ -517,53 +625,88 @@ function SearchResultsView({
         </View>
       )}
 
-      {showArtists && (results ?? EMPTY_RESULTS).artists.length > (filter === 'all' ? 1 : 0) && (
+      {showArtists &&
+        found.artists.length > (filter === 'all' && artistWins ? 1 : 0) && (
+          <View>
+            <SectionHeader
+              title="Artists"
+              style={{ paddingHorizontal: gutter }}
+            />
+            {filter === 'artists' ? (
+              <View style={{ paddingHorizontal: gutter }}>
+                {found.artists.map((artist) => (
+                  <ArtistRow
+                    key={artist.id}
+                    artist={artist}
+                    onPress={() =>
+                      router.push(`/artist/${encodeURIComponent(artist.id)}`)
+                    }
+                  />
+                ))}
+              </View>
+            ) : (
+              <Shelf
+                data={artistWins ? found.artists.slice(1) : found.artists}
+                gutter={gutter}
+                keyExtractor={(artist) => artist.id}
+                renderItem={(artist) => (
+                  <ArtistCard
+                    artist={artist}
+                    width={shelfCardWidth * 0.82}
+                    onPress={() =>
+                      router.push(`/artist/${encodeURIComponent(artist.id)}`)
+                    }
+                  />
+                )}
+              />
+            )}
+          </View>
+        )}
+
+      {showAlbums && found.albums.length > 0 && (
         <View>
-          <SectionHeader title="Artists" style={{ paddingHorizontal: gutter }} />
-          {filter === 'artists' ? (
+          <SectionHeader title="Albums" style={{ paddingHorizontal: gutter }} />
+          {filter === 'albums' && !isTabletUp ? (
             <View style={{ paddingHorizontal: gutter }}>
-              {(results ?? EMPTY_RESULTS).artists.map((artist) => (
-                <ArtistRow
-                  key={artist.id}
-                  artist={artist}
-                  onPress={() => router.push(`/artist/${encodeURIComponent(artist.id)}`)}
+              {found.albums.slice(0, 40).map((album) => (
+                <AlbumRow
+                  key={album.id}
+                  album={album}
+                  onPress={() =>
+                    router.push(`/album/${encodeURIComponent(album.id)}`)
+                  }
+                />
+              ))}
+            </View>
+          ) : filter === 'albums' ? (
+            <View style={[styles.grid, { paddingHorizontal: gutter }]}>
+              {found.albums.slice(0, 40).map((album) => (
+                <AlbumCard
+                  key={album.id}
+                  album={album}
+                  width={shelfCardWidth}
+                  onPress={() =>
+                    router.push(`/album/${encodeURIComponent(album.id)}`)
+                  }
                 />
               ))}
             </View>
           ) : (
             <Shelf
-              data={(results ?? EMPTY_RESULTS).artists.slice(1)}
+              data={found.albums.slice(0, 12)}
               gutter={gutter}
-              keyExtractor={(artist) => artist.id}
-              renderItem={(artist) => (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => router.push(`/artist/${encodeURIComponent(artist.id)}`)}
-                  style={{ width: shelfCardWidth * 0.78, alignItems: 'center' }}
-                >
-                  <Artwork uri={artist.imageUrl} size={shelfCardWidth * 0.78} rounded />
-                  <Txt variant="callout" numberOfLines={1} align="center" style={{ marginTop: 8 }}>
-                    {artist.name}
-                  </Txt>
-                </Pressable>
+              keyExtractor={(album) => album.id}
+              renderItem={(album) => (
+                <AlbumCard
+                  album={album}
+                  width={shelfCardWidth}
+                  onPress={() =>
+                    router.push(`/album/${encodeURIComponent(album.id)}`)
+                  }
+                />
               )}
             />
           )}
-        </View>
-      )}
-
-      {showAlbums && (results ?? EMPTY_RESULTS).albums.length > 0 && (
-        <View>
-          <SectionHeader title="Albums" style={{ paddingHorizontal: gutter }} />
-          <View style={{ paddingHorizontal: gutter }}>
-            {(results ?? EMPTY_RESULTS).albums.slice(0, filter === 'albums' ? 40 : 6).map((album) => (
-              <AlbumRow
-                key={album.id}
-                album={album}
-                onPress={() => router.push(`/album/${encodeURIComponent(album.id)}`)}
-              />
-            ))}
-          </View>
         </View>
       )}
 
@@ -595,8 +738,16 @@ function SearchResultsView({
                 }
                 style={{ width: shelfCardWidth }}
               >
-                <Artwork uri={track.artworkUrl} size={shelfCardWidth} radius={radii.md} />
-                <Txt variant="callout" numberOfLines={1} style={{ marginTop: 8 }}>
+                <Artwork
+                  uri={track.artworkUrl}
+                  size={shelfCardWidth}
+                  radius={radii.md}
+                />
+                <Txt
+                  variant="callout"
+                  numberOfLines={1}
+                  style={{ marginTop: 8 }}
+                >
                   {track.title}
                 </Txt>
                 <Txt variant="caption" tone="muted" numberOfLines={1}>
@@ -610,7 +761,10 @@ function SearchResultsView({
 
       {showPlaylists && (
         <View>
-          <SectionHeader title="Your playlists" style={{ paddingHorizontal: gutter }} />
+          <SectionHeader
+            title="Your playlists"
+            style={{ paddingHorizontal: gutter }}
+          />
           <View style={{ paddingHorizontal: gutter }}>
             {playlists.length === 0 ? (
               <Txt variant="caption" tone="muted">
@@ -622,9 +776,16 @@ function SearchResultsView({
                   key={playlist.id}
                   accessibilityRole="button"
                   onPress={() => router.push(`/playlist/${playlist.id}`)}
-                  style={({ pressed }) => [styles.playlistRow, pressed && { opacity: 0.7 }]}
+                  style={({ pressed }) => [
+                    styles.playlistRow,
+                    pressed && { opacity: 0.7 },
+                  ]}
                 >
-                  <Artwork uri={playlist.coverArtworkUrl} size={48} radius={radii.sm} />
+                  <Artwork
+                    uri={playlist.coverArtworkUrl}
+                    size={48}
+                    radius={radii.sm}
+                  />
                   <View style={{ flex: 1 }}>
                     <Txt variant="bodyStrong" numberOfLines={1}>
                       {playlist.name}
@@ -640,6 +801,137 @@ function SearchResultsView({
         </View>
       )}
     </View>
+  );
+}
+
+/**
+ * The big card at the top of a search: the one thing the search most likely
+ * meant, with a play button when it is a song.
+ */
+function TopResultCard({
+  imageUrl,
+  rounded,
+  title,
+  subtitle,
+  onOpen,
+  onPlay,
+}: {
+  imageUrl: string | null;
+  rounded?: boolean;
+  title: string;
+  subtitle: string;
+  onOpen: () => void;
+  onPlay?: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const { isTabletUp } = useResponsive();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${subtitle}`}
+      onPress={onOpen}
+      style={({
+        pressed,
+        hovered,
+      }: {
+        pressed: boolean;
+        hovered?: boolean;
+      }) => [
+        styles.topCard,
+        isTabletUp && styles.topCardTall,
+        hovered && { backgroundColor: colors.cardRaised },
+        pressed && { opacity: 0.9 },
+      ]}
+    >
+      <Artwork
+        uri={imageUrl}
+        size={isTabletUp ? 104 : 72}
+        rounded={rounded}
+        radius={radii.sm}
+      />
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+        <Txt variant={isTabletUp ? 'title1' : 'title3'} numberOfLines={2}>
+          {title}
+        </Txt>
+        <Txt variant="callout" tone="muted" numberOfLines={1}>
+          {subtitle}
+        </Txt>
+      </View>
+      {onPlay && (
+        <View style={styles.topPlay}>
+          <PlayButton playing={false} onPress={onPlay} size={48} />
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+/** A short song row: cover, name, a tick when it is on this phone, length. */
+function SongLine({
+  track,
+  owned,
+  onPress,
+  queue,
+}: {
+  track: Track;
+  owned: boolean;
+  onPress: () => void;
+  queue: Track[];
+}) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const actions = useTrackActions();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Play ${track.title} by ${track.artistName}${owned ? ', on your phone' : ''}`}
+      onPress={onPress}
+      onLongPress={() => actions.openTrack(track, { queue })}
+      style={({
+        pressed,
+        hovered,
+      }: {
+        pressed: boolean;
+        hovered?: boolean;
+      }) => [
+        styles.songLine,
+        hovered && { backgroundColor: colors.card },
+        pressed && { opacity: 0.8 },
+      ]}
+    >
+      <Artwork uri={track.artworkUrl} size={44} radius={radii.xs} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Txt variant="bodyStrong" numberOfLines={1}>
+          {track.title}
+        </Txt>
+        <Txt variant="caption" tone="muted" numberOfLines={1}>
+          {track.artistName}
+        </Txt>
+      </View>
+      {owned && (
+        <Ionicons name="checkmark-circle" size={18} color={colors.accentInk} />
+      )}
+      <Txt
+        variant="caption"
+        tone="faint"
+        style={{ width: 40, textAlign: 'right' }}
+      >
+        {formatDuration(track.durationMs)}
+      </Txt>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`More options for ${track.title}`}
+        hitSlop={8}
+        onPress={() => actions.openTrack(track, { queue })}
+      >
+        <Ionicons
+          name="ellipsis-horizontal"
+          size={17}
+          color={colors.textMuted}
+        />
+      </Pressable>
+    </Pressable>
   );
 }
 
@@ -666,7 +958,8 @@ function SearchTrackRow({
 
   const record = downloads.byTrackId[track.id];
   const downloaded = record?.status === 'completed';
-  const downloading = record?.status === 'downloading' || record?.status === 'queued';
+  const downloading =
+    record?.status === 'downloading' || record?.status === 'queued';
   const canDownload = musicProvider().capabilities.download;
 
   useEffect(() => {
@@ -692,7 +985,10 @@ function SearchTrackRow({
           })
         }
         onLongPress={() => actions.openTrack(track, { queue })}
-        style={({ pressed }) => [styles.resultMain, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.resultMain,
+          pressed && { opacity: 0.7 },
+        ]}
       >
         <Artwork uri={track.artworkUrl} size={48} radius={radii.sm} />
         <View style={{ flex: 1, gap: 3 }}>
@@ -703,8 +999,14 @@ function SearchTrackRow({
             {[track.artistName, track.albumTitle].filter(Boolean).join(' · ')}
           </Txt>
           {owned && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="checkmark-circle" size={14} color={colors.accentInk} />
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={14}
+                color={colors.accentInk}
+              />
               <Txt variant="caption" tone="accent">
                 On your phone · plays in full
               </Txt>
@@ -725,7 +1027,13 @@ function SearchTrackRow({
       <View style={styles.quickActions}>
         {canDownload && (
           <QuickAction
-            icon={downloaded ? 'checkmark-circle' : downloading ? 'time-outline' : 'arrow-down-circle-outline'}
+            icon={
+              downloaded
+                ? 'checkmark-circle'
+                : downloading
+                  ? 'time-outline'
+                  : 'arrow-down-circle-outline'
+            }
             label={downloaded ? 'Downloaded' : 'Download'}
             active={downloaded}
             onPress={() => {
@@ -787,7 +1095,11 @@ function QuickAction({
       onPress={onPress}
       style={({ pressed }) => [styles.quick, pressed && { opacity: 0.6 }]}
     >
-      <Ionicons name={icon} size={18} color={active ? colors.accentInk : colors.textMuted} />
+      <Ionicons
+        name={icon}
+        size={18}
+        color={active ? colors.accentInk : colors.textMuted}
+      />
     </Pressable>
   );
 }
@@ -813,7 +1125,12 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
     input: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
-    recent: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 11 },
+    recent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: 11,
+    },
     topResult: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -825,6 +1142,41 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.borderSoft,
     },
     resultRow: { paddingVertical: 6 },
+    topBlock: { gap: spacing.xl },
+    topBlockWide: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.xxl,
+    },
+    topLeft: { width: '38%', minWidth: 280, maxWidth: 440 },
+    blockTitle: { marginBottom: spacing.md },
+    topCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.lg,
+      padding: spacing.lg,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+    },
+    topCardTall: {
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      minHeight: 236,
+      padding: spacing.xl,
+    },
+    topPlay: { position: 'absolute', right: spacing.lg, bottom: spacing.lg },
+    songLine: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: 6,
+      paddingHorizontal: spacing.sm,
+      marginHorizontal: -spacing.sm,
+      borderRadius: radii.xs,
+    },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
     resultMain: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     quickActions: {
       flexDirection: 'row',
@@ -834,5 +1186,10 @@ const makeStyles = (colors: ThemeColors) =>
       paddingTop: 6,
     },
     quick: { padding: 2 },
-    playlistRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 8 },
+    playlistRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: 8,
+    },
   });

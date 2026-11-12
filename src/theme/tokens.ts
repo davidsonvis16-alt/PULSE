@@ -237,6 +237,8 @@ export const layout = {
   /** Laptop and up: the navigation sidebar and the player bar under everything. */
   sidebarWidth: 264,
   playerBarHeight: 88,
+  /** The queue panel on the right of a laptop window. */
+  queuePanelWidth: 320,
 } as const;
 
 export const shadow = {

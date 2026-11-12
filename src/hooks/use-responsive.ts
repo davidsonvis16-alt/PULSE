@@ -1,5 +1,7 @@
 import { useWindowDimensions } from 'react-native';
 import { breakpoints, layout } from '@/src/theme/tokens';
+import { useStore } from '@/src/hooks/use-store';
+import { queuePanel } from '@/src/ui/queue-panel-store';
 
 export type Device = 'phone' | 'tablet' | 'laptop' | 'desktop';
 
@@ -25,6 +27,7 @@ export interface Responsive {
 
 export function useResponsive(): Responsive {
   const { width, height } = useWindowDimensions();
+  const { open: queueOpen } = useStore(queuePanel);
 
   // A phone turned sideways is still a phone: its short side stays phone-sized,
   // so it keeps the phone layout instead of switching to the laptop one. Real
@@ -44,7 +47,9 @@ export function useResponsive(): Responsive {
   // On a laptop the sidebar takes the left of the window and pages sit in a
   // panel beside it, so page layout works from the panel's width.
   const pageWidth =
-    device === 'laptop' || device === 'desktop' ? width - layout.sidebarWidth - 16 : width;
+    device === 'laptop' || device === 'desktop'
+      ? width - layout.sidebarWidth - 16 - (queueOpen ? layout.queuePanelWidth + 8 : 0)
+      : width;
 
   // On wide screens the gutter absorbs the extra width instead of letting a
   // phone layout stretch across a monitor, so content stays centred and

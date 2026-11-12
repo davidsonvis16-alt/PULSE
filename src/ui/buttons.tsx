@@ -261,6 +261,22 @@ export function SegmentedControl<T extends string>({
   );
 }
 
+/** The soft drop shadow under a floating pill. */
+const FLOAT = {
+  shadowColor: '#000',
+  shadowOpacity: 0.16,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 4,
+} as const;
+const FLOAT_SOFT = {
+  shadowColor: '#000',
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 2,
+} as const;
+
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     base: {
@@ -271,11 +287,14 @@ const makeStyles = (colors: ThemeColors) =>
       // Slim pills, the shape people know a button by.
       borderRadius: radii.pill,
     },
-    primary: { backgroundColor: colors.accent },
+    // Pills float a little: a soft shadow under them, like the new buttons on
+    // the big social apps, so they read as something to press.
+    primary: { backgroundColor: colors.accent, ...FLOAT },
     secondary: {
       backgroundColor: colors.cardHigh,
       borderWidth: 1,
       borderColor: colors.border,
+      ...FLOAT,
     },
     ghost: { backgroundColor: 'transparent' },
     danger: {
@@ -305,6 +324,7 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.cardRaised,
       borderWidth: 1,
       borderColor: colors.border,
+      ...FLOAT_SOFT,
     },
     chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
     segment: {
@@ -321,5 +341,5 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       borderRadius: radii.pill,
     },
-    segmentItemActive: { backgroundColor: colors.accent },
+    segmentItemActive: { backgroundColor: colors.accent, ...FLOAT_SOFT },
   });

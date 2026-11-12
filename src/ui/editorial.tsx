@@ -1,11 +1,11 @@
-import { Pressable, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import type { Track } from "@/src/core/types";
-import { SketchArt } from "@/src/ui/sketch-art";
-import { useDoubleTapPlayNext } from "@/src/ui/use-double-tap";
-import { Txt } from "@/src/ui/text";
-import { fonts, palette, radii, spacing } from "@/src/theme/tokens";
-import { useTheme, useThemedStyles, type ThemeColors } from "@/src/theme/theme";
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import type { Track } from '@/src/core/types';
+import { SketchArt } from '@/src/ui/sketch-art';
+import { useDoubleTapPlayNext } from '@/src/ui/use-double-tap';
+import { Txt } from '@/src/ui/text';
+import { fonts, palette, radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
 /**
  * The editorial cards on Home: a cover drawn in pencil, its name set over it,
@@ -58,7 +58,7 @@ export function EditorialCard({
         <SketchArt uri={artworkUrl} />
         {!!kicker && (
           <View style={styles.kicker}>
-            <Txt variant="micro" style={{ color: "#FFFFFF" }}>
+            <Txt variant="micro" style={{ color: '#FFFFFF' }}>
               {kicker}
             </Txt>
           </View>
@@ -178,14 +178,14 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     card: {
       borderRadius: radii.xl,
-      overflow: "hidden",
+      overflow: 'hidden',
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.borderSoft,
     },
-    art: { flex: 1, overflow: "hidden", padding: spacing.md, gap: spacing.sm },
+    art: { flex: 1, overflow: 'hidden', padding: spacing.md, gap: spacing.sm },
     kicker: {
-      alignSelf: "flex-start",
+      alignSelf: 'flex-start',
       // Terracotta: warm, earthy, and nothing like a default UI badge.
       backgroundColor: palette.terracotta,
       paddingHorizontal: 8,
@@ -195,15 +195,15 @@ const makeStyles = (colors: ThemeColors) =>
     marker: {
       fontFamily: fonts.display,
       letterSpacing: -0.4,
-      color: "#FFFFFF",
-      maxWidth: "85%",
-      textShadowColor: "rgba(0,0,0,0.55)",
+      color: '#FFFFFF',
+      maxWidth: '85%',
+      textShadowColor: 'rgba(0,0,0,0.55)',
       textShadowOffset: { width: 0, height: 2 },
       textShadowRadius: 14,
     },
     strip: {
-      flexDirection: "row",
-      alignItems: "center",
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: spacing.md,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
@@ -214,32 +214,32 @@ const makeStyles = (colors: ThemeColors) =>
       height: 40,
       borderRadius: 20,
       backgroundColor: colors.accent,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     cover: {
       borderRadius: radii.lg,
-      overflow: "hidden",
+      overflow: 'hidden',
       backgroundColor: colors.cardRaised,
     },
     coverPlay: {
-      position: "absolute",
+      position: 'absolute',
       right: 10,
       bottom: 10,
       width: 38,
       height: 38,
       borderRadius: 19,
-      backgroundColor: "#0A0B0A",
-      alignItems: "center",
-      justifyContent: "center",
+      backgroundColor: '#0A0B0A',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     chip: {
-      alignSelf: "flex-start",
+      alignSelf: 'flex-start',
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: radii.pill,
       paddingHorizontal: 9,
       paddingVertical: 3,
-      maxWidth: "100%",
+      maxWidth: '100%',
     },
   });

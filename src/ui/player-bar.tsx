@@ -13,6 +13,7 @@ import { Txt } from '@/src/ui/text';
 import { layout, radii, spacing } from '@/src/theme/tokens';
 import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 import { useSwipeSkip } from '@/src/ui/use-swipe-skip';
+import { queuePanel } from '@/src/ui/queue-panel-store';
 
 /**
  * The laptop player: a bar along the bottom of every screen, like Spotify,
@@ -26,6 +27,7 @@ export function PlayerBar() {
   const router = useRouter();
   const player = useStore(playerStore);
   const progress = useStore(progressStore);
+  const panel = useStore(queuePanel);
   const [scrubbing, setScrubbing] = useState<number | null>(null);
   const [liked, setLiked] = useState(false);
 
@@ -150,10 +152,10 @@ export function PlayerBar() {
       <View style={[styles.side, { justifyContent: 'flex-end' }]}>
         <IconButton
           name="list"
-          label="Open the queue"
+          label={panel.open ? 'Hide the queue' : 'Show the queue'}
           size={19}
-          color={colors.textMuted}
-          onPress={() => router.push('/queue')}
+          color={panel.open ? colors.accentInk : colors.textMuted}
+          onPress={() => queuePanel.toggle()}
         />
         <IconButton
           name="volume-low"

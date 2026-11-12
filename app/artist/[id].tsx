@@ -1,53 +1,54 @@
-import { useState } from "react";
+import { useState } from 'react';
 import {
   ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
-} from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as WebBrowser from "expo-web-browser";
-import { ownedByArtist, ownedMatchOf } from "@/src/library/owned";
-import { Ionicons } from "@expo/vector-icons";
-import type { Album, Artist, MusicEvent, Track } from "@/src/core/types";
-import { formatCount, formatShortDate, pluralize } from "@/src/core/format";
-import { deezerMostPlayed } from "@/src/providers/music/adapters/deezer";
-import { getArtistFacts, type ArtistFacts } from "@/src/discovery/artist-facts";
-import { similarity } from "@/src/ingestion/identify/text";
-import { EditorialCard } from "@/src/ui/editorial";
-import { providerFor } from "@/src/providers/music";
-import { eventProvider } from "@/src/providers/events";
-import { upsertArtist } from "@/src/db/repos/catalog";
-import { cacheEvents } from "@/src/db/repos/events";
-import { playerStore } from "@/src/audio/player";
-import { downloadManager } from "@/src/downloads/manager";
-import { useAsync } from "@/src/hooks/use-async";
-import { useResponsive } from "@/src/hooks/use-responsive";
-import { useStore } from "@/src/hooks/use-store";
-import { useFollowState } from "@/src/hooks/use-library-state";
-import { useTrackActions } from "@/src/ui/track-actions";
-import { useShareSheet } from "@/src/ui/share-sheet";
-import { useToast } from "@/src/ui/toast";
-import { artistShare } from "@/src/share/share";
-import { useBottomInset } from "@/src/ui/screen";
-import { Txt } from "@/src/ui/text";
-import { Button, Chip, IconButton } from "@/src/ui/buttons";
-import { TrackRow } from "@/src/ui/rows";
-import { ArtistCard, EventCard } from "@/src/ui/cards";
-import { SectionHeader, Shelf } from "@/src/ui/section";
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
+import { ownedByArtist, ownedMatchOf } from '@/src/library/owned';
+import { Ionicons } from '@expo/vector-icons';
+import type { Album, Artist, MusicEvent, Track } from '@/src/core/types';
+import { formatCount, formatDuration, formatShortDate, pluralize } from '@/src/core/format';
+import { deezerMostPlayed } from '@/src/providers/music/adapters/deezer';
+import { getArtistFacts, getArtistPlayCounts, playCountKey, type ArtistFacts } from '@/src/discovery/artist-facts';
+import { Artwork } from '@/src/ui/artwork';
+import { similarity } from '@/src/ingestion/identify/text';
+import { EditorialCard } from '@/src/ui/editorial';
+import { providerFor } from '@/src/providers/music';
+import { eventProvider } from '@/src/providers/events';
+import { upsertArtist } from '@/src/db/repos/catalog';
+import { cacheEvents } from '@/src/db/repos/events';
+import { playerStore } from '@/src/audio/player';
+import { downloadManager } from '@/src/downloads/manager';
+import { useAsync } from '@/src/hooks/use-async';
+import { useResponsive } from '@/src/hooks/use-responsive';
+import { useStore } from '@/src/hooks/use-store';
+import { useFollowState } from '@/src/hooks/use-library-state';
+import { useTrackActions } from '@/src/ui/track-actions';
+import { useShareSheet } from '@/src/ui/share-sheet';
+import { useToast } from '@/src/ui/toast';
+import { artistShare } from '@/src/share/share';
+import { useBottomInset } from '@/src/ui/screen';
+import { Txt } from '@/src/ui/text';
+import { Button, Chip, IconButton, PlayButton } from '@/src/ui/buttons';
+import { TrackRow } from '@/src/ui/rows';
+import { ArtistCard, EventCard } from '@/src/ui/cards';
+import { SectionHeader, Shelf } from '@/src/ui/section';
 import {
   EmptyState,
   ErrorState,
   Skeleton,
   SkeletonRows,
-} from "@/src/ui/states";
-import { radii, spacing } from "@/src/theme/tokens";
-import { useTheme, useThemedStyles, type ThemeColors } from "@/src/theme/theme";
+} from '@/src/ui/states';
+import { radii, spacing } from '@/src/theme/tokens';
+import { useTheme, useThemedStyles, type ThemeColors } from '@/src/theme/theme';
 
-type Tab = "popular" | "albums" | "singles" | "about";
+type Tab = 'popular' | 'albums' | 'singles' | 'about';
 
 interface ArtistPageData {
   artist: Artist;
@@ -63,16 +64,18 @@ interface ArtistPageData {
   /** Their most played songs of all time, most played first. */
   mostPlayed: Track[];
   facts: ArtistFacts | null;
+  /** Play counts by song title key, when a source has them. */
+  plays: Map<string, number>;
   /** How many of each release's songs they already have, by release id. */
   ownedPerRelease: Record<string, number>;
 }
 
 /** "Thank U, Next (Deluxe)" and "thank u, next" are the same release. */
 const releaseKey = (title: string | null | undefined) =>
-  (title ?? "")
+  (title ?? '')
     .toLowerCase()
-    .replace(/\s*[([].*?[)\]]\s*/g, " ")
-    .replace(/\s+-\s+(single|ep)$/i, "")
+    .replace(/\s*[([].*?[)\]]\s*/g, ' ')
+    .replace(/\s+-\s+(single|ep)$/i, '')
     .trim();
 
 const MOST_PLAYED_SHOWN = 10;
@@ -89,6 +92,7 @@ export default function ArtistScreen() {
     pageWidth: width,
     shelfCardWidth,
     isTabletUp,
+    isLaptopUp,
   } = useResponsive();
   const bottomInset = useBottomInset();
   const actions = useTrackActions();
@@ -96,19 +100,19 @@ export default function ArtistScreen() {
   const toast = useToast();
   const downloads = useStore(downloadManager);
 
-  const [tab, setTab] = useState<Tab>("popular");
+  const [tab, setTab] = useState<Tab>('popular');
   const [allPlayed, setAllPlayed] = useState(false);
   const [allMine, setAllMine] = useState(false);
 
   const state = useAsync<ArtistPageData>(async () => {
-    const artistId = decodeURIComponent(id ?? "");
-    const provider = providerFor(artistId.split(":")[0]);
+    const artistId = decodeURIComponent(id ?? '');
+    const provider = providerFor(artistId.split(':')[0]);
     const artist = await provider.getArtist(artistId);
     if (!artist)
-      throw new Error("That artist is not available from this source.");
+      throw new Error('That artist is not available from this source.');
     await upsertArtist(artist);
 
-    const [topTracks, albums, singles, related, ranked, facts] =
+    const [topTracks, albums, singles, related, ranked, facts, plays] =
       await Promise.all([
         provider.getArtistTopTracks(artistId, 50).catch(() => [] as Track[]),
         provider.getArtistAlbums(artistId, 100).catch(() => [] as Album[]),
@@ -116,6 +120,7 @@ export default function ArtistScreen() {
         provider.getRelatedArtists(artistId, 12).catch(() => [] as Artist[]),
         deezerMostPlayed(artist.name, 100).catch(() => [] as Track[]),
         getArtistFacts(artist.name).catch(() => null),
+        getArtistPlayCounts(artist.name).catch(() => new Map<string, number>()),
       ]);
     // Ranked by plays when the play counts are known; the catalogue's own order otherwise.
     const mostPlayed = ranked.length >= 5 ? ranked : topTracks;
@@ -148,14 +153,14 @@ export default function ArtistScreen() {
       }).length;
       // A single is named after its song: owning the song is owning the single.
       const single =
-        release.albumType !== "album" &&
+        release.albumType !== 'album' &&
         mine.some((t) => similarity(releaseKey(t.title), key) >= 0.85);
       if (count || single)
         ownedPerRelease[release.id] = Math.max(count, single ? 1 : 0);
     }
     const newestFirst = (list: Album[]) =>
       [...list].sort((a, b) =>
-        (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""),
+        (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''),
       );
 
     return {
@@ -163,6 +168,7 @@ export default function ArtistScreen() {
       topTracks,
       mostPlayed,
       facts,
+      plays,
       ownedPerRelease,
       owned,
       albums: newestFirst(albums),
@@ -203,12 +209,12 @@ export default function ArtistScreen() {
         <ImageBackground
           source={artist?.imageUrl ? { uri: artist.imageUrl } : undefined}
           style={[styles.hero, { height: heroHeight }]}
-          imageStyle={{ resizeMode: "cover" }}
+          imageStyle={{ resizeMode: 'cover' }}
         >
           <LinearGradient
             colors={[
-              "rgba(8,9,10,0.55)",
-              "rgba(8,9,10,0.1)",
+              'rgba(8,9,10,0.55)',
+              'rgba(8,9,10,0.1)',
               colors.background,
             ]}
             locations={[0, 0.45, 1]}
@@ -228,7 +234,7 @@ export default function ArtistScreen() {
               label="Go back"
               background="surface"
               onPress={() =>
-                router.canGoBack() ? router.back() : router.replace("/")
+                router.canGoBack() ? router.back() : router.replace('/')
               }
             />
           </View>
@@ -246,12 +252,12 @@ export default function ArtistScreen() {
                     state.data?.facts?.country,
                   ]
                     .filter(Boolean)
-                    .join(" · ")}
+                    .join(' · ')}
                 </Txt>
                 {!!state.data && (
                   <Txt variant="bodyStrong" tone="accent">
                     {state.data.mine.length > 0
-                      ? `You have ${pluralize(state.data.mine.length, "song")} by ${artist!.name}`
+                      ? `You have ${pluralize(state.data.mine.length, 'song')} by ${artist!.name}`
                       : `You have none of their songs yet`}
                   </Txt>
                 )}
@@ -265,16 +271,16 @@ export default function ArtistScreen() {
             {/* Actions */}
             <View style={[styles.actions, { paddingHorizontal: gutter }]}>
               <Button
-                label={follow.following ? "Following" : "Follow"}
-                icon={follow.following ? "checkmark" : undefined}
-                variant={follow.following ? "secondary" : "primary"}
+                label={follow.following ? 'Following' : 'Follow'}
+                icon={follow.following ? 'checkmark' : undefined}
+                variant={follow.following ? 'secondary' : 'primary'}
                 onPress={async () => {
                   const next = await follow.toggle();
                   toast(
                     next
                       ? `Following ${artist.name}. Pulse will tell you about new releases.`
                       : `Unfollowed ${artist.name}`,
-                    next ? "success" : "default",
+                    next ? 'success' : 'default',
                   );
                 }}
               />
@@ -286,7 +292,7 @@ export default function ArtistScreen() {
                 onPress={() =>
                   state.data?.mostPlayed.length &&
                   void playerStore.playQueue(state.data.mostPlayed, {
-                    context: "artist",
+                    context: 'artist',
                     contextLabel: artist.name,
                   })
                 }
@@ -297,7 +303,7 @@ export default function ArtistScreen() {
                 onPress={() =>
                   state.data?.mostPlayed.length &&
                   void playerStore.playQueue(state.data.mostPlayed, {
-                    context: "artist",
+                    context: 'artist',
                     contextLabel: artist.name,
                     shuffle: true,
                   })
@@ -328,7 +334,7 @@ export default function ArtistScreen() {
                 paddingVertical: spacing.lg,
               }}
             >
-              {(["popular", "albums", "singles", "about"] as Tab[]).map(
+              {(['popular', 'albums', 'singles', 'about'] as Tab[]).map(
                 (value) => (
                   <Chip
                     key={value}
@@ -346,14 +352,14 @@ export default function ArtistScreen() {
               </View>
             ) : (
               <View style={{ paddingHorizontal: gutter }}>
-                {tab === "popular" && (
+                {tab === 'popular' && (
                   <View style={{ gap: spacing.xl }}>
                     {/* What they already have by this artist comes first. */}
                     {state.data!.mine.length > 0 && (
                       <View>
                         <SectionHeader
                           title={`Your songs by ${artist.name}`}
-                          subtitle={`${pluralize(state.data!.mine.length, "song")} on this phone · full length`}
+                          subtitle={`${pluralize(state.data!.mine.length, 'song')} on this phone · full length`}
                         />
                         {state
                           .data!.mine.slice(0, allMine ? undefined : 10)
@@ -365,7 +371,7 @@ export default function ArtistScreen() {
                               onPress={() =>
                                 void playerStore.playQueue(state.data!.mine, {
                                   startIndex: index,
-                                  context: "library",
+                                  context: 'library',
                                   contextLabel: `${artist.name} · your songs`,
                                 })
                               }
@@ -386,10 +392,11 @@ export default function ArtistScreen() {
                       </View>
                     )}
 
-                    <View>
+                    <View style={isLaptopUp ? styles.columns : undefined}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
                       <SectionHeader
                         title="Most played ever"
-                        subtitle={`Their biggest songs, most played first · ${state.data!.owned.size} on your phone`}
+                        subtitle={`Most played first${state.data!.plays.size ? ' · plays counted by Last.fm' : ''} · ${state.data!.owned.size} on your phone`}
                       />
                       {state.data!.mostPlayed.length === 0 ? (
                         <EmptyState
@@ -415,24 +422,22 @@ export default function ArtistScreen() {
                                   : (track.albumTitle ?? artist.name)
                               }
                               trailing={
-                                state.data!.owned.has(track.id) ? (
-                                  <Ionicons
-                                    name="checkmark-circle"
-                                    size={20}
-                                    color={colors.accentInk}
-                                  />
-                                ) : undefined
+                                <PlaysCell
+                                  plays={state.data!.plays.get(playCountKey(track.title))}
+                                  owned={state.data!.owned.has(track.id)}
+                                  durationMs={track.durationMs}
+                                />
                               }
                               isDownloaded={
                                 downloads.byTrackId[track.id]?.status ===
-                                "completed"
+                                'completed'
                               }
                               onPress={() =>
                                 void playerStore.playQueue(
                                   state.data!.mostPlayed,
                                   {
                                     startIndex: index,
-                                    context: "artist",
+                                    context: 'artist',
                                     contextLabel: artist.name,
                                   },
                                 )
@@ -453,80 +458,82 @@ export default function ArtistScreen() {
                         />
                       )}
                     </View>
+                    {isLaptopUp && <SideColumn />}
+                    </View>
 
                     {state.data!.albums.length > 0 && (
                       <ReleaseRow
                         title="Albums"
                         releases={state.data!.albums}
-                        onSeeAll={() => setTab("albums")}
+                        onSeeAll={() => setTab('albums')}
                       />
                     )}
                     {state.data!.singles.length > 0 && (
                       <ReleaseRow
                         title="Singles & EPs"
                         releases={state.data!.singles}
-                        onSeeAll={() => setTab("singles")}
+                        onSeeAll={() => setTab('singles')}
                       />
                     )}
                   </View>
                 )}
 
-                {tab === "albums" && (
+                {tab === 'albums' && (
                   <ReleaseGrid
                     releases={state.data!.albums}
                     emptyLabel="No albums listed for this artist."
                   />
                 )}
-                {tab === "singles" && (
+                {tab === 'singles' && (
                   <ReleaseGrid
                     releases={state.data!.singles}
                     emptyLabel="No singles or EPs listed for this artist."
                   />
                 )}
 
-                {tab === "about" && (
+                {tab === 'about' && (
                   <View style={styles.about}>
                     {[
                       [
-                        "Genre",
+                        'Genre',
                         [
                           state.data!.facts?.genre ?? artist.genre,
                           state.data!.facts?.style,
                         ]
                           .filter(Boolean)
-                          .join(" · "),
+                          .join(' · '),
                       ],
-                      ["From", state.data!.facts?.country],
-                      ["Born", state.data!.facts?.born],
-                      ["Started", state.data!.facts?.since],
-                      ["Label", state.data!.facts?.label],
-                      ["Releases", state.data!.facts?.releases],
+                      ['From', state.data!.facts?.country],
+                      ['Born', state.data!.facts?.born],
+                      ['Started', state.data!.facts?.since],
+                      ['Label', state.data!.facts?.label],
+                      ['Releases', state.data!.facts?.releases],
                       [
-                        "Fans",
+                        'Fans',
                         state.data!.facts?.fans
                           ? formatCount(state.data!.facts.fans)
                           : null,
                       ],
                       [
-                        "Listeners",
+                        'Listeners',
                         state.data!.facts?.listeners
                           ? formatCount(state.data!.facts.listeners)
                           : null,
                       ],
                       [
-                        "Plays",
+                        'Plays',
                         state.data!.facts?.plays
                           ? formatCount(state.data!.facts.plays)
                           : null,
                       ],
                       [
-                        "On your phone",
-                        pluralize(state.data!.mine.length, "song"),
+                        'On your phone',
+                        pluralize(state.data!.mine.length, 'song'),
                       ],
                     ]
                       .filter(
                         ([, value]) =>
-                          value !== null && value !== undefined && value !== "",
+                          value !== null && value !== undefined && value !== '',
                       )
                       .map(([label, value]) => (
                         <View key={String(label)} style={styles.factRow}>
@@ -568,7 +575,7 @@ export default function ArtistScreen() {
             )}
 
             {/* Latest release */}
-            {!!state.data?.singles.length && tab !== "about" && (
+            {!!state.data?.singles.length && tab !== 'about' && !isLaptopUp && (
               <View style={{ marginTop: spacing.xxl }}>
                 <SectionHeader
                   title="Latest release"
@@ -592,7 +599,7 @@ export default function ArtistScreen() {
                   actionLabel="All events"
                   onAction={() =>
                     router.push({
-                      pathname: "/events",
+                      pathname: '/events',
                       params: { q: artist.name },
                     })
                   }
@@ -667,7 +674,7 @@ export default function ArtistScreen() {
       <View>
         <SectionHeader
           title={title}
-          subtitle={`${releases.length} in all${have ? ` · you have songs from ${have}` : ""} · swipe for more`}
+          subtitle={`${releases.length} in all${have ? ` · you have songs from ${have}` : ''} · swipe for more`}
           actionLabel="See all"
           onAction={onSeeAll}
         />
@@ -703,20 +710,61 @@ export default function ArtistScreen() {
       <EditorialCard
         overlay={false}
         kicker={
-          owned ? `✓ ${pluralize(owned, "song")} yours` : (year ?? undefined)
+          owned ? `✓ ${pluralize(owned, 'song')} yours` : (year ?? undefined)
         }
         title={album.title}
         subtitle={[
           year,
-          album.trackCount ? pluralize(album.trackCount, "song") : null,
+          album.trackCount ? pluralize(album.trackCount, 'song') : null,
         ]
           .filter(Boolean)
-          .join(" · ")}
+          .join(' · ')}
         artworkUrl={album.artworkUrl}
         width={cardWidth}
         height={Math.round(cardWidth * 1.22)}
         onOpen={() => router.push(`/album/${encodeURIComponent(album.id)}`)}
       />
+    );
+  }
+
+  /** On a laptop, beside the most played songs: their own songs and the newest release. */
+  function SideColumn() {
+    const data = state.data!;
+    const latest = data.singles[0] ?? data.albums[0];
+    if (!artist) return null;
+    return (
+      <View style={styles.sideColumn}>
+        {data.mine.length > 0 && (
+          <View>
+            <SectionHeader title="Your songs" />
+            <View style={styles.yoursCard}>
+              <Artwork uri={data.mine[0].artworkUrl ?? artist.imageUrl} size={84} rounded />
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Txt variant="title3">{pluralize(data.mine.length, 'song')}</Txt>
+                <Txt variant="caption" tone="muted" numberOfLines={2}>
+                  By {artist.name} · on this phone, full length
+                </Txt>
+              </View>
+              <PlayButton
+                playing={false}
+                size={44}
+                onPress={() =>
+                  void playerStore.playQueue(data.mine, {
+                    context: 'library',
+                    contextLabel: `${artist.name} · your songs`,
+                  })
+                }
+              />
+            </View>
+          </View>
+        )}
+        {latest && (
+          <View>
+            <SectionHeader title="Latest release" subtitle={formatShortDate(latest.releaseDate)} />
+            <ReleaseCard album={latest} width={236} />
+          </View>
+        )}
+      </View>
     );
   }
 
@@ -736,10 +784,10 @@ export default function ArtistScreen() {
         style={styles.showMore}
       >
         <Txt variant="callout" tone="accent">
-          {open ? "Show fewer" : `Show all ${total}`}
+          {open ? 'Show fewer' : `Show all ${total}`}
         </Txt>
         <Ionicons
-          name={open ? "chevron-up" : "chevron-down"}
+          name={open ? 'chevron-up' : 'chevron-down'}
           size={16}
           color={colors.accentInk}
         />
@@ -755,19 +803,19 @@ export default function ArtistScreen() {
     mine: number;
   }) {
     const boxes = [
-      { value: String(mine), label: mine === 1 ? "song yours" : "songs yours" },
+      { value: String(mine), label: mine === 1 ? 'song yours' : 'songs yours' },
       facts?.listeners
-        ? { value: formatCount(facts.listeners), label: "listeners" }
+        ? { value: formatCount(facts.listeners), label: 'listeners' }
         : null,
-      facts?.fans ? { value: formatCount(facts.fans), label: "fans" } : null,
-      facts?.plays ? { value: formatCount(facts.plays), label: "plays" } : null,
+      facts?.fans ? { value: formatCount(facts.fans), label: 'fans' } : null,
+      facts?.plays ? { value: formatCount(facts.plays), label: 'plays' } : null,
       facts?.releases
-        ? { value: String(facts.releases), label: "releases" }
+        ? { value: String(facts.releases), label: 'releases' }
         : null,
       facts?.since
-        ? { value: String(facts.since), label: "started" }
+        ? { value: String(facts.since), label: 'started' }
         : facts?.born
-          ? { value: String(facts.born), label: "born" }
+          ? { value: String(facts.born), label: 'born' }
           : null,
     ].filter((b): b is { value: string; label: string } => !!b);
     return (
@@ -818,19 +866,37 @@ export default function ArtistScreen() {
   }
 }
 
+/** The right-hand cell of a most-played row: plays, a tick when owned, length. */
+function PlaysCell({ plays, owned, durationMs }: { plays?: number; owned: boolean; durationMs: number | null }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+      {plays ? (
+        <Txt variant="caption" tone="muted" style={{ fontVariant: ['tabular-nums'] }}>
+          {formatCount(plays)}
+        </Txt>
+      ) : null}
+      {owned && <Ionicons name="checkmark-circle" size={18} color={colors.accentInk} />}
+      <Txt variant="caption" tone="faint" style={{ width: 36, textAlign: 'right' }}>
+        {formatDuration(durationMs)}
+      </Txt>
+    </View>
+  );
+}
+
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.background },
-    hero: { justifyContent: "space-between", backgroundColor: colors.cardHigh },
-    heroTop: { flexDirection: "row" },
+    hero: { justifyContent: 'space-between', backgroundColor: colors.cardHigh },
+    heroTop: { flexDirection: 'row' },
     heroBottom: { paddingBottom: spacing.lg, gap: 2 },
     actions: {
-      flexDirection: "row",
-      alignItems: "center",
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: spacing.sm,
       marginTop: spacing.md,
     },
-    grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
     factBox: {
       minWidth: 92,
       paddingVertical: spacing.sm,
@@ -840,15 +906,27 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
       backgroundColor: colors.card,
     },
-    factRow: {
-      flexDirection: "row",
+    columns: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xxl },
+    sideColumn: { width: 300, gap: spacing.xl },
+    yoursCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: spacing.md,
-      alignItems: "flex-start",
+      padding: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+    },
+    factRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      alignItems: 'flex-start',
     },
     showMore: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
       gap: 6,
       paddingVertical: spacing.md,
     },
