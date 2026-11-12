@@ -75,9 +75,19 @@ export function toBrightness(colour: RGB, target: number): RGB {
  * The header shade for a cover whose main colour is known: the cover's colour
  * pulled towards the nearest logo paint, dark enough for white text.
  */
+/** Push a colour's hue a little further from grey, so a shade reads as paint, not dust. */
+function saturate(colour: RGB, amount: number): RGB {
+  const grey = (colour.r + colour.g + colour.b) / 3;
+  return {
+    r: grey + (colour.r - grey) * amount,
+    g: grey + (colour.g - grey) * amount,
+    b: grey + (colour.b - grey) * amount,
+  };
+}
+
 export function brandShadeFor(artColour: RGB): { top: string; deep: string } {
   const paint = nearestPaint(artColour);
-  const blended = mix(artColour, paint, 0.45);
+  const blended = saturate(mix(artColour, paint, 0.45), 1.4);
   const top = toBrightness(blended, 0.34);
   const deep = toBrightness(blended, 0.16);
   return { top: rgbToHex(top), deep: rgbToHex(deep) };
