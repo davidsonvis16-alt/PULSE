@@ -37,6 +37,31 @@ create trigger profiles_keep_is_admin
   before update on public.profiles
   for each row execute function public.keep_is_admin();
 
+-- App-wide switches, readable by every signed-in person, set only by admins.
+create table if not exists public.app_flags (
+  key text primary key,
+  value boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.app_flags enable row level security;
+
+drop policy if exists "flags are readable" on public.app_flags;
+create policy "flags are readable"
+  on public.app_flags for select
+  to authenticated
+  using (true);
+
+drop policy if exists "admins set flags" on public.app_flags;
+create policy "admins set flags"
+  on public.app_flags for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+insert into public.app_flags (key, value) values ('pulse_news_public', false)
+  on conflict (key) do nothing;
+
 -- The posts.
 create table if not exists public.news_posts (
   id uuid primary key default gen_random_uuid(),
@@ -70,28 +95,3 @@ create policy "admins write news"
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
-
--- App-wide switches, readable by every signed-in person, set only by admins.
-create table if not exists public.app_flags (
-  key text primary key,
-  value boolean not null default false,
-  updated_at timestamptz not null default now()
-);
-
-alter table public.app_flags enable row level security;
-
-drop policy if exists "flags are readable" on public.app_flags;
-create policy "flags are readable"
-  on public.app_flags for select
-  to authenticated
-  using (true);
-
-drop policy if exists "admins set flags" on public.app_flags;
-create policy "admins set flags"
-  on public.app_flags for update
-  to authenticated
-  using (public.is_admin())
-  with check (public.is_admin());
-
-insert into public.app_flags (key, value) values ('pulse_news_public', false)
-  on conflict (key) do nothing;
